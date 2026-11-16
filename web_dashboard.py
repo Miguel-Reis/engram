@@ -767,7 +767,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "antigravity-brain-v7.1"})
+            self._send_json({"status": "ok", "service": "antigravity-brain-v8.2"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -826,7 +826,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/manifest.json":
             manifest = {
-                "name": "Antigravity Brain v8.1 — Carbon Studio OS",
+                "name": "Antigravity Brain v8.2 — Carbon Studio OS",
                 "short_name": "Brain OS",
                 "start_url": "/?app=1#graph",
                 "display": "standalone",
@@ -969,6 +969,83 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                     workspace_path=CURRENT_DIR,
                 )
             )
+            return
+
+        if parsed.path == "/api/archify/spec":
+            from archify_engine import ArchifyEngine
+            engine = ArchifyEngine(CURRENT_DIR)
+            self._send_json(engine.build_archify_spec())
+            return
+
+        if parsed.path == "/api/archify/delta":
+            qs = urllib.parse.parse_qs(parsed.query)
+            base = qs.get("base", ["HEAD~1"])[0] or "HEAD~1"
+            head = qs.get("head", ["WORKTREE"])[0] or "WORKTREE"
+            from archify_engine import ArchifyEngine
+            engine = ArchifyEngine(CURRENT_DIR)
+            self._send_json(engine.compute_architecture_delta(base_ref=base, head_ref=head))
+            return
+
+        if parsed.path == "/api/archify/reach":
+            qs = urllib.parse.parse_qs(parsed.query)
+            node_q = qs.get("node", ["BrainDB"])[0] or "BrainDB"
+            depth = _safe_int(qs.get("depth", ["2"])[0], default=2, min_v=1, max_v=5)
+            from archify_engine import ArchifyEngine
+            engine = ArchifyEngine(CURRENT_DIR)
+            self._send_json(engine.compute_reachability_focus(node_query=node_q, max_depth=depth))
+            return
+
+        if parsed.path == "/api/archify/explainer":
+            qs = urllib.parse.parse_qs(parsed.query)
+            src = qs.get("source", ["triggerAstSaveAuditUI"])[0] or "triggerAstSaveAuditUI"
+            tgt = qs.get("target", ["ast_save_audits"])[0] or "ast_save_audits"
+            from archify_engine import ArchifyEngine
+            engine = ArchifyEngine(CURRENT_DIR)
+            self._send_json(engine.build_explainer_walkthrough(source_query=src, target_query=tgt))
+            return
+
+        if parsed.path in ("/api/archify/export.html", "/api/archify/export"):
+            qs = urllib.parse.parse_qs(parsed.query)
+            fmt = qs.get("format", ["html"])[0].lower()
+            download_flag = qs.get("download", ["0"])[0] in ("1", "true")
+            from archify_engine import ArchifyEngine
+            engine = ArchifyEngine(CURRENT_DIR)
+            res = engine.export_standalone_html()
+            if fmt == "json":
+                self._send_json(res)
+                return
+            html_bytes = res.get("html", "").encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            if download_flag:
+                self.send_header("Content-Disposition", 'attachment; filename="archify-evidence-map.html"')
+            self.send_header("Content-Length", str(len(html_bytes)))
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(html_bytes)
+            return
+
+        if parsed.path == "/api/pagoda/overview":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws_param = qs.get("workspace", ["brain_mcp"])[0] or "brain_mcp"
+            try:
+                from pagoda_fold_engine import PagodaFoldEngine
+                engine = PagodaFoldEngine(BrainDB())
+                self._send_json(engine.get_pagoda_overview(workspace=ws_param))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws_param})
+            return
+
+        if parsed.path == "/api/pagoda/decompress":
+            qs = urllib.parse.parse_qs(parsed.query)
+            fold_id = _safe_int(qs.get("id", ["0"])[0], default=0, min_v=0)
+            try:
+                from pagoda_fold_engine import PagodaFoldEngine
+                engine = PagodaFoldEngine(BrainDB())
+                self._send_json(engine.decompress_fold(fold_id))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "fold_id": fold_id})
             return
 
         if parsed.path == "/api/orbit/overview":
@@ -1384,6 +1461,30 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
             self._send_json(rep)
             return
 
+        if parsed.path == "/api/pagoda/fold":
+            ws = str(body.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            action = str(body.get("action", "fold_checkpoint")).strip()
+            try:
+                from pagoda_fold_engine import PagodaFoldEngine
+                engine = PagodaFoldEngine(db)
+                if action == "fold_turn" or "raw_payload" in body:
+                    title = str(body.get("title", f"Fold Turn Episode ({ws})"))
+                    summary = str(body.get("summary", "Automated Turn Episodic Fold"))
+                    raw_payload = body.get("raw_payload", {})
+                    res = engine.fold_turn_episode(
+                        workspace=ws,
+                        title=title,
+                        summary=summary,
+                        raw_payload=raw_payload,
+                    )
+                else:
+                    res = engine.fold_current_checkpoint(workspace=ws)
+                overview = engine.get_pagoda_overview(workspace=ws)
+                self._send_json({"ok": True, "result": res, "overview": overview})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
+            return
+
         if parsed.path == "/api/orbit/action":
             action = str(body.get("action", "")).strip()
             orbit = _get_fresh_orbit_engine(db)
@@ -1653,17 +1754,32 @@ def start_code_mtime_watchdog_daemon(interval_seconds: float = 4.0) -> None:
     import threading
 
     this_file = os.path.abspath(__file__)
-    initial_mtime = os.path.getmtime(this_file) if os.path.isfile(this_file) else 0.0
+
+    def _get_fingerprint() -> str:
+        try:
+            from auto_updater import compute_codebase_fingerprint
+            return str(compute_codebase_fingerprint())
+        except Exception:
+            try:
+                mtimes = [
+                    f"{fname}:{os.path.getmtime(os.path.join(CURRENT_DIR, fname))}"
+                    for fname in sorted(os.listdir(CURRENT_DIR))
+                    if fname.endswith(".py")
+                ]
+                return "|".join(mtimes)
+            except Exception:
+                return str(os.path.getmtime(this_file) if os.path.isfile(this_file) else 0.0)
+
+    initial_fingerprint = _get_fingerprint()
 
     def _watchdog() -> None:
         while True:
             time.sleep(max(2.5, float(interval_seconds)))
             try:
-                if os.path.isfile(this_file):
-                    cur_m = os.path.getmtime(this_file)
-                    if initial_mtime > 0 and cur_m > initial_mtime + 0.5:
-                        _schedule_server_hot_reload()
-                        return
+                cur_fp = _get_fingerprint()
+                if initial_fingerprint and cur_fp != initial_fingerprint:
+                    _schedule_server_hot_reload()
+                    return
             except Exception:
                 pass
 

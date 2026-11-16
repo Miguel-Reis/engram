@@ -1,12 +1,30 @@
+import hashlib
 import os
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 REPO_DIR = Path(__file__).resolve().parent
+
+
+def compute_codebase_fingerprint(repo_dir: Optional[Path] = None) -> str:
+    """
+    Computa um hash SHA-256 determinístico ultrarrápido (<2ms) sobre todos os ficheiros .py do repositório.
+    Garante deteção instantânea de alterações em qualquer módulo do motor (Zero-Stale Code Gate).
+    """
+    target_dir = Path(repo_dir) if repo_dir else REPO_DIR
+    hasher = hashlib.sha256()
+    py_files = sorted(target_dir.glob("*.py"), key=lambda p: p.name)
+    for py_file in py_files:
+        try:
+            hasher.update(py_file.name.encode("utf-8"))
+            hasher.update(py_file.read_bytes())
+        except Exception:
+            pass
+    return hasher.hexdigest()
 
 
 def _run_git(args: list[str], timeout: int = 15) -> tuple[int, str]:

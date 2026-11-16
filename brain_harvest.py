@@ -244,6 +244,36 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 key_findings="; ".join(completed_actions[-3:])[:240],
                 to_scope="next_agent",
             )
+        if modified_files or completed_actions or harvested_count > 0 or detected_errors:
+            try:
+                from pagoda_fold_engine import PagodaFoldEngine
+                raw_payload = {
+                    "goal": turn_user_goal,
+                    "workspace": workspace,
+                    "conversation_id": conv_id,
+                    "modified_files": modified_files,
+                    "completed_actions": completed_actions,
+                    "detected_errors": detected_errors,
+                    "tokens": {
+                        "in": turn_input_tokens,
+                        "cache": turn_cached_tokens,
+                        "out": turn_output_tokens,
+                    },
+                }
+                fold_title = (
+                    f"Edit: {', '.join(modified_files[:3])}"
+                    if (is_subagent and modified_files)
+                    else (turn_user_goal if not is_subagent else "")
+                ) or f"Turno {workspace}"
+                PagodaFoldEngine(db).fold_turn_episode(
+                    workspace=workspace,
+                    title=fold_title,
+                    summary="; ".join(completed_actions[-2:]) or turn_user_goal or "Memória colhida",
+                    raw_payload=raw_payload,
+                    key_files=", ".join(modified_files[-5:]),
+                )
+            except Exception:
+                pass
     except Exception:
         pass
     return harvested_count

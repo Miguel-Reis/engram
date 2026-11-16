@@ -246,6 +246,8 @@ ALL_BRAIN_MCP_TOOLS = [
     "swarm_architecture_report",
     "orbit_mission_control",
     "orbit_briefing_roi",
+    "brain_decompress_fold",
+    "swarm_archify_delta",
 ]
 
 INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {
@@ -260,7 +262,7 @@ INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {
         "subagent_topology": "UI-01 (Gemini 4 Argon) + QA-BROWSER (flash)",
     },
     "architecture_synthesis": {
-        "active_tools": ["swarm_scout", "swarm_impact_graph", "swarm_graph_path", "swarm_architecture_report", "save_checkpoint"],
+        "active_tools": ["swarm_scout", "swarm_archify_delta", "swarm_graph_path", "swarm_architecture_report", "save_checkpoint"],
         "active_mcps": ["antigravity-brain", "context7"],
         "subagent_topology": "ARCH-01 (Gemini 4 Argon) -> 4 Parallel Lanes (UI, API, TESTS, DOCS)",
     },

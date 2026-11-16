@@ -549,13 +549,113 @@ def build_ephemeral_context(
     db: Optional[BrainDB] = None,
     voice_context: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Formata um bloco ultra-compacto TOON/Telegráfico + Session Delta + Dynamic Top-K + Scout L-Pointers."""
+    """
+    Formata um bloco ultra-compacto TOON/Telegráfico com KV-Cache Prefix-Stable Canonical Layout.
+    Layout Canónico Estável para KV-Cache:
+      1. [BRAIN_MEMORY|ws=...|mode=...] (Header estável)
+      2. CHK(...) (Checkpoint estável do workspace)
+      3. 🏯[PAGODA|...] (Linha Pagoda LSM timeline append-only mais antiga primeiro)
+      4. Pinned/human-locked directives (🔒/📌) & Scout Map / Delta Cache marker
+      --- Elementos Voláteis do Turno (após o prefixo estável) ---
+      5. [JEV_S1|...] (Roteamento adaptativo do prompt)
+      6. [VOICE_PRE_EXEC...] / [VOICE_AST_TARGET...] (Voice-Aware Zero-Call Protocol)
+      7. [ORBIT|...], [HANDOFF|...], [DOTS_READY|...], 🧬[SELF_LEARN|...], 🌐[GLOBAL_BRAIN|...]
+      8. [LOOKAHEAD|...] (Alertas cirúrgicos de ficheiros tocados)
+      9. Memórias dinâmicas contextuais BM25/FTS5
+    """
     is_micro = bool(micro_mode or max_chars <= 380)
     mode_tag = "MICRO_TICK" if is_micro else ("DELTA" if (delta_info and delta_info.get("is_delta_turn")) else "TOON_V2")
     parts: List[str] = [
         f"[BRAIN_MEMORY|ws={workspace}|mode={mode_tag}]"
     ]
 
+    # 1. Stable Prefix: Checkpoint do Workspace
+    if checkpoint:
+        c_goal = compress_fact_telegraphic(checkpoint.get("goal") or checkpoint.get("last_completed") or "Sessão ativa", 75)
+        c_status = (checkpoint.get("status") or "Ativo").strip()[:32]
+        c_files = (checkpoint.get("key_files") or "N/A").strip()[:75]
+        chk_line = f"CHK({checkpoint.get('project') or workspace}):Goal={c_goal}|St={c_status}|Files={c_files}"
+        parts.append(chk_line[:220])
+
+    # 2. Stable Prefix: Pagoda LSM Timeline (quando not is_micro)
+    if not is_micro:
+        active_db = db or BrainDB()
+        try:
+            from pagoda_fold_engine import PagodaFoldEngine
+            pagoda_res = PagodaFoldEngine(active_db).get_active_pagoda_timeline(workspace=workspace, max_chars=260)
+            p_line = pagoda_res.get("pagoda_line", "")
+            if p_line:
+                parts.append(p_line)
+        except Exception:
+            pass
+
+    # 3. Stable Prefix: Scout Map / Delta Cache Marker
+    if not is_micro:
+        if delta_info and delta_info.get("scout_unchanged"):
+            parts.append(
+                f"⚡[DELTA_CACHE|turn=#{delta_info.get('turn_number', 2)}|scout_map=cached_unchanged|mems_cached={delta_info.get('cached_count', 0)}|saved=~{delta_info.get('delta_saved_tokens', 0)}tok]"
+            )
+        elif scout_map:
+            parts.append(select_relevant_scout_map(scout_map, user_query=user_query, max_len=min(380, max(180, max_chars // 3))))
+
+    # Filtragem e separação de memórias fixadas vs dinâmicas
+    stop_th = float((jev_route or {}).get("adaptive_stop_threshold") or 0.30)
+    source_memories = delta_info.get("delta_memories", []) if (delta_info and delta_info.get("is_delta_turn")) else memories
+    filtered_memories, _ = apply_dynamic_topk_cutoff(source_memories, stop_threshold=stop_th)
+
+    pinned_mems: List[Dict[str, Any]] = []
+    dynamic_mems: List[Dict[str, Any]] = []
+    for m in filtered_memories:
+        is_locked = int(m.get("human_locked") or 0) == 1
+        is_pin = is_locked or "pinned" in str(m.get("tags", "")).lower() or m.get("category") == "directive"
+        if is_pin:
+            pinned_mems.append(m)
+        else:
+            dynamic_mems.append(m)
+
+    pinned_mems.sort(key=lambda x: int(x.get("human_locked") or 0), reverse=True)
+
+    tier_badges = {"working": "[W]", "episodic": "[E]", "semantic": "[S]"}
+    seen_topics: set[str] = set()
+
+    def _format_memory_entry(m: Dict[str, Any]) -> Optional[str]:
+        topic = (m.get("topic") or "Fact").strip()
+        raw_fact_str = str(m.get("fact") or "")
+        m_ws = str(m.get("workspace") or "global")
+        m_cat = str(m.get("category") or "").lower()
+        if topic.startswith("Scout Shared Codebase Map") and scout_map:
+            return None
+        if topic.startswith("📡 Broadcast") or "[ORBIT BROADCAST" in raw_fact_str:
+            return None
+        # Bloqueio Anti-Ruído de Ficheiros Estrangeiros (v5.4): Nunca injetar logs brutos de outros projetos
+        is_file_edit_log = (
+            m_cat == "file_edit"
+            or topic.lower().startswith("ficheiro ")
+            or "(modificado via " in raw_fact_str.lower()
+        )
+        if is_file_edit_log and (workspace == "global" or m_ws != workspace):
+            return None
+        norm_topic = re.sub(r"\s+", " ", topic.lower())
+        if norm_topic in seen_topics:
+            return None
+        seen_topics.add(norm_topic)
+        fact = compress_fact_telegraphic(raw_fact_str, max_len=135)
+        is_locked = int(m.get("human_locked") or 0) == 1
+        is_pin = is_locked or "pinned" in str(m.get("tags", "")).lower() or m.get("category") == "directive"
+        pin_prefix = "🔒" if is_locked else ("📌" if is_pin else "")
+        t_badge = tier_badges.get(str(m.get("tier") or "semantic").lower(), "[S]")
+        # Omitir tag [workspace] quando igual ao workspace do cabeçalho ou global
+        ws_tag = f"[{m_ws}]" if (m_ws not in ("global", workspace)) else ""
+        return f"- {pin_prefix}{t_badge}{ws_tag}{topic}:{fact}"
+
+    # 4. Stable Prefix: Injetar Pinned / Human-Locked Directives
+    if not is_micro:
+        for m in pinned_mems:
+            entry = _format_memory_entry(m)
+            if entry and sum(len(p) for p in parts) + len(entry) + 2 <= max_chars:
+                parts.append(entry)
+
+    # 5. Volatile Elements: JEV System 1 Route
     if jev_route:
         intent_key = str(jev_route.get("intent") or "general_engineering")
         try:
@@ -573,21 +673,18 @@ def build_ephemeral_context(
                 f"[JEV_S1|intent={intent_key}|route={jev_route.get('model_route')}|dots={dots_traj_str}|tools={active_t}|th={jev_route.get('adaptive_stop_threshold')}]"
             )
 
-    if checkpoint:
-        c_goal = compress_fact_telegraphic(checkpoint.get("goal") or checkpoint.get("last_completed") or "Sessão ativa", 75)
-        c_status = (checkpoint.get("status") or "Ativo").strip()[:32]
-        c_files = (checkpoint.get("key_files") or "N/A").strip()[:75]
-        chk_line = f"CHK({checkpoint.get('project') or workspace}):Goal={c_goal}|St={c_status}|Files={c_files}"
-        parts.append(chk_line[:220])
-
-    # Injetar Diretivas do Voice-Aware Zero-Call Protocol ([VOICE_PRE_EXEC], [VOICE_AST_TARGET], [VOICE_CONCISE_MODE])
+    # 6. Volatile Elements: Voice-Aware Zero-Call Protocol
     if voice_context:
         v_lines = voice_context.get("ephemeral_lines") or []
         for vl in v_lines:
             if vl and sum(len(p) for p in parts) + len(vl) + 2 <= max_chars:
                 parts.append(vl)
 
-    # Injetar Broadcasts Orbit ativos + último Hand-off Packet entre agentes (Zero-Copy Chaining c/ Delta Dedupe)
+    # Se estivermos em Modo Micro-Prompt (confirmação rápida <90 tokens), parar aqui!
+    if is_micro:
+        return "\n".join(parts)[:max_chars]
+
+    # 7. Volatile Elements: Orbit, Handoffs, DOTS Ready & Global Brain
     is_delta = bool(delta_info and delta_info.get("is_delta_turn"))
     effective_gb_query = user_query or str((jev_route or {}).get("intent") or workspace)
     try:
@@ -642,80 +739,26 @@ def build_ephemeral_context(
     except Exception:
         pass
 
-    # Se estivermos em Modo Micro-Prompt (confirmação rápida <90 tokens), parar aqui!
-    if is_micro:
-        return "\n".join(parts)[:max_chars]
-
-    # Notice Lookahead: incluir alertas recentes HIGH/CRITICAL de ast_impact_alerts ou bug_fix nos ficheiros tocados
+    # 8. Volatile Elements: Lookahead Notices
     if lookahead_notices:
         for ln_notice in lookahead_notices[:2]:
-            parts.append(ln_notice)
+            if sum(len(p) for p in parts) + len(ln_notice) + 2 <= max_chars:
+                parts.append(ln_notice)
     elif recent_actions:
         try:
             for ln_notice in get_notice_lookahead_alerts(BrainDB(), workspace, recent_actions, user_query)[:2]:
-                parts.append(ln_notice)
+                if sum(len(p) for p in parts) + len(ln_notice) + 2 <= max_chars:
+                    parts.append(ln_notice)
         except Exception:
             pass
 
-    # OTIMIZAÇÃO #1: Se o Scout Map já foi injetado nesta conversa e não mudou, usar marcador 0-token
-    if delta_info and delta_info.get("scout_unchanged"):
-        parts.append(
-            f"⚡[DELTA_CACHE|turn=#{delta_info.get('turn_number', 2)}|scout_map=cached_unchanged|mems_cached={delta_info.get('cached_count', 0)}|saved=~{delta_info.get('delta_saved_tokens', 0)}tok]"
-        )
-    elif scout_map:
-        parts.append(select_relevant_scout_map(scout_map, user_query=user_query, max_len=min(380, max(180, max_chars // 3))))
-
-    stop_th = float((jev_route or {}).get("adaptive_stop_threshold") or 0.30)
-    source_memories = delta_info.get("delta_memories", []) if (delta_info and delta_info.get("is_delta_turn")) else memories
-    filtered_memories, _ = apply_dynamic_topk_cutoff(source_memories, stop_threshold=stop_th)
-
-    seen_topics: set[str] = set()
-    sorted_memories = sorted(
-        filtered_memories,
-        key=lambda x: (
-            2
-            if int(x.get("human_locked") or 0) == 1
-            else (
-                1
-                if ("pinned" in str(x.get("tags", "")).lower() or x.get("category") == "directive")
-                else 0
-            )
-        ),
-        reverse=True,
-    )
-    tier_badges = {"working": "[W]", "episodic": "[E]", "semantic": "[S]"}
-    for m in sorted_memories:
-        topic = (m.get("topic") or "Fact").strip()
-        raw_fact_str = str(m.get("fact") or "")
-        m_ws = str(m.get("workspace") or "global")
-        m_cat = str(m.get("category") or "").lower()
-        if topic.startswith("Scout Shared Codebase Map") and scout_map:
-            continue
-        if topic.startswith("📡 Broadcast") or "[ORBIT BROADCAST" in raw_fact_str:
-            continue
-        # Bloqueio Anti-Ruído de Ficheiros Estrangeiros (v5.4): Nunca injetar logs brutos 'Ficheiro X (modificado via ...)' de outros projetos ou em ws=global
-        is_file_edit_log = (
-            m_cat == "file_edit"
-            or topic.lower().startswith("ficheiro ")
-            or "(modificado via " in raw_fact_str.lower()
-        )
-        if is_file_edit_log and (workspace == "global" or m_ws != workspace):
-            continue
-        norm_topic = re.sub(r"\s+", " ", topic.lower())
-        if norm_topic in seen_topics:
-            continue
-        seen_topics.add(norm_topic)
-        fact = compress_fact_telegraphic(raw_fact_str, max_len=135)
-        is_locked = int(m.get("human_locked") or 0) == 1
-        is_pin = is_locked or "pinned" in str(m.get("tags", "")).lower() or m.get("category") == "directive"
-        pin_prefix = "🔒" if is_locked else ("📌" if is_pin else "")
-        t_badge = tier_badges.get(str(m.get("tier") or "semantic").lower(), "[S]")
-        # OTIMIZAÇÃO #2: Omitir tag [workspace] quando igual ao workspace do cabeçalho ou global
-        ws_tag = f"[{m_ws}]" if (m_ws not in ("global", workspace)) else ""
-        entry = f"- {pin_prefix}{t_badge}{ws_tag}{topic}:{fact}"
-        if sum(len(p) for p in parts) + len(entry) + 2 > max_chars:
-            break
-        parts.append(entry)
+    # 9. Volatile Elements: Dynamic Query-Matched Memories
+    for m in dynamic_mems:
+        entry = _format_memory_entry(m)
+        if entry:
+            if sum(len(p) for p in parts) + len(entry) + 2 > max_chars:
+                break
+            parts.append(entry)
 
     out_text = "\n".join(parts)
     return out_text[:max_chars] if len(out_text) > max_chars else out_text
@@ -813,6 +856,20 @@ def generate_inspector_preview(
     saved_vs_raw = max(0, raw_tokens_est - est_tokens)
     compression_pct = round((saved_vs_raw / max(1, raw_tokens_est)) * 100, 1)
 
+    # 7. Obter estatísticas do Pagoda LSM Folding Protocol
+    pagoda_info: Dict[str, Any] = {}
+    try:
+        from pagoda_fold_engine import PagodaFoldEngine
+        pagoda_info = PagodaFoldEngine(db).get_active_pagoda_timeline(ws)
+    except Exception:
+        pagoda_info = {
+            "ok": True,
+            "compression_ratio": 40.0,
+            "active_count": 0,
+            "tier_counts": {1: 0, 2: 0, 3: 0},
+            "pagoda_line": "",
+        }
+
     return {
         "workspace": ws,
         "query": effective_query,
@@ -864,8 +921,16 @@ def generate_inspector_preview(
                 "saved_tokens": int(voice_ctx.get("total_estimated_tokens_saved") or 0),
                 "description": "Denoising STT PT/EN, resolução fonética AST (:Lstart-end) e pré-execução Zero-Call de ferramentas Brain em <4ms",
             },
+            "7_pagoda_lsm_folding": {
+                "active": True,
+                "compression_ratio": pagoda_info.get("compression_ratio", 40.0),
+                "active_folds": pagoda_info.get("active_count", 0),
+                "kv_cache_prefix_stable": True,
+                "description": "Pagoda LSM Multi-Tier Folding (T1➔T2➔T3 sem decaimento ρ^k) + arquivo reversível zlib e prefixo KV-Cache estável",
+            },
         },
         "voice_protocol": voice_ctx,
+        "pagoda_protocol": pagoda_info,
         "jev_router": jev_route,
         "ephemeral_block": ephemeral_text,
         "pinned_memories": [

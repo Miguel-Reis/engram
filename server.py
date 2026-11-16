@@ -28,7 +28,7 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str, version: str = "8.1.0") -> None:
+    def __init__(self, name: str, version: str = "8.2.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
@@ -44,6 +44,8 @@ class StdioMCPServer:
         "swarm_watch_audit",
         "swarm_graph_path",
         "orbit_briefing_roi",
+        "brain_decompress_fold",
+        "swarm_archify_delta",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -275,6 +277,12 @@ class StdioMCPServer:
                             "description": "Active voice token-saving rules, phonetic AST resolution patterns, and zero-call pre-execution status",
                             "mimeType": "text/markdown",
                         },
+                        {
+                            "uri": "brain://pagoda/timeline",
+                            "name": "Pagoda LSM Multi-Tier Reversible Fold Timeline",
+                            "description": "Active Tier-3/2/1 compressed episodic folds, token compaction ratios, and reversible fold archive",
+                            "mimeType": "text/markdown",
+                        },
                     ]
                 },
             }
@@ -410,6 +418,24 @@ class StdioMCPServer:
                     "4. **MultimodalAudioTurnSupport**: Detects spoken/audio-turn contexts and applies conversational formatting suitable for rapid voice synthesis and concise listening.\n"
                     "5. **VoiceToolPruningRouter**: Dynamically prunes irrelevant MCP tool schemas for voice turns, cutting overhead by up to 68% tokens.\n"
                 )
+            if uri == "brain://pagoda/timeline":
+                try:
+                    from pagoda_fold_engine import PagodaFoldEngine
+                    p_engine = PagodaFoldEngine(db)
+                    overview = p_engine.get_pagoda_overview(workspace="all")
+                    folds = overview.get("folds", [])
+                    lines = [
+                        "# ⛩️ Pagoda LSM Multi-Tier Reversible Fold Timeline\n",
+                        f"- **Active Folds**: {overview.get('total_folds', len(folds))}",
+                        f"- **Compaction Savings**: {overview.get('total_tokens_saved', 0)} tokens ({overview.get('overall_compression_ratio', '1.0x')})\n",
+                        "| ID | Tier | Workspace | Title | Tokens Before | Tokens After | Ratio | Created |",
+                        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+                    ]
+                    for f in folds:
+                        lines.append(f"| {f.get('id')} | {f.get('tier')} | `{f.get('workspace')}` | {f.get('title')} | {f.get('tokens_before')} | {f.get('tokens_after')} | {f.get('compression_ratio')} | {f.get('created_at')} |")
+                    return "\n".join(lines)
+                except Exception as exc:
+                    return f"# ⛩️ Pagoda LSM Timeline\n\nNenhum fold ativo ou erro a carregar: {exc}"
             if uri.startswith("brain://workspace/") and uri.endswith("/checkpoint"):
                 ws_part = uri[len("brain://workspace/") : -len("/checkpoint")].strip("/") or "brain_mcp"
                 chk = db.get_checkpoint(ws_part) or {}
@@ -603,7 +629,7 @@ except Exception:
     pass
 
 # Create the MCP server
-mcp = MCPServer("antigravity-brain", version="8.1.0")
+mcp = MCPServer("antigravity-brain", version="8.2.0")
 mcp.db = db
 
 
@@ -946,6 +972,59 @@ def brain_voice_optimize(
             "raw_query": query,
             "denoised_query": query,
         }
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_decompress_fold(fold_id: int) -> str:
+    """Losslessly decompresses a Pagoda LSM Fold #ID (Tier-1/2/3) from brain.db zlib archive.
+
+    Args:
+        fold_id: Integer identifier of the Pagoda compressed fold
+    """
+    try:
+        from pagoda_fold_engine import PagodaFoldEngine
+        engine = PagodaFoldEngine(mcp.db or db)
+        res = engine.decompress_fold(fold_id)
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "fold_id": fold_id}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def swarm_archify_delta(
+    mode: str = "delta",
+    base_ref: str = "HEAD~1",
+    target: str = "BrainDB",
+    target_b: str = "ast_save_audits",
+) -> str:
+    """Zero-token Archify architecture map, git delta, reachability focus & conclusion-first explainer.
+
+    Args:
+        mode: Operation mode - 'delta' (git architectural diff), 'reach' (upstream/downstream reachability), 'explainer' (conclusion-first walkthrough), 'spec' (Archify schema spec), or 'export_html' (write ARCHIFY_MAP.html)
+        base_ref: Git revision or commit SHA to compare against (default 'HEAD~1')
+        target: Target symbol, file, route, or table name for 'reach' or source query for 'explainer' (default 'BrainDB')
+        target_b: Destination query for 'explainer' path walkthrough (default 'ast_save_audits')
+    """
+    try:
+        from archify_engine import ArchifyEngine
+        engine = ArchifyEngine(CURRENT_DIR)
+        m = (mode or "delta").strip().lower()
+        if m == "delta":
+            res = engine.compute_architecture_delta(base_ref=base_ref, head_ref="WORKTREE")
+        elif m == "reach":
+            res = engine.compute_reachability_focus(node_query=target, max_depth=2)
+        elif m == "explainer":
+            res = engine.build_explainer_walkthrough(source_query=target, target_query=target_b)
+        elif m == "spec":
+            res = engine.build_archify_spec()
+        elif m == "export_html":
+            out_path = os.path.join(CURRENT_DIR, "ARCHIFY_MAP.html")
+            res = engine.export_standalone_html(output_path=out_path)
+        else:
+            res = {"ok": False, "error": f"Modo desconhecido: '{mode}'. Opções: delta, reach, explainer, spec, export_html"}
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "mode": mode}
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 

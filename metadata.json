@@ -1,7 +1,7 @@
 {
-  "name": "Antigravity Brain v8.1 — Voice-Aware Zero-Call Protocol, Orbit Agent OS & 3D Command Office",
-  "version": "8.1.0",
-  "description": "Zero-Round-Trip SQLite WAL + FTS5 BM25 + Vector Memory Engine, Voice-Aware Zero-Call Protocol, Orbit Agent OS, Graphify AST Knowledge Graph, 48-Agent Asymmetric Swarm Monitor, and 60 FPS 3D Agent Office.",
+  "name": "Antigravity Brain v8.2 — Pagoda LSM Folds, Archify Zero-Token Delta, Orbit Agent OS & 3D Command Office",
+  "version": "8.2.0",
+  "description": "Zero-Round-Trip SQLite WAL + FTS5 BM25, Pagoda LSM Multi-Tier Reversible Folds, Archify Zero-Token Evidence Console & Git Delta, Voice-Aware Zero-Call Protocol, Orbit Agent OS, and 48-Agent Asymmetric Swarm.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

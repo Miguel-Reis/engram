@@ -1310,6 +1310,49 @@ def run_all_tests() -> None:
                     if root_mod.endswith("_engine") or root_mod in ("brain_inject", "brain_harvest", "token_diet", "web_dashboard", "auto_updater", "ast_impact_watcher"):
                         assert root_mod in local_modules, f"Import local quebrado '{root_mod}' em {pyf}"
 
+        # 31. Antigravity Brain v8.2 (Pagoda LSM Multi-Tier Folding + Archify Zero-Token Engine + SHA-256 Fingerprint)
+        from pagoda_fold_engine import PagodaFoldEngine
+        from archify_engine import ArchifyEngine
+        from auto_updater import compute_codebase_fingerprint
+
+        fp_sha = compute_codebase_fingerprint()
+        assert len(fp_sha) == 64, f"SHA-256 codebase fingerprint inválido: {fp_sha}"
+
+        pf_eng = PagodaFoldEngine(gb_db)
+        first_fold_id = 0
+        for idx_f in range(6):
+            f_res = pf_eng.fold_turn_episode(
+                workspace="pagoda_test_ws",
+                title=f"Episódio #{idx_f + 1}",
+                summary=f"Implementada componente modular #{idx_f + 1} sem perdas",
+                raw_payload={"step": idx_f + 1, "verbatim_needle": f"SECRET_CONST_{idx_f + 1}=8765"},
+                key_files=f"mod_{idx_f + 1}.py",
+                auto_rollup_threshold=5,
+            )
+            if idx_f == 0:
+                first_fold_id = int(f_res["fold_id"])
+        p_ov = pf_eng.get_pagoda_overview("pagoda_test_ws")
+        assert p_ov["tier_counts"].get(2, 0) == 1 and p_ov["tier_counts"].get(1, 0) == 1, f"Roll-up Pagoda T1->T2 falhou: {p_ov}"
+        assert "🏯[PAGODA|" in p_ov["pagoda_line"], f"Linha Pagoda efémera inválida: {p_ov}"
+        dec_res = pf_eng.decompress_fold(first_fold_id)
+        assert dec_res["ok"] is True and "SECRET_CONST_1=8765" in dec_res["raw_text"], f"Descompressão lossless zlib falhou: {dec_res}"
+
+        arch_eng = ArchifyEngine(repo_root_dir)
+        arch_spec = arch_eng.build_archify_spec()
+        assert arch_spec["schema_version"] == 1 and len(arch_spec["components"]) >= 12, f"Archify spec incompleto: {arch_spec}"
+        arch_delta = arch_eng.compute_architecture_delta()
+        assert arch_delta["ok"] is True and "provenance" in arch_delta, f"Archify delta falhou: {arch_delta}"
+        arch_reach = arch_eng.compute_reachability_focus("BrainDB")
+        assert arch_reach["ok"] is True and arch_reach["noise_eliminated_pct"] > 0, f"Archify reachability falhou: {arch_reach}"
+        arch_expl = arch_eng.build_explainer_walkthrough("triggerAstSaveAuditUI", "ast_save_audits")
+        assert arch_expl["ok"] is True and arch_expl["found"] is True and len(arch_expl["steps"]) >= 2, f"Archify explainer falhou: {arch_expl}"
+        arch_html = arch_eng.export_standalone_html()
+        assert arch_html["ok"] is True and arch_html["bytes"] > 15000 and "<svg" in arch_html["html"].lower(), f"Archify HTML export falhou: {arch_html['bytes']}"
+
+        assert "brain_decompress_fold" in tool_names and "swarm_archify_delta" in tool_names, f"Tools MCP v8.2 ausentes: {tool_names}"
+        assert "brain://pagoda/timeline" in res_uris, f"Resource MCP v8.2 ausente: {res_uris}"
+        assert "7_pagoda_lsm_folding" in insp_prev["token_optimizations"], f"Pilar #7 Pagoda ausente no Inspector: {insp_prev}"
+
     assert 'id="tabBtnJarvis"' not in html_content, "tabBtnJarvis ainda existe em index.html!"
     assert 'id="jarvisWorkspace"' not in html_content, "jarvisWorkspace ainda existe em index.html!"
 
@@ -1358,9 +1401,20 @@ def run_all_tests() -> None:
         'id="voiceSimulatorResult"',
         "function runVoiceSimulatorPreview(",
         "Voice Zero-Call",
+        'id="archifyConsoleBox"',
+        'id="archifyConsoleOutput"',
+        "function runArchifyDeltaUI(",
+        "function runArchifyReachUI(",
+        "function runArchifyExplainerUI(",
+        "function openArchifyStandaloneHtmlUI(",
+        'id="pagodaFoldPanel"',
+        'id="pagodaFoldsList"',
+        "function refreshPagodaPanelUI(",
+        "function decompressPagodaFoldUI(",
+        "function triggerManualPagodaFoldUI(",
     ):
-        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.1 em falta em index.html: {gb_ui_token}"
-    print("[PASS] Pack Completo v6.0..v8.1 Studio OS (7 Estúdios Limpos, Purga Jarvis, Voice-Aware Zero-Call Protocol & Gate AST) OK")
+        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.2 em falta em index.html: {gb_ui_token}"
+    print("[PASS] Pack Completo v6.0..v8.2 Studio OS (Pagoda LSM Reversible Folding, Archify Zero-Token Evidence Console, Voice Zero-Call & Gate AST) OK")
 
 
 if __name__ == "__main__":

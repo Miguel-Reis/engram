@@ -1,6 +1,6 @@
 # AGENTS.md — brain_mcp
 
-# Antigravity Brain v8.1 — Zero-Round-Trip Memory & Voice Protocol
+# Antigravity Brain v8.2 — Pagoda LSM Folds, Archify Zero-Token Delta & Voice Protocol
 
 1. **Pre-Injected Context (`[BRAIN_MEMORY]`)**: Prior to responding, check if an ephemeral `[BRAIN_MEMORY]` block was injected. Trust its file paths, checkpoints, and environment facts so you do not waste tool calls re-discovering project structure.
 2. **Zero-Token Memory Harvesting (`<!-- brain: Topic | Fact -->`)**: Whenever you solve a non-trivial bug, discover a critical IP/config/path, or make an architectural decision, append a hidden HTML comment at the very end of your response:
@@ -13,6 +13,9 @@
 5. **Voice-Aware Zero-Call Protocol (`[VOICE_PRE_EXEC]` & `[VOICE_AST_TARGET]`)**:
    - **Spoken AST Resolution (`[VOICE_AST_TARGET]`)**: When the user speaks or query contains voice transcription markers, consult injected `[VOICE_AST_TARGET]` pointers (`:Lstart-end`) to edit or inspect code immediately without exploratory symbol lookups.
    - **Zero-Call Pre-Execution (`[VOICE_PRE_EXEC]`)**: When voice commands request memory storage, status queries, or symbol lookups, trust the pre-executed results injected under `[VOICE_PRE_EXEC]` instead of making redundant tool calls, saving up to 68% tokens.
+6. **Pagoda LSM Folds & Archify Zero-Token Delta (`brain_decompress_fold` & `swarm_archify_delta`)**:
+   - **Pagoda LSM Multi-Tier Reversible Folding (`brain_decompress_fold`)**: Checkpoints and turn episodes are compacted into lossless multi-tier zlib folds (`Tier-1/2/3`), reducing context bloat while remaining instantly reversible via fold ID.
+   - **Archify Evidence Console & Git Delta (`swarm_archify_delta`)**: Query deterministic zero-LLM architecture maps, git deltas between revisions, upstream/downstream reachability, and conclusion-first explainers without wasting inference tokens.
 
 <!-- BRAIN_AUTO_RULES_START -->
 ## 🧠 Antigravity Global Brain — Auto-Synced Rules (`brain_mcp`)

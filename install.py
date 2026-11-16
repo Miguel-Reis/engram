@@ -61,8 +61,8 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
     plugin_json_path = PLUGINS_DIR / "plugin.json"
     plugin_manifest = {
         "name": "antigravity-brain",
-        "version": "8.1.0",
-        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Voice-Aware Zero-Call Protocol & Asymmetric Swarm",
+        "version": "8.2.0",
+        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Pagoda LSM Multi-Tier Reversible Folds, Archify Zero-Token Delta, Voice Protocol & Asymmetric Swarm",
         "hooks": "./hooks.json",
         "rules": ["./rules/AGENTS.md"],
     }
@@ -86,6 +86,9 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
 5. **Voice-Aware Zero-Call Protocol (`[VOICE_PRE_EXEC]` & `[VOICE_AST_TARGET]`)**:
    - When the user speaks via voice/STT and `[BRAIN_MEMORY]` contains `[VOICE_PRE_EXEC|...]` (e.g., `store_fact=OK`, `swarm_impact_graph=...`, `swarm_symbol_lookup=...`), **do NOT call that MCP tool again** — the result is already persisted/computed in `<4ms`.
    - When `[VOICE_AST_TARGET: file.py:Lstart-Lend]` is present, call `read_file` directly on that exact line range instead of running exploratory `grep` or reading whole files, and keep spoken replies concise (`[VOICE_CONCISE_MODE]`).
+6. **Pagoda LSM Folds & Archify Zero-Token Delta (`brain_decompress_fold` & `swarm_archify_delta`)**:
+   - **Pagoda LSM Multi-Tier Reversible Folding (`brain_decompress_fold`)**: Checkpoints and turn episodes are compacted into lossless multi-tier zlib folds (`Tier-1/2/3`), reducing context bloat while remaining instantly reversible via fold ID.
+   - **Archify Evidence Console & Git Delta (`swarm_archify_delta`)**: Query deterministic zero-LLM architecture maps, git deltas between revisions, upstream/downstream reachability, and conclusion-first explainers without wasting inference tokens.
 """
     (RULES_DIR / "AGENTS.md").write_text(agents_md_content, encoding="utf-8")
 
@@ -98,6 +101,8 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
             for fname in (
                 "server.py",
                 "db_engine.py",
+                "pagoda_fold_engine.py",
+                "archify_engine.py",
                 "orbit_engine.py",
                 "voice_brain_engine.py",
                 "swarm_engine.py",
@@ -173,7 +178,7 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
 
     if not silent:
         print("✅ Hooks globais configurados em:", global_hooks_path)
-        print("✅ Plugin Antigravity Brain v8.1 instalado em:", PLUGINS_DIR)
+        print("✅ Plugin Antigravity Brain v8.2 instalado em:", PLUGINS_DIR)
         print("✅ Servidor MCP registado em:", mcp_cfg_path)
 
     return {
@@ -195,7 +200,7 @@ def main() -> None:
     no_restart = "--no-restart" in sys.argv or os.environ.get("BRAIN_NO_RESTART") == "1"
     if not silent:
         print("=" * 68)
-        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.1")
+        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.2")
         print("=" * 68)
 
     configure_hooks_and_plugin(silent=silent)
