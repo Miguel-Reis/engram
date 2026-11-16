@@ -158,32 +158,63 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 desc = str(args.get("Description") or args.get("Instruction") or "Atualização de código").strip('"')[:160]
                 if target_file and "/brain/" not in target_file:
                     bname = os.path.basename(target_file)
-                    if bname not in modified_files:
-                        modified_files.append(bname)
-                    if desc:
-                        completed_actions.append(f"{bname}: {desc}")
-                        topic_key = f"Ficheiro {bname} ({workspace})"
-                        fact_val = f"Path: {target_file} — Última edição: {desc}"
-                        with db._connect() as conn:
-                            existing = conn.execute(
-                                "SELECT id FROM memories WHERE workspace = ? AND topic = ? LIMIT 1;",
-                                (workspace.lower(), topic_key),
-                            ).fetchone()
-                            if existing:
-                                conn.execute(
-                                    "UPDATE memories SET fact = ?, last_accessed = CURRENT_TIMESTAMP WHERE id = ?;",
-                                    (fact_val, existing["id"]),
-                                )
-                            else:
-                                db.store_fact(
-                                    topic=topic_key,
-                                    fact=fact_val,
-                                    workspace=workspace,
-                                    category="code_change",
-                                    tags=f"{bname} {workspace} file edit",
-                                    importance=3,
-                                )
-                                harvested_count += 1
+                    # 1. Ignorar ficheiros temporários/scratch não notáveis
+                    if any(x in bname.lower() for x in ("verify_", "tmp_", "temp_")):
+                        continue
+
+                    # 2. Inferir workspace real do ficheiro (file_ws)
+                    tf_norm = target_file.replace("\\", "/")
+                    tf_low = tf_norm.lower()
+                    file_ws = workspace
+                    if "/scratch/" in tf_low:
+                        parts = tf_low.split("/scratch/")[-1].split("/")
+                        if parts and parts[0]:
+                            file_ws = parts[0]
+                    elif "/desktop/" in tf_low:
+                        parts = tf_low.split("/desktop/")[-1].split("/")
+                        if parts and parts[0]:
+                            file_ws = parts[0]
+                    else:
+                        try:
+                            norm_dir = db.normalize_workspace(os.path.dirname(target_file))
+                            if norm_dir and norm_dir != "global":
+                                file_ws = norm_dir
+                        except Exception:
+                            file_ws = workspace
+
+                    topic_key = f"Ficheiro {bname} ({file_ws})"
+                    fact_val = f"Path: {tf_norm} — Última edição: {desc}"
+
+                    if not db.passes_notability_gate(topic_key, fact_val, "code_change"):
+                        continue
+
+                    # Apenas anexa aos ficheiros modificados do workspace atual se for local (ou se workspace for global)
+                    if file_ws == workspace or workspace == "global":
+                        if bname not in modified_files:
+                            modified_files.append(bname)
+                        if desc:
+                            completed_actions.append(f"{bname}: {desc}")
+
+                    with db._connect() as conn:
+                        existing = conn.execute(
+                            "SELECT id FROM memories WHERE workspace = ? AND topic = ? LIMIT 1;",
+                            (file_ws.lower(), topic_key),
+                        ).fetchone()
+                        if existing:
+                            conn.execute(
+                                "UPDATE memories SET fact = ?, last_accessed = CURRENT_TIMESTAMP WHERE id = ?;",
+                                (fact_val, existing["id"]),
+                            )
+                        else:
+                            db.store_fact(
+                                topic=topic_key,
+                                fact=fact_val,
+                                workspace=file_ws,
+                                category="code_change",
+                                tags=f"{bname} {file_ws} file edit",
+                                importance=3,
+                            )
+                            harvested_count += 1
 
     # 3. Atualiza o Checkpoint automático do workspace + Auto-Refresh do Scout Map se houve alterações de código
     if detected_errors and modified_files:

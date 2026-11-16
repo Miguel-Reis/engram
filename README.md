@@ -1,38 +1,41 @@
 <div align="center">
 
-# 🧠 Antigravity Brain v8.2 — Pagoda LSM Reversible Folds & Archify Zero-Token Architecture Delta
+# 🧠 Antigravity Brain v8.3 — GBrain Orthogonal Axes, Compiled Vault Dossiers & Local Skill Resolver
 
-**Zero-Round-Trip Persistent Memory Engine, Pagoda LSM Multi-Tier Reversible Folding, Archify Zero-Token Architecture Maps & Git Delta, Voice-Aware Zero-Call Protocol, 128-Bit BQ + HippoRAG 2 PPR, Bi-Temporal Graphiti Memory & 48-Agent Asymmetric Swarm**
+**Zero-Round-Trip Persistent Memory Engine, GBrain Salience × Recency Ranking, Compiled Vault Dossiers & Bidirectional Back-Links, Local Zero-Token Skill Resolver, Pagoda LSM Multi-Tier Reversible Folding, Archify Zero-Token Architecture Maps & Git Delta, Voice-Aware Zero-Call Protocol, 128-Bit BQ + HippoRAG 2 PPR & 23 MCP Tools**
 
-[![Version](https://img.shields.io/badge/version-8.2.0_Carbon_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/antigravity-brain/releases)
+[![Version](https://img.shields.io/badge/version-8.3.0_Carbon_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/antigravity-brain/releases)
 [![Python](https://img.shields.io/badge/python-3.10%2B%20(Zero--Deps)-38bdf8?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Engine](https://img.shields.io/badge/SQLite_WAL-FTS5_%2B_Pagoda_LSM_%2B_128--Bit_BQ-10b981?style=for-the-badge&logo=sqlite&logoColor=white)](./db_engine.py)
 [![Archify](https://img.shields.io/badge/Archify-Zero--Token_Delta_%26_Evidence_Console-06b6d4?style=for-the-badge)](./archify_engine.py)
-[![MCP 2026](https://img.shields.io/badge/MCP_2026-21_Tools_%2B_Resources_%2B_Prompts-e4e4e7?style=for-the-badge)](./server.py)
+[![MCP 2026](https://img.shields.io/badge/MCP_2026-23_Tools_%2B_Resources_%2B_Prompts-e4e4e7?style=for-the-badge)](./server.py)
 [![Tests](https://img.shields.io/badge/Tests-27%2F27_Passing-10b981?style=for-the-badge)](./test_brain.py)
 
 *Built with 100% Python Standard Library (`sqlite3`, `ast`, `http.server`, `concurrent.futures`) and Vanilla HTML5 / Canvas2D / ECS `Float32Array` SoA — zero `pip` packages required, zero cloud telemetry, sub-10ms local execution.*
 
-[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v82) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-21-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
+[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v83) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-23-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
 
 </div>
 
 ---
 
-## 🚀 Frontier 2025–2026 Technologies (v8.2)
+## 🚀 Frontier 2025–2026 Technologies (v8.3)
 
-**Antigravity Brain v8.2** integrates eight state-of-the-art cognitive memory, codebase graph, and protocol breakthroughs in pure Python + SQLite WAL:
+**Antigravity Brain v8.3** integrates state-of-the-art cognitive memory, codebase graph, and protocol breakthroughs in pure Python + SQLite WAL:
 
 | Technology | Module & Symbols | How It Works & Impact |
 | :--- | :--- | :--- |
 | **1. 128-Bit Binary Quantization (BQ) + Hardware `POPCNT` Hamming** | [`db_engine.py`](./db_engine.py) · `quantize_vector_128bit()`, `hamming_similarity_128bit()`, `compute_semantic_vector()` | Packs 128-D subword LSH vectors (16-D concept clusters + 64-D unigram/bigram LSH + 48-D word-bounded `<w>` 3/4-gram morphological shingles) into a **16-byte (128-bit) hex signature**. Bitwise XOR + CPU `int.bit_count()` scans 10,000 memories in **`<0.2ms` (32× smaller storage)**. |
 | **2. HippoRAG 2 — Personalized PageRank (PPR) + 4-Way Weighted RRF** | [`db_engine.py`](./db_engine.py) · `compute_memory_ppr()`, `search_memories()` | Seeds a teleportation vector with top lexical/semantic hits and runs **3 sparse power iterations** over `memory_edges` (`fixed_by`, `supersedes`, `evolves`, `co_learned`), fusing **FTS5 BM25 + 128-Bit BQ/128-D Cosine + PPR Graph Rank + Ebbinghaus Salience** via 4-Way Reciprocal Rank Fusion ($k=60$). |
-| **3. Ebbinghaus Spaced-Reinforcement Forgetting Curve** | [`db_engine.py`](./db_engine.py) · `compute_ebbinghaus_retention()` | Models Bjork dual-strength memory retention: half-life $H = S_{\text{tier}} \cdot (1 + 1.2\ln(1 + \text{access\_count})) \cdot (\text{importance}/3)$, where $S_{\text{working}}=3\text{d}$, $S_{\text{episodic}}=14\text{d}$, $S_{\text{semantic}}=120\text{d}$. Frequently used rules become permanent while stale episodic logs decay naturally. |
-| **4. Graphiti-Style Bi-Temporal Automatic Contradiction Superseding** | [`db_engine.py`](./db_engine.py) · `store_fact()` | Tracks `valid_from`, `valid_until`, and `superseded_by`. When a new fact updates an active unlocked memory on the same workspace, category, and primary file/topic, the engine automatically stamps `valid_until = CURRENT_TIMESTAMP`, links `superseded_by = new_id`, and creates a `supersedes` edge. |
-| **5. Git Co-Change Historical Coupling + Test-Case Graph & Atomic Sandbox Rollback** | [`graphify_engine.py`](./graphify_engine.py) · `_mine_git_cochange_edges()`<br>[`ast_impact_watcher.py`](./ast_impact_watcher.py) · `analyze_git_diff_blast_radius()`<br>[`swarm_engine.py`](./swarm_engine.py) · `manage_subagent_sandbox()` | Mines `git log` commit history to compute pairwise file coupling $\text{Coupling}(A,B) = \frac{\lvert C(A \cap B)\rvert}{\sqrt{\lvert C(A)\rvert\cdot\lvert C(B)\rvert}}$ (`CO_CHANGED` edges), links `TEST_CASE` nodes (`def test_*`) to production symbols, and performs **physical `zlib`+`base64` disk restoration** when a subagent sandbox fails AST or secret checks. |
-| **6. MCP 2025–2026 Native `Resources`, `Prompts` & `Tool Annotations`** | [`server.py`](./server.py) · `StdioMCPServer` | Implements `resources/list`, `resources/templates/list`, `resources/read` (`brain://memories/pinned`, `brain://scout/map`, `brain://graph/report`, `brain://orbit/briefing`, `brain://pagoda/timeline`, `brain://workspace/{ws}/checkpoint`), `prompts/list` & `prompts/get`, `readOnlyHint`/`idempotentHint` annotations, and exact UTF-8 byte framing. |
-| **7. Pagoda LSM Multi-Tier Reversible Context Folding** | [`pagoda_fold_engine.py`](./pagoda_fold_engine.py) · `fold_current_checkpoint()`, `fold_turn_episode()`, `decompress_fold()` | Compacts project milestones and turn history into **lossless multi-tier `zlib` archives (`Tier-1/2/3`)**, saving up to 80% context tokens while remaining instantly reversible via fold ID. |
-| **8. Archify Zero-Token Evidence Console & Git Architecture Delta** | [`archify_engine.py`](./archify_engine.py) · `build_archify_spec()`, `compute_architecture_delta()`, `compute_reachability_focus()` | Computes deterministic architecture maps, in-memory git deltas (`HEAD~1 vs Worktree`), 7-signal reachability focus, and conclusion-first explainers with **zero LLM tokens and zero external dependencies**. |
+| **3. GBrain Orthogonal Salience × Recency Ranking** | [`db_engine.py`](./db_engine.py) · `search_memories()`, `explain_memory_query()` | Orthogonalizes memory relevance: importance/salience (pinned directives, canonical rules, importance weights) is decoupled from temporal decay (Ebbinghaus spaced retention). Complete ranking math and Autocut decisions are explainable via `brain_explain_ranking`. |
+| **4. Local Zero-Token Skill Resolver (`brain_resolve_skill`)** | [`skill_resolver_engine.py`](./skill_resolver_engine.py) · `resolve_skills_for_query()`<br>[`server.py`](./server.py) · `brain_resolve_skill` | Locally catalogs and resolves all 130+ installed Antigravity agent skills across plugins, rescuing skills excluded by IDE context-budget limits at **0 model tokens**. |
+| **5. Two-Zone Compiled Vault Dossiers & Bidirectional Back-Links** | [`orbit_engine.py`](./orbit_engine.py) · `compile_vault_dossier()`, `enforce_vault_backlinks()` | Structures `.brain_vault/<ws>/*.md` notes with `## 💎 Compiled Truth` at the top and `## 📅 Chronological Timeline` below. Automatically enforces reciprocal backlinks (`## 🔗 Bidirectional Back-Links`) on every cross-referenced note. |
+| **6. Ebbinghaus Spaced-Reinforcement Forgetting Curve** | [`db_engine.py`](./db_engine.py) · `compute_ebbinghaus_retention()` | Models Bjork dual-strength memory retention: half-life $H = S_{\text{tier}} \cdot (1 + 1.2\ln(1 + \text{access\_count})) \cdot (\text{importance}/3)$, where $S_{\text{working}}=3\text{d}$, $S_{\text{episodic}}=14\text{d}$, $S_{\text{semantic}}=120\text{d}$. Frequently used rules become permanent while stale episodic logs decay naturally. |
+| **7. Graphiti-Style Bi-Temporal Automatic Contradiction Superseding** | [`db_engine.py`](./db_engine.py) · `store_fact()` | Tracks `valid_from`, `valid_until`, and `superseded_by`. When a new fact updates an active unlocked memory on the same workspace, category, and primary file/topic, the engine automatically stamps `valid_until = CURRENT_TIMESTAMP`, links `superseded_by = new_id`, and creates a `supersedes` edge. |
+| **8. Git Co-Change Historical Coupling + Test-Case Graph & Atomic Sandbox Rollback** | [`graphify_engine.py`](./graphify_engine.py) · `_mine_git_cochange_edges()`<br>[`ast_impact_watcher.py`](./ast_impact_watcher.py) · `analyze_git_diff_blast_radius()`<br>[`swarm_engine.py`](./swarm_engine.py) · `manage_subagent_sandbox()` | Mines `git log` commit history to compute pairwise file coupling $\text{Coupling}(A,B) = \frac{\lvert C(A \cap B)\rvert}{\sqrt{\lvert C(A)\rvert\cdot\lvert C(B)\rvert}}$ (`CO_CHANGED` edges), links `TEST_CASE` nodes (`def test_*`) to production symbols, and performs **physical `zlib`+`base64` disk restoration** when a subagent sandbox fails AST or secret checks. |
+| **9. MCP 2025–2026 Native `Resources`, `Prompts` & `Tool Annotations`** | [`server.py`](./server.py) · `StdioMCPServer` | Implements `resources/list`, `resources/templates/list`, `resources/read` (`brain://memories/pinned`, `brain://scout/map`, `brain://graph/report`, `brain://orbit/briefing`, `brain://voice/protocol`, `brain://skills/catalog`, `brain://pagoda/timeline`, `brain://workspace/{ws}/checkpoint`), `prompts/list` & `prompts/get`, `readOnlyHint`/`idempotentHint` annotations, and exact UTF-8 byte framing. |
+| **10. Pagoda LSM Multi-Tier Reversible Context Folding** | [`pagoda_fold_engine.py`](./pagoda_fold_engine.py) · `fold_current_checkpoint()`, `fold_turn_episode()`, `decompress_fold()` | Compacts project milestones and turn history into **lossless multi-tier `zlib` archives (`Tier-1/2/3`)**, saving up to 80% context tokens while remaining instantly reversible via fold ID. |
+| **11. Archify Zero-Token Evidence Console & Git Architecture Delta** | [`archify_engine.py`](./archify_engine.py) · `build_archify_spec()`, `compute_architecture_delta()`, `compute_reachability_focus()` | Computes deterministic architecture maps, in-memory git deltas (`HEAD~1 vs Worktree`), 7-signal reachability focus, and conclusion-first explainers with **zero LLM tokens and zero external dependencies**. |
 
 ---
 
@@ -110,7 +113,7 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 
 ---
 
-## 🧰 MCP 2026 Server (19 Tools + Resources + Prompts)
+## 🧰 MCP 2026 Server (23 Tools + Resources + Prompts)
 
 [`server.py`](./server.py) implements a zero-dependency **MCP JSON-RPC 2.0 Stdio Server** with exact UTF-8 byte framing and MCP 2026 `Tool Annotations` (`readOnlyHint`, `idempotentHint`, `destructiveHint`):
 
@@ -120,6 +123,8 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 - `brain://graph/report` — Deterministic `GRAPH_REPORT.md` architecture summary & God Nodes
 - `brain://orbit/briefing` — Executive Morning Brief, 5h Quota Radar & Engineering ROI
 - `brain://voice/protocol` — Active Voice-Aware Zero-Call Protocol & Phonetic AST Guide
+- `brain://skills/catalog` — Installed Antigravity skills catalog and local zero-token resolution guide
+- `brain://pagoda/timeline` — Active Pagoda LSM multi-tier reversible fold timeline & compression telemetry
 - `brain://workspace/{workspace}/checkpoint` — Active milestone checkpoint for any workspace
 - `brain://symbol/{symbol_name}` — Surgical AST symbol slice (`:Lstart-end`)
 
@@ -128,7 +133,7 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 - `bugfix-lineage` — Root-cause debugging template with causal bugfix history & AST alerts
 - `swarm-dispatch` — 4-Lane Asymmetric Swarm decomposition template (`UI`, `API`, `TESTS`, `DOCS`)
 
-### 19 Native MCP Tools (`tools/list`, `tools/call`)
+### 23 Native MCP Tools (`tools/list`, `tools/call`)
 | Category | Tool Name | Read-Only | Description |
 | :--- | :--- | :---: | :--- |
 | **Core Memory** | `store_fact` | `false` | Store or update an architectural fact, bug fix, or directive with bi-temporal superseding & secret redaction. |
@@ -152,6 +157,8 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 | **Voice Protocol** | `brain_voice_optimize` | `false` | Denoise spoken/STT queries, resolve spoken symbols to `:Lstart-end` AST pointers, and pre-execute Brain intents (`brain://voice/protocol`). |
 | **Pagoda LSM** | `brain_decompress_fold` | `true` | Losslessly decompress a Pagoda LSM multi-tier fold (`Tier-1/2/3`) by fold ID (`brain://pagoda/timeline`). |
 | **Archify Engine** | `swarm_archify_delta` | `true` | Zero-token deterministic architecture map, git delta, reachability focus & conclusion-first explainer (`ARCHIFY_MAP.html`). |
+| **Local Skills** | `brain_resolve_skill` | `true` | Zero-token local `SKILL.md` resolver across 130+ installed Antigravity skills, rescuing context-budget-excluded skills. |
+| **Ranking Explain** | `brain_explain_ranking` | `true` | Explainable hybrid search debugger (`Salience × Recency` orthogonal axes + `BM25/LSH/PPR` math + `Autocut` drop reasons). |
 
 ---
 

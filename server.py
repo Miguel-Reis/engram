@@ -28,7 +28,7 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str, version: str = "8.2.0") -> None:
+    def __init__(self, name: str, version: str = "8.3.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
@@ -46,6 +46,8 @@ class StdioMCPServer:
         "orbit_briefing_roi",
         "brain_decompress_fold",
         "swarm_archify_delta",
+        "brain_resolve_skill",
+        "brain_explain_ranking",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -283,6 +285,12 @@ class StdioMCPServer:
                             "description": "Active Tier-3/2/1 compressed episodic folds, token compaction ratios, and reversible fold archive",
                             "mimeType": "text/markdown",
                         },
+                        {
+                            "uri": "brain://skills/catalog",
+                            "name": "Installed Skills & Resolution Catalog",
+                            "description": "Catalog of all installed Antigravity agent skills across plugins, resolving budget-excluded skills locally",
+                            "mimeType": "text/markdown",
+                        },
                     ]
                 },
             }
@@ -436,6 +444,22 @@ class StdioMCPServer:
                     return "\n".join(lines)
                 except Exception as exc:
                     return f"# ⛩️ Pagoda LSM Timeline\n\nNenhum fold ativo ou erro a carregar: {exc}"
+            if uri == "brain://skills/catalog":
+                try:
+                    from skill_resolver_engine import SkillResolverEngine
+                    sk_engine = SkillResolverEngine(db)
+                    if hasattr(sk_engine, "get_catalog_summary"):
+                        cat_res = sk_engine.get_catalog_summary()
+                    else:
+                        idx_info = sk_engine.build_or_refresh_index()
+                        cat_res = {
+                            "total_skills": idx_info.get("total_skills", 0),
+                            "plugins_scanned": idx_info.get("plugins_scanned", 0),
+                            "markdown": f"# 🧠 Antigravity Skills Catalog\n\n- **Total Skills Indexadas**: {idx_info.get('total_skills', 0)}\n- **Plugins Scaneados**: {idx_info.get('plugins_scanned', 0)}\n- **Resolução Zero-Token**: Ativa via `brain_resolve_skill(query, top_k)` para recuperar skills excluídas do context budget.\n",
+                        }
+                    return str(cat_res.get("markdown") or f"# Skills Catalog\n\nTotal skills: {cat_res.get('total_skills', 0)}")
+                except Exception as exc:
+                    return f"# 🧠 Skills Catalog\n\nSkill Resolver Engine status: {exc}\n\nResolução local de skills ativa para recuperar skills excluídas do context budget."
             if uri.startswith("brain://workspace/") and uri.endswith("/checkpoint"):
                 ws_part = uri[len("brain://workspace/") : -len("/checkpoint")].strip("/") or "brain_mcp"
                 chk = db.get_checkpoint(ws_part) or {}
@@ -629,7 +653,7 @@ except Exception:
     pass
 
 # Create the MCP server
-mcp = MCPServer("antigravity-brain", version="8.2.0")
+mcp = MCPServer("antigravity-brain", version="8.3.0")
 mcp.db = db
 
 
@@ -1025,6 +1049,68 @@ def swarm_archify_delta(
             res = {"ok": False, "error": f"Modo desconhecido: '{mode}'. Opções: delta, reach, explainer, spec, export_html"}
     except Exception as exc:
         res = {"ok": False, "error": str(exc), "mode": mode}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_resolve_skill(query: str, top_k: int = 3) -> str:
+    """Zero-token local SKILL.md resolver across all 130+ installed Antigravity skills, rescuing context-budget-excluded skills.
+
+    Args:
+        query: Intent, technical domain, or task description to match against installed skills
+        top_k: Number of most relevant skills to resolve with instructions and execution triggers (default 3)
+    """
+    try:
+        from skill_resolver_engine import SkillResolverEngine
+        engine = SkillResolverEngine(mcp.db or db)
+        res = engine.resolve_skills_for_query(query=query, top_k=top_k)
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "query": query, "top_k": top_k}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_explain_ranking(
+    query: str,
+    workspace: str = "brain_mcp",
+    target: str = "",
+    salience: str = "auto",
+    recency: str = "auto",
+) -> str:
+    """Explainable hybrid search debugger with Salience × Recency orthogonal axes, BM25/LSH/PPR math, and Autocut drop reasons.
+
+    Args:
+        query: Search query to evaluate through the hybrid ranking pipeline
+        workspace: Target workspace filter or 'all' (default 'brain_mcp')
+        target: Optional symbol or topic to inspect detailed scoring and rank components for
+        salience: Salience axis filter ('auto', 'pinned_only', 'high', 'all')
+        recency: Recency decay axis filter ('auto', 'strict_decay', 'flat', 'session_only')
+    """
+    target_db = mcp.db or db
+    try:
+        if hasattr(target_db, "explain_memory_query"):
+            res = target_db.explain_memory_query(
+                query=query,
+                workspace=workspace,
+                target=target,
+                salience=salience,
+                recency=recency,
+            )
+        else:
+            mems = target_db.search_memories(query, workspace=workspace, n_results=10)
+            res = {
+                "ok": True,
+                "query": query,
+                "workspace": workspace,
+                "salience": salience,
+                "recency": recency,
+                "target": target,
+                "candidates": len(mems),
+                "results": mems,
+                "pipeline": "BM25(FTS5) + LSH(32D) + PPR(MemoryEdges) + Ebbinghaus(Recency)",
+            }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 

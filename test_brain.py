@@ -1353,6 +1353,49 @@ def run_all_tests() -> None:
         assert "brain://pagoda/timeline" in res_uris, f"Resource MCP v8.2 ausente: {res_uris}"
         assert "7_pagoda_lsm_folding" in insp_prev["token_optimizations"], f"Pilar #7 Pagoda ausente no Inspector: {insp_prev}"
 
+        # 32. Antigravity Brain v8.3 (GBrain Orthogonal Axes, Explainable Search, Skill Resolver & Compiled Vault Back-Links)
+        from skill_resolver_engine import SkillResolverEngine
+
+        axes_canon = gb_db.resolve_salience_and_recency_axes("como funciona o BrainDB em db_engine.py")
+        assert axes_canon["mode_label"] == "CANONICAL_TRUTH" and axes_canon["recency"] == "off", f"Eixos Canonical Truth incorretos: {axes_canon}"
+        axes_today = gb_db.resolve_salience_and_recency_axes("o que fizemos hoje de mais importante?")
+        assert axes_today["recency"] == "strong" and axes_today["salience"] == "on", f"Eixos Strong Recency incorretos: {axes_today}"
+
+        assert gb_db.passes_notability_gate("Ficheiro verify_lane.py", "Path: tmp/verify_lane.py", "code_change") is False, "Notability gate devia bloquear verify_lane.py"
+        assert gb_db.passes_notability_gate("Arquitetura Core", "Regra importante de SQLite WAL", "architecture") is True, "Notability gate bloqueou arquitetura válida"
+
+        exp_res = gb_db.explain_memory_query("Porta HTTP Dashboard", workspace="new_project", target="Porta HTTP")
+        assert exp_res["ok"] is True and len(exp_res["accepted_hits"]) >= 1, f"explain_memory_query falhou: {exp_res}"
+        assert "bm25_fts" in exp_res["accepted_hits"][0]["score_breakdown"], f"score_breakdown ausente: {exp_res['accepted_hits'][0]}"
+
+        sr_eng = SkillResolverEngine(gb_db)
+        sr_res = sr_eng.resolve_skills_for_query("fazer pentest de segurança owasp na api", top_k=3)
+        assert sr_res["ok"] is True and sr_res["total_skills_indexed"] >= 10, f"SkillResolverEngine falhou: {sr_res}"
+
+        vb_dos = gb_orbit.compile_vault_dossier(
+            workspace="vault_test_ws",
+            slug="core_engine",
+            title="Core Engine Architecture",
+            compiled_truth="Usa SQLite WAL + 128-D LSH ligado a [[api_gateway]].",
+            timeline_entry="Inicializado dossiê Compiled Truth v8.3",
+            related_slugs=["api_gateway"],
+        )
+        gb_orbit.compile_vault_dossier(
+            workspace="vault_test_ws",
+            slug="api_gateway",
+            title="API Gateway",
+            compiled_truth="Serve endpoints REST sobre o Core Engine Architecture.",
+            timeline_entry="Ligado ao Core Engine",
+        )
+        vb_enf = gb_orbit.enforce_vault_backlinks("vault_test_ws")
+        import shutil as _shutil
+        _shutil.rmtree(os.path.join(repo_root_dir, ".brain_vault", "vault_test_ws"), ignore_errors=True)
+        assert vb_dos["ok"] is True and vb_enf["ok"] is True and vb_enf["backlinks_verified"] >= 1, f"Vault Bidirectional Back-Links falhou: {vb_enf}"
+
+        assert "brain_resolve_skill" in tool_names and "brain_explain_ranking" in tool_names, f"Tools MCP v8.3 ausentes: {tool_names}"
+        assert "brain://skills/catalog" in res_uris, f"Resource MCP v8.3 ausente: {res_uris}"
+        assert "8_gbrain_axes_and_skill_resolver" in insp_prev["token_optimizations"], f"Pilar #8 GBrain ausente no Inspector: {insp_prev}"
+
     assert 'id="tabBtnJarvis"' not in html_content, "tabBtnJarvis ainda existe em index.html!"
     assert 'id="jarvisWorkspace"' not in html_content, "jarvisWorkspace ainda existe em index.html!"
 
@@ -1412,9 +1455,17 @@ def run_all_tests() -> None:
         "function refreshPagodaPanelUI(",
         "function decompressPagodaFoldUI(",
         "function triggerManualPagodaFoldUI(",
+        'id="gbrainDiagnosticPanel"',
+        'id="gbrainDiagInput"',
+        'id="gbrainDiagnosticOutput"',
+        "function runGbrainSkillResolverUI(",
+        "function runGbrainExplainRankingUI(",
+        'id="btnVaultEnforceBacklinks"',
+        'id="vaultBacklinksBadge"',
+        "function enforceVaultBacklinksUI(",
     ):
-        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.2 em falta em index.html: {gb_ui_token}"
-    print("[PASS] Pack Completo v6.0..v8.2 Studio OS (Pagoda LSM Reversible Folding, Archify Zero-Token Evidence Console, Voice Zero-Call & Gate AST) OK")
+        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.3 em falta em index.html: {gb_ui_token}"
+    print("[PASS] Pack Completo v6.0..v8.3 Studio OS (GBrain Orthogonal Axes, Skill Resolver 379x, Vault Back-Links, Pagoda LSM & Archify) OK")
 
 
 if __name__ == "__main__":

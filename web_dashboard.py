@@ -272,7 +272,20 @@ def harvest_all_workspace_context(db: BrainDB) -> Dict[str, int]:
             t_path = os.path.join(conv_dir, ".system_generated", "logs", "transcript.jsonl")
             if os.path.isfile(t_path):
                 try:
-                    c = harvest_latest_turn(t_path, "brain_mcp", conv_id, db)
+                    # Isolamento estrito de contexto: determinar workspace real da conversa a partir da telemetria
+                    real_conv_ws = "global"
+                    try:
+                        with db._connect() as conn:
+                            row = conn.execute(
+                                "SELECT workspace FROM telemetry WHERE conversation_id = ? AND workspace NOT IN ('global', '', 'all') ORDER BY id DESC LIMIT 1;",
+                                (conv_id,),
+                            ).fetchone()
+                            if row and row["workspace"]:
+                                real_conv_ws = str(row["workspace"]).strip()
+                    except Exception:
+                        pass
+
+                    c = harvest_latest_turn(t_path, real_conv_ws, conv_id, db)
                     harvested_turns += 1
                     added_memories += c
 
@@ -300,7 +313,7 @@ def harvest_all_workspace_context(db: BrainDB) -> Dict[str, int]:
                                     _, is_new = db.store_fact(
                                         topic=b_topic,
                                         fact=b_fact,
-                                        workspace="brain_mcp",
+                                        workspace=real_conv_ws,
                                         category="explicit_note",
                                         tags="explicit brain_comment architecture",
                                         importance=5,
@@ -356,6 +369,44 @@ def harvest_all_workspace_context(db: BrainDB) -> Dict[str, int]:
                                             added_memories += 1
                 except Exception:
                     pass
+
+    # 3. Higienização GBrain de Fonte-Isolada (Limpeza de memórias e checkpoints contaminados)
+    try:
+        with db._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, topic FROM memories WHERE workspace = 'brain_mcp' AND topic LIKE 'Ficheiro %';"
+            ).fetchall()
+            to_delete = []
+            for r in rows:
+                top = str(r["topic"] or "")
+                m_fn = re.search(r"Ficheiro\s+([^\s\(]+)", top)
+                if m_fn:
+                    fn = m_fn.group(1).strip()
+                    if not os.path.exists(os.path.join(CURRENT_DIR, fn)):
+                        to_delete.append(r["id"])
+            if to_delete:
+                conn.executemany("DELETE FROM memories WHERE id = ?;", [(i,) for i in to_delete])
+    except Exception:
+        pass
+
+    try:
+        ckpt = db.get_checkpoint("brain_mcp")
+        if ckpt:
+            ckpt_str = json.dumps(ckpt, default=str)
+            if ".tsx" in ckpt_str.lower() or "sidebar.tsx" in ckpt_str.lower():
+                db.save_checkpoint(
+                    workspace="brain_mcp",
+                    project="brain_mcp",
+                    goal="Antigravity Brain Engine v8.3 (GBrain Unified Architecture & Orthogonal Memory Search)",
+                    status="Ativo • Fonte Isolada e Canónica",
+                    stack="Python 3.12+, SQLite WAL + FTS5 BM25, Antigravity Hooks, MCP, Swarm",
+                    last_completed="Isolamento de contexto e compilação canónica de dossiers",
+                    next_tasks="Sincronização Contínua de Dossiers e Resolução Local de Skills",
+                    key_files="orbit_engine.py, db_engine.py, web_dashboard.py, server.py, brain_inject.py, brain_harvest.py",
+                    notes="Ambiente higienizado e isolado de contaminação cruzada.",
+                )
+    except Exception:
+        pass
 
     return {"added_memories": added_memories, "scanned_conversations": harvested_turns}
 
@@ -767,7 +818,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "antigravity-brain-v8.2"})
+            self._send_json({"status": "ok", "service": "antigravity-brain-v8.3"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -826,7 +877,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/manifest.json":
             manifest = {
-                "name": "Antigravity Brain v8.2 — Carbon Studio OS",
+                "name": "Antigravity Brain v8.3 — Carbon Studio OS",
                 "short_name": "Brain OS",
                 "start_url": "/?app=1#graph",
                 "display": "standalone",
@@ -1111,6 +1162,58 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
             mid = _safe_int(mid_raw, default=0, min_v=1) or None
             db = BrainDB()
             self._send_json({"ok": True, "revisions": db.get_memory_revisions(memory_id=mid, limit=25)})
+            return
+
+        if parsed.path == "/api/memories/explain":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["brain_mcp"])[0] or "brain_mcp"
+            target = qs.get("target", [""])[0]
+            salience = qs.get("salience", ["auto"])[0] or "auto"
+            recency = qs.get("recency", ["auto"])[0] or "auto"
+            db = BrainDB()
+            try:
+                if hasattr(db, "explain_memory_query"):
+                    exp_res = db.explain_memory_query(
+                        query=q,
+                        workspace=ws,
+                        target=target,
+                        salience=salience,
+                        recency=recency,
+                    )
+                else:
+                    mems = db.search_memories(q, workspace=ws, n_results=10)
+                    exp_res = {
+                        "ok": True,
+                        "query": q,
+                        "workspace": ws,
+                        "salience_filter": salience,
+                        "recency_filter": recency,
+                        "target_symbol": target,
+                        "total_candidates": len(mems),
+                        "results": mems,
+                        "ranking_pipeline": {
+                            "bm25_fts5": "active",
+                            "semantic_lsh": "active",
+                            "ppr_graph": "active",
+                            "autocut_applied": False,
+                        },
+                    }
+                self._send_json(exp_res)
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "query": q, "workspace": ws}, 500)
+            return
+
+        if parsed.path == "/api/skills/resolve":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            top_k = _safe_int(qs.get("top_k", ["3"])[0], default=3, min_v=1, max_v=10)
+            try:
+                from skill_resolver_engine import SkillResolverEngine
+                engine = SkillResolverEngine(BrainDB())
+                self._send_json(engine.resolve_skills_for_query(query=q, top_k=top_k))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "query": q, "top_k": top_k}, 500)
             return
 
         if parsed.path == "/api/events":
@@ -1608,6 +1711,32 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 fn = str(body.get("filename", "atlas.md"))
                 cnt = str(body.get("content", ""))
                 res = orbit.save_vault_note(workspace=ws, filename=fn, content=cnt, sync_to_db=True)
+            elif action == "vault_enforce_backlinks":
+                ws = str(body.get("workspace", "brain_mcp"))
+                vb_res = orbit.enforce_vault_backlinks(workspace=ws)
+                res = {**vb_res, "vault_studio": orbit.get_vault_studio_overview(workspace=ws)}
+            elif action == "vault_compile_dossier":
+                ws = str(body.get("workspace", "brain_mcp"))
+                slug = str(body.get("slug", "dossier")).strip()
+                title = str(body.get("title", slug)).strip()
+                compiled_truth = str(body.get("compiled_truth", "")).strip()
+                timeline_entry = str(body.get("timeline_entry", "")).strip()
+                rel = body.get("related_slugs")
+                if isinstance(rel, str):
+                    rel_slugs = [x.strip() for x in rel.split(",") if x.strip()]
+                elif isinstance(rel, list):
+                    rel_slugs = [str(x).strip() for x in rel if str(x).strip()]
+                else:
+                    rel_slugs = None
+                vc_res = orbit.compile_vault_dossier(
+                    workspace=ws,
+                    slug=slug,
+                    title=title,
+                    compiled_truth=compiled_truth,
+                    timeline_entry=timeline_entry,
+                    related_slugs=rel_slugs,
+                )
+                res = {**vc_res, "vault_studio": orbit.get_vault_studio_overview(workspace=ws)}
             elif action == "global_brain_synthesize":
                 ws = str(body.get("workspace", "brain_mcp"))
                 scan_tr = bool(body.get("scan_transcripts", True))

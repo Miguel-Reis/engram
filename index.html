@@ -4260,7 +4260,7 @@
         </div>
       </div>
 
-      <!-- Center Controls: Workspace + 1-Click Sync -->
+      <!-- Center Controls: Workspace + 1-Click Sync + Compiled Truth Back-Links -->
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <select id="vaultWorkspaceSelect" class="select-sm" style="height:30px; font-family:var(--font-mono); font-weight:700;" onchange="onVaultWorkspaceChangeUI(this.value)">
           <option value="brain_mcp" selected>📂 brain_mcp</option>
@@ -4272,6 +4272,12 @@
         <button class="btn btn-primary" style="padding:5px 10px; font-size:11px;" onclick="openVaultNoteEditorModal('atlas.md')">
           📝 Editar / Criar Nota .MD
         </button>
+        <button class="quick-ag-btn" id="btnVaultEnforceBacklinks" style="color:#c084fc; border-color:rgba(168,85,247,0.45); font-weight:700; padding:5px 10px;" onclick="enforceVaultBacklinksUI()" title="Compilar dossiês canónicos e forçar ligações bidirecionais [[wikilinks]] com verificação determinística">
+          🔗 Compilar Dossiês &amp; Back-Links
+        </button>
+        <span id="vaultBacklinksBadge" class="rc-badge" style="font-family:var(--font-mono); font-size:10px; font-weight:700; background:rgba(168,85,247,0.14); border:1px solid rgba(168,85,247,0.4); color:#c084fc; padding:4px 8px; border-radius:5px;" title="Total de ligações bidirecionais [[wikilinks]] e dossiês de verdade canónica compilados">
+          🔗 0 Back-Links · 0 Dossiers
+        </span>
       </div>
 
       <!-- Right 4 Big Telemetry Counters (NOTES | LINKS | IMPORTS | CLIPPED) -->
@@ -4949,7 +4955,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         <span id="doctorStatusMsg" style="font-size:11px; color:#6ee7b7; align-self:center; font-family:var(--font-mono);"></span>
       </div>
 
-      <!-- Controlos de Simulação do PreInvocation Hook + 7 Otimizações de Poupança de Tokens -->
+      <!-- Controlos de Simulação do PreInvocation Hook + 8 Otimizações de Poupança de Tokens -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-bottom:10px;" id="tokenOpt5PillarsStrip">
         <div class="studio-section-card" style="padding:7px 9px; font-size:10px;">
           <div class="text-emerald" style="font-weight:700;">⚡ 1. Session Delta</div>
@@ -4978,6 +4984,10 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         <div class="studio-section-card" style="padding:7px 9px; font-size:10px;" title="Compressão hierárquica incremental (Tier-1 Episódio ➔ Tier-2 Marco ➔ Tier-3 Época) sem decaimento ρ^k, com arquivo reversível zlib e prefixo KV-Cache estável.">
           <div style="font-weight:700; color:#c084fc;">🏯 #7 Pagoda LSM Folding</div>
           <div style="color:var(--text-muted); font-size:9.5px; margin-top:2px;" id="inspOptPagodaVal"><strong style="color:#c084fc;">~70x Fold</strong> · 94% KV-Cache</div>
+        </div>
+        <div class="studio-section-card" style="padding:7px 9px; font-size:10px;" title="Eixos ortogonais Salience × Recency (Canonical Truth sem decaimento temporal), Explainable Ranking (--explain) e Skill Resolver Zero-Token para 130+ SKILL.md locais.">
+          <div style="font-weight:700; color:#10b981;">🧭 #8 GBrain Axes &amp; Skills</div>
+          <div style="color:var(--text-muted); font-size:9.5px; margin-top:2px;" id="inspOptGbrainVal"><strong style="color:#10b981;">130+ Skills</strong> · Salience×Recency</div>
         </div>
       </div>
 
@@ -5100,6 +5110,91 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
           </div>
           <div id="pagodaDecompressMeta" style="color:var(--text-muted); font-size:9.5px; margin-bottom:4px;"></div>
           <pre id="pagodaDecompressBody" style="margin:0; max-height:180px; overflow:auto; white-space:pre-wrap; color:#e2e8f0; font-size:10px; background:#050508; padding:6px; border-radius:4px; border:1px solid var(--border);"></pre>
+        </div>
+      </div>
+
+      <!-- 🧭 GBrain Skill Resolver (130+ SKILL.md) & Explainable Ranking (--explain) HUD -->
+      <div class="studio-section-card" id="gbrainDiagnosticPanel" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(16,185,129,0.32); background:rgba(6,16,12,0.78); border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#10b981; font-family:var(--font-mono); letter-spacing:0.02em;">
+              🧭 GBrain Skill Resolver (130+ SKILL.md) &amp; Explainable Ranking (--explain)
+            </span>
+            <span id="gbrainStatusBadge" class="rc-badge" style="font-size:9.5px; background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-family:var(--font-mono);">
+              Eixos Ortogonais · Salience × Recency
+            </span>
+          </div>
+          <span style="font-size:10px; color:var(--text-muted); font-family:var(--font-mono);">
+            Zero-Token Directive Injection · Canonical Truth
+          </span>
+        </div>
+
+        <!-- Controls row: Query input + Optional Target input + Salience Select + Recency Select -->
+        <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
+          <input
+            type="text"
+            id="gbrainDiagInput"
+            class="search-input"
+            style="flex:1; min-width:240px; font-family:var(--font-mono); font-size:11px; padding:6px 10px; background:#070d0a; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+            placeholder='Ex: "fazer pentest owasp na api" ou "como funciona o BrainDB"'
+            value="como funciona o BrainDB em db_engine.py"
+            onkeydown="if(event.key==='Enter') runGbrainExplainRankingUI()"
+          />
+          <input
+            type="text"
+            id="gbrainExplainTargetInput"
+            class="search-input"
+            style="width:150px; font-family:var(--font-mono); font-size:11px; padding:6px 10px; background:#070d0a; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+            placeholder="Alvo opcional (ID/tópico)"
+            onkeydown="if(event.key==='Enter') runGbrainExplainRankingUI()"
+          />
+          <select id="gbrainSalienceSelect" class="select-sm" style="height:31px; font-family:var(--font-mono); font-size:10.5px; background:#070d0a; border:1px solid var(--border-strong); color:#cbd5e1; border-radius:6px;">
+            <option value="auto" selected>Salience: Auto</option>
+            <option value="on">Salience: ON</option>
+            <option value="off">Salience: OFF</option>
+          </select>
+          <select id="gbrainRecencySelect" class="select-sm" style="height:31px; font-family:var(--font-mono); font-size:10.5px; background:#070d0a; border:1px solid var(--border-strong); color:#cbd5e1; border-radius:6px;">
+            <option value="auto" selected>Recency: Auto</option>
+            <option value="off">Recency: OFF (Canonical)</option>
+            <option value="on">Recency: ON</option>
+            <option value="strong">Recency: STRONG (Hoje)</option>
+          </select>
+        </div>
+
+        <!-- Quick Preset Chips + Action Buttons -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn" style="padding:3px 8px; font-size:10px; background:#0a1712; border:1px solid rgba(16,185,129,0.3); color:#6ee7b7;"
+                    onclick="document.getElementById('gbrainDiagInput').value='auditoria de segurança pentest owasp na api'; runGbrainSkillResolverUI();"
+                    title="Pesquisa e resolve a skill local usestrix/owasp/pentest com 0 tokens de LLM">
+              🛡️ Pentest &amp; OWASP Skill
+            </button>
+            <button type="button" class="btn" style="padding:3px 8px; font-size:10px; background:#0a1712; border:1px solid rgba(56,189,248,0.3); color:#7dd3fc;"
+                    onclick="document.getElementById('gbrainDiagInput').value='melhorar design ui ux e animações css'; runGbrainSkillResolverUI();"
+                    title="Pesquisa e resolve skills de UI/UX Design (Tailwind, HIG, Design System)">
+              🎨 UI/UX Design Skill
+            </button>
+            <button type="button" class="btn" style="padding:3px 8px; font-size:10px; background:#0a1712; border:1px solid rgba(192,132,252,0.3); color:#d8b4fe;"
+                    onclick="document.getElementById('gbrainDiagInput').value='como funciona o BrainDB em db_engine.py'; document.getElementById('gbrainSalienceSelect').value='auto'; document.getElementById('gbrainRecencySelect').value='auto'; runGbrainExplainRankingUI();"
+                    title="Explica decomposição matemática de ranking e eixos ortogonais sem decaimento temporal em verdades canónicas">
+              🔬 Explain Canonical Truth
+            </button>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" class="btn btn-primary" id="btnGbrainResolveSkill" style="padding:4px 10px; font-size:10.5px; background:#059669; border-color:#10b981; color:#fff;" onclick="runGbrainSkillResolverUI()">
+              🎯 Resolver Skills (0 Tokens)
+            </button>
+            <button type="button" class="btn btn-primary" id="btnGbrainExplainRank" style="padding:4px 10px; font-size:10.5px; background:#0284c7; border-color:#38bdf8; color:#fff;" onclick="runGbrainExplainRankingUI()">
+              🔬 Explicar Ranking (--explain)
+            </button>
+          </div>
+        </div>
+
+        <!-- Output Viewport id="gbrainDiagnosticOutput" -->
+        <div id="gbrainDiagnosticOutput" style="background:#040907; border:1px solid var(--border-strong); border-radius:6px; padding:8px 10px; font-family:var(--font-mono); font-size:10.5px; max-height:220px; overflow-y:auto;">
+          <div style="color:var(--text-muted); font-size:10px; font-style:italic;">
+            Selecione uma query e clique em "🎯 Resolver Skills (0 Tokens)" ou "🔬 Explicar Ranking (--explain)" para visualizar a decomposição matemática BM25 × RRF × LSH × PPR × Salience × Recency e as directivas 0-token injetadas.
+          </div>
         </div>
       </div>
 
@@ -11004,6 +11099,17 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
             pagodaOptEl.innerHTML = `<strong style="color:#c084fc;">~70x Fold</strong> · 94% KV-Cache`;
           }
         }
+        const gbrainOpt = (data.token_optimizations && (data.token_optimizations['8_gbrain_axes_and_skill_resolver'] || data.token_optimizations['8_gbrain_axes_and_skills'])) || null;
+        const gbrainOptEl = document.getElementById('inspOptGbrainVal');
+        if (gbrainOptEl) {
+          if (gbrainOpt && (gbrainOpt.active || gbrainOpt.skills_indexed || gbrainOpt.label)) {
+            const skillCount = gbrainOpt.skills_indexed || gbrainOpt.skills_count || '130+';
+            const axesLabel = gbrainOpt.axes || gbrainOpt.mode || 'Salience×Recency';
+            gbrainOptEl.innerHTML = `<strong style="color:#10b981;">${escapeHtml(String(skillCount))} Skills</strong> · ${escapeHtml(String(axesLabel))}`;
+          } else {
+            gbrainOptEl.innerHTML = `<strong style="color:#10b981;">130+ Skills</strong> · Salience×Recency`;
+          }
+        }
         if (topBadge && data.compression_pct > 0) {
           topBadge.textContent = `-${Math.round(data.compression_pct)}% Tokens`;
         }
@@ -13682,6 +13788,289 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       }
     }
 
+    // =========================================================================
+    // 🧭 GBRAIN SKILL RESOLVER (130+ SKILL.MD) & EXPLAINABLE RANKING (--explain)
+    // =========================================================================
+    async function runGbrainSkillResolverUI() {
+      const qInput = document.getElementById('gbrainDiagInput');
+      const outBox = document.getElementById('gbrainDiagnosticOutput');
+      const btn = document.getElementById('btnGbrainResolveSkill');
+      if (!outBox) return;
+
+      const q = (qInput ? qInput.value : '').trim();
+      if (!q) {
+        showToast('Por favor introduza uma query para resolver skills.');
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      outBox.innerHTML = '<div style="color:#10b981; font-size:10.5px; padding:4px 0;">⚡ A pesquisar e resolver 130+ SKILL.md locais com 0 tokens LLM...</div>';
+
+      try {
+        const url = `/api/skills/resolve?q=${encodeURIComponent(q)}&top_k=3`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data || data.ok === false) {
+          outBox.innerHTML = `<div style="color:#fb7185; font-size:10.5px;">❌ Erro ao resolver skills: ${escapeHtml(data?.error || 'Falha no skill resolver')}</div>`;
+          return;
+        }
+
+        const matched = Array.isArray(data.matched_skills) ? data.matched_skills : (Array.isArray(data.skills) ? data.skills : []);
+        const totalIndexed = data.total_skills_indexed != null ? data.total_skills_indexed : (data.total_skills || 134);
+        const latencyMs = data.latency_ms != null ? data.latency_ms : (data.duration_ms || '<2');
+        const directive = data.directive_line || data.directive || '';
+
+        let directiveHtml = '';
+        if (directive) {
+          directiveHtml = `
+            <div style="background:#061a12; border:1px solid rgba(16,185,129,0.35); border-radius:5px; padding:6px 8px; margin-bottom:8px;">
+              <div style="font-size:9.5px; color:#6ee7b7; font-weight:700; margin-bottom:2px;">⚡ Directiva Injetada no Prompt (0 Tokens LLM Round-Trip):</div>
+              <code style="color:#a7f3d0; font-size:10px; display:block; white-space:pre-wrap; word-break:break-all;">${escapeHtml(directive)}</code>
+            </div>
+          `;
+        }
+
+        let skillsHtml = '';
+        if (matched.length === 0) {
+          skillsHtml = '<div style="color:var(--text-muted); font-size:10px; font-style:italic;">Nenhuma skill com pontuação suficiente encontrada para esta query.</div>';
+        } else {
+          skillsHtml = matched.map((sk, idx) => {
+            const name = sk.name || sk.id || `Skill #${idx + 1}`;
+            const plugin = sk.plugin || sk.source || 'built-in';
+            const score = sk.score != null ? (typeof sk.score === 'number' ? (sk.score > 1 ? sk.score.toFixed(1) : (sk.score * 100).toFixed(0) + '%') : String(sk.score)) : 'Recomendada';
+            const desc = sk.description || sk.summary || '';
+            const path = sk.path || sk.file_path || sk.file || '';
+
+            return `
+              <div style="background:#08130e; border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:7px 9px; margin-bottom:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; flex-wrap:wrap; gap:4px;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="color:#10b981; font-weight:800; font-size:11px;">#${idx + 1} ${escapeHtml(name)}</span>
+                    <span class="rc-badge" style="font-size:8.5px; background:rgba(16,185,129,0.12); color:#6ee7b7; border-color:rgba(16,185,129,0.3);">
+                      ${escapeHtml(plugin)}
+                    </span>
+                  </div>
+                  <span class="tk-chip" style="font-size:9px; color:#34d399; border-color:rgba(52,211,153,0.35);">
+                    Match: ${escapeHtml(score)}
+                  </span>
+                </div>
+                ${desc ? `<div style="color:#cbd5e1; font-size:10px; margin-bottom:3px; line-height:1.35;">${escapeHtml(desc)}</div>` : ''}
+                ${path ? `<div style="color:var(--text-dim); font-size:9px; word-break:break-all;">📁 <code>${escapeHtml(path)}</code></div>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+
+        outBox.innerHTML = `
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:5px; margin-bottom:6px;">
+              <span style="font-size:10px; font-weight:800; color:#10b981;">
+                🎯 SKILLS RESOLVIDAS (${matched.length} de ${totalIndexed} no índice)
+              </span>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <span class="rc-badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; font-size:9px;">
+                  ${totalIndexed} SKILL.md Indexadas
+                </span>
+                <span class="tk-chip" style="font-size:9px; color:#34d399;">${escapeHtml(String(latencyMs))}ms</span>
+              </div>
+            </div>
+            ${directiveHtml}
+            ${skillsHtml}
+          </div>
+        `;
+      } catch (err) {
+        outBox.innerHTML = `<div style="color:#fb7185; font-size:10.5px;">❌ Erro de rede ao resolver skills: ${escapeHtml(err.message || String(err))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function runGbrainExplainRankingUI() {
+      const qInput = document.getElementById('gbrainDiagInput');
+      const targetInput = document.getElementById('gbrainExplainTargetInput');
+      const salSelect = document.getElementById('gbrainSalienceSelect');
+      const recSelect = document.getElementById('gbrainRecencySelect');
+      const wsSelect = document.getElementById('inspWsSelect');
+      const outBox = document.getElementById('gbrainDiagnosticOutput');
+      const btn = document.getElementById('btnGbrainExplainRank');
+      if (!outBox) return;
+
+      const q = (qInput ? qInput.value : '').trim();
+      const ws = (wsSelect ? wsSelect.value : 'brain_mcp') || 'brain_mcp';
+      const target = (targetInput ? targetInput.value : '').trim();
+      const sal = (salSelect ? salSelect.value : 'auto') || 'auto';
+      const rec = (recSelect ? recSelect.value : 'auto') || 'auto';
+
+      if (!q) {
+        showToast('Por favor introduza uma query para explicar o ranking.');
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      outBox.innerHTML = '<div style="color:#38bdf8; font-size:10.5px; padding:4px 0;">⚡ A calcular eixos ortogonais e decomposição matemática (--explain)...</div>';
+
+      try {
+        const url = `/api/memories/explain?q=${encodeURIComponent(q)}&workspace=${encodeURIComponent(ws)}&target=${encodeURIComponent(target)}&salience=${encodeURIComponent(sal)}&recency=${encodeURIComponent(rec)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data || data.ok === false) {
+          outBox.innerHTML = `<div style="color:#fb7185; font-size:10.5px;">❌ Erro ao explicar ranking: ${escapeHtml(data?.error || 'Falha no endpoint explain')}</div>`;
+          return;
+        }
+
+        // 1. Resolved Orthogonal Axes Banner
+        const axes = data.axes || data.orthogonal_axes || {};
+        const modeLabel = data.mode_label || axes.mode_label || axes.mode || 'CANONICAL_TRUTH';
+        const salVal = data.salience != null ? data.salience : (axes.salience != null ? axes.salience : 'auto');
+        const salSource = data.salience_source || axes.salience_source || 'auto';
+        const recVal = data.recency != null ? data.recency : (axes.recency != null ? axes.recency : 'off');
+        const recSource = data.recency_source || axes.recency_source || 'auto (sem âncora temporal)';
+
+        let modeBadgeBg = 'background:rgba(16,185,129,0.18); color:#6ee7b7; border-color:rgba(16,185,129,0.4);';
+        if (modeLabel.includes('FRESH') || modeLabel.includes('RECENT')) {
+          modeBadgeBg = 'background:rgba(56,189,248,0.18); color:#7dd3fc; border-color:rgba(56,189,248,0.4);';
+        } else if (modeLabel.includes('CURRENT') || modeLabel.includes('STATE')) {
+          modeBadgeBg = 'background:rgba(245,158,11,0.18); color:#fde047; border-color:rgba(245,158,11,0.4);';
+        }
+
+        const axesBannerHtml = `
+          <div style="background:#081018; border:1px solid rgba(56,189,248,0.3); border-radius:6px; padding:6px 9px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="font-size:9.5px; color:var(--text-muted); font-weight:700;">Eixos Resolvidos:</span>
+              <span class="rc-badge" style="font-size:9.5px; font-weight:800; ${modeBadgeBg}">
+                ${escapeHtml(modeLabel)}
+              </span>
+            </div>
+            <div style="display:flex; gap:8px; font-size:9.5px; color:#cbd5e1; flex-wrap:wrap;">
+              <span>Salience: <strong style="color:#6ee7b7;">${escapeHtml(String(salVal))}</strong> <span style="color:var(--text-dim);">(${escapeHtml(String(salSource))})</span></span>
+              <span>·</span>
+              <span>Recency: <strong style="color:#38bdf8;">${escapeHtml(String(recVal))}</strong> <span style="color:var(--text-dim);">(${escapeHtml(String(recSource))})</span></span>
+            </div>
+          </div>
+        `;
+
+        // 2. Target Explanation (if present)
+        let targetExplHtml = '';
+        const targetExp = data.target_explanation || data.target_diagnosis;
+        if (targetExp) {
+          const tTopic = targetExp.topic || targetExp.target || target;
+          const tRank = targetExp.rank != null ? `#${targetExp.rank}` : (targetExp.accepted ? 'Aceite' : 'Descartado');
+          const tScore = targetExp.final_score != null ? (typeof targetExp.final_score === 'number' ? targetExp.final_score.toFixed(3) : targetExp.final_score) : '';
+          const tReason = targetExp.reason || targetExp.explanation || targetExp.details || '';
+          targetExplHtml = `
+            <div style="background:#131006; border:1px solid rgba(245,158,11,0.35); border-radius:6px; padding:6px 9px; margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+                <span style="font-size:10px; font-weight:800; color:#fbbf24;">🎯 Diagnóstico de Alvo Específico: ${escapeHtml(tTopic)} (${tRank})</span>
+                ${tScore ? `<span class="tk-chip" style="font-size:9px; color:#fde047;">Score: ${escapeHtml(String(tScore))}</span>` : ''}
+              </div>
+              <div style="color:#e2e8f0; font-size:9.5px; line-height:1.35;">${escapeHtml(tReason)}</div>
+            </div>
+          `;
+        }
+
+        // 3. Accepted Hits
+        const hits = Array.isArray(data.accepted_hits) ? data.accepted_hits : (Array.isArray(data.hits) ? data.hits : []);
+        let hitsHtml = '';
+        if (hits.length === 0) {
+          hitsHtml = '<div style="color:var(--text-muted); font-size:10px; font-style:italic;">Nenhuma memória retida no Top-K para os filtros atuais.</div>';
+        } else {
+          hitsHtml = hits.map((hit, idx) => {
+            const topic = hit.topic || hit.title || `Hit #${idx + 1}`;
+            const fScore = hit.final_score != null ? (typeof hit.final_score === 'number' ? hit.final_score.toFixed(3) : String(hit.final_score)) : '0.000';
+            const jevConf = hit.jev_confidence != null ? (typeof hit.jev_confidence === 'number' ? (hit.jev_confidence > 1 ? hit.jev_confidence.toFixed(1) : (hit.jev_confidence * 100).toFixed(0) + '%') : String(hit.jev_confidence)) : '100%';
+            const sb = hit.score_breakdown || hit.breakdown || {};
+
+            const fmtNum = v => (typeof v === 'number' ? (v >= 10 ? v.toFixed(0) : v.toFixed(2)) : (v != null ? String(v) : '—'));
+
+            const bm25Val = sb.bm25_fts != null ? sb.bm25_fts : sb.bm25;
+            const rrfVal = sb.rrf_score != null ? sb.rrf_score : sb.rrf;
+            const lshVal = sb.semantic_lsh != null ? sb.semantic_lsh : sb.lsh;
+            const pprVal = sb.ppr_causal_boost != null ? sb.ppr_causal_boost : sb.ppr;
+            const salBoostVal = sb.salience_boost != null ? sb.salience_boost : sb.salience;
+            const recMultVal = sb.recency_mult != null ? sb.recency_mult : sb.recency;
+
+            const pBm25 = bm25Val != null ? `<span class="tk-chip" style="font-size:8.5px; color:#cbd5e1; border-color:rgba(255,255,255,0.15);" title="BM25 Lexical Score">BM25: ${fmtNum(bm25Val)}</span>` : '';
+            const pRrf = rrfVal != null ? `<span class="tk-chip" style="font-size:8.5px; color:#38bdf8; border-color:rgba(56,189,248,0.25);" title="Reciprocal Rank Fusion">RRF: ${fmtNum(rrfVal)}</span>` : '';
+            const pLsh = lshVal != null ? `<span class="tk-chip" style="font-size:8.5px; color:#a78bfa; border-color:rgba(167,139,250,0.25);" title="Locality Sensitive Hashing">LSH: ${fmtNum(lshVal)}</span>` : '';
+            const pPpr = pprVal != null ? `<span class="tk-chip" style="font-size:8.5px; color:#fbbf24; border-color:rgba(251,191,36,0.25);" title="Personalized PageRank">PPR: ${fmtNum(pprVal)}</span>` : '';
+            const pSal = salBoostVal != null ? `<span class="tk-chip" style="font-size:8.5px; color:#34d399; border-color:rgba(52,211,153,0.25);" title="Salience Boost">Sal: ${fmtNum(salBoostVal)}</span>` : '';
+            const pRec = recMultVal != null ? `<span class="tk-chip" style="font-size:8.5px; color:#f472b6; border-color:rgba(244,114,182,0.25);" title="Recency Multiplier">×Rec: ${fmtNum(recMultVal)}</span>` : '';
+
+            const snippet = hit.fact || hit.summary || hit.text || hit.content || '';
+
+            return `
+              <div style="background:#090d13; border:1px solid rgba(255,255,255,0.08); border-left:3px solid #10b981; border-radius:5px; padding:6px 8px; margin-bottom:5px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; flex-wrap:wrap; gap:4px;">
+                  <span style="font-weight:700; color:#f1f5f9; font-size:10.5px;">
+                    #${idx + 1} ${escapeHtml(topic)}
+                  </span>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <span class="rc-badge" style="background:rgba(16,185,129,0.14); color:#6ee7b7; border-color:rgba(16,185,129,0.3); font-size:9px;">
+                      Final: ${escapeHtml(fScore)}
+                    </span>
+                    <span class="rc-badge" style="background:rgba(168,85,247,0.12); color:#c084fc; border-color:rgba(168,85,247,0.3); font-size:9px;">
+                      JEV: ${escapeHtml(jevConf)}
+                    </span>
+                  </div>
+                </div>
+                <div style="display:flex; gap:4px; margin-bottom:4px; flex-wrap:wrap;">
+                  ${pBm25}${pRrf}${pLsh}${pPpr}${pSal}${pRec}
+                </div>
+                ${snippet ? `<div style="color:#94a3b8; font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(snippet)}</div>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+
+        // 4. Autocut Dropped Tail
+        const dropped = Array.isArray(data.autocut_dropped) ? data.autocut_dropped : (Array.isArray(data.dropped) ? data.dropped : (Array.isArray(data.dropped_candidates) ? data.dropped_candidates : []));
+        let droppedHtml = '';
+        if (dropped.length > 0) {
+          droppedHtml = `
+            <div style="margin-top:8px; border-top:1px dashed rgba(255,255,255,0.1); padding-top:6px;">
+              <div style="font-size:9.5px; font-weight:700; color:#fb7185; margin-bottom:4px;">
+                ✂️ Cauda Descartada pelo Autocut Top-K (${dropped.length} candidatos podados):
+              </div>
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                ${dropped.map(d => {
+                  const dTopic = d.topic || d.title || d.id || 'Candidato';
+                  const dReason = d.drop_reason || d.reason || `Score abaixo do corte adaptativo`;
+                  const dScore = d.final_score != null ? (typeof d.final_score === 'number' ? d.final_score.toFixed(3) : d.final_score) : '';
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#12080a; border:1px solid rgba(244,63,94,0.2); border-radius:4px; padding:3px 6px; font-size:9px;">
+                      <span style="color:#fda4af; font-family:var(--font-mono);">${escapeHtml(dTopic)}</span>
+                      <div style="display:flex; gap:6px; align-items:center;">
+                        ${dScore ? `<span style="color:var(--text-dim);">score: ${escapeHtml(String(dScore))}</span>` : ''}
+                        <span style="color:#fb7185; font-style:italic;">${escapeHtml(dReason)}</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        outBox.innerHTML = `
+          <div>
+            ${axesBannerHtml}
+            ${targetExplHtml}
+            <div style="font-size:10px; font-weight:800; color:#38bdf8; margin-bottom:5px;">
+              ✅ MEMÓRIAS ACEITES NO TOP-K (${hits.length}):
+            </div>
+            ${hitsHtml}
+            ${droppedHtml}
+          </div>
+        `;
+      } catch (err) {
+        outBox.innerHTML = `<div style="color:#fb7185; font-size:10.5px;">❌ Erro de rede ao explicar ranking: ${escapeHtml(err.message || String(err))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (closeAnyOpenModalOnEscape()) {
@@ -15699,6 +16088,8 @@ ${rulesSection}`;
           clipped: 38,
           tokens_saved_pct: 84.0
         },
+        bidirectional_backlinks_count: 64,
+        compiled_dossiers_count: 12,
         clusters: [
           { name: ws || 'brain_mcp', count: 48, color: '#a855f7' },
           { name: 'obsidian_md', count: 42, color: '#34d399' },
@@ -15744,6 +16135,13 @@ ${rulesSection}`;
       if (elImports) elImports.textContent = fmt(st.imports || 4420);
       if (elClipped) elClipped.textContent = fmt(st.clipped || 295);
       if (elP01Badge) elP01Badge.textContent = `${fmt(st.notes || 5081)} NOTES`;
+
+      const blBadge = document.getElementById('vaultBacklinksBadge');
+      if (blBadge) {
+        const blCount = data.bidirectional_backlinks_count != null ? data.bidirectional_backlinks_count : (st.backlinks || data.backlinks_count || 0);
+        const dosCount = data.compiled_dossiers_count != null ? data.compiled_dossiers_count : (st.dossiers || data.compiled_dossiers || 0);
+        blBadge.textContent = `🔗 ${fmt(blCount)} Back-Links · ${fmt(dosCount)} Dossiers`;
+      }
 
       // Panel 05: atlas.md & tasks.base
       const atlasPre = document.getElementById('vaultAtlasMdPre');
@@ -16009,6 +16407,53 @@ ${rulesSection}`;
         }
       } catch (e) {}
       showToast(`💎 Vault sincronizado para [${ws}]!`);
+    }
+
+    async function enforceVaultBacklinksUI() {
+      const ws = document.getElementById('vaultWorkspaceSelect')?.value || 'brain_mcp';
+      const btn = document.getElementById('btnVaultEnforceBacklinks');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ A compilar...';
+      }
+      vaultPulseBurst = 3.5;
+      try {
+        const res = await fetch('/api/orbit/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'vault_enforce_backlinks', workspace: ws })
+        });
+        const out = await res.json();
+        if (out && out.ok) {
+          const verified = out.backlinks_verified != null ? out.backlinks_verified : (out.verified_backlinks != null ? out.verified_backlinks : (out.bidirectional_backlinks_count != null ? out.bidirectional_backlinks_count : 0));
+          const newLinks = out.backlinks_added != null ? out.backlinks_added : (out.new_backlinks != null ? out.new_backlinks : (out.added_backlinks || 0));
+          const dossiers = out.compiled_dossiers != null ? out.compiled_dossiers : (out.compiled_dossiers_count != null ? out.compiled_dossiers_count : 0);
+
+          const badge = document.getElementById('vaultBacklinksBadge');
+          if (badge) {
+            badge.textContent = `🔗 ${Number(verified).toLocaleString()} Back-Links · ${Number(dossiers).toLocaleString()} Dossiers`;
+          }
+          showToast(`🔗 Iron Law Back-Links: ${verified} ligações bidirecionais verificadas (+${newLinks} novas) em ${dossiers} dossiês Compiled Truth!`);
+          if (out.vault_studio) {
+            lastVaultStudioData = out.vault_studio;
+            renderVaultStudioUI(out.vault_studio);
+          } else {
+            await fetchVaultStudioOverview(ws);
+          }
+          return;
+        } else {
+          showToast('⚠️ Aviso na compilação de dossiês: ' + (out?.error || 'Nenhum dossiê atualizado'));
+        }
+      } catch (e) {
+        console.error('Erro em enforceVaultBacklinksUI:', e);
+        showToast('❌ Erro ao compilar dossiês: ' + (e.message || String(e)));
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🔗 Compilar Dossiês & Back-Links';
+        }
+      }
+      await fetchVaultStudioOverview(ws);
     }
 
     async function clipCurrentRuleToVaultUI() {

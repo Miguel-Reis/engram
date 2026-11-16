@@ -474,6 +474,21 @@ class BrainDB:
                 """
             )
 
+            # 5C. Tabela de Catálogo de Skills (Zero-Token Skill Resolver Cache)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS skill_catalog (
+                    slug TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    plugin TEXT DEFAULT '',
+                    path TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    keywords TEXT DEFAULT '',
+                    mtime REAL DEFAULT 0.0
+                );
+                """
+            )
+
             user_ver_row = conn.execute("PRAGMA user_version;").fetchone()
             user_ver = int(user_ver_row[0]) if user_ver_row else 0
             if user_ver < 72:
@@ -1329,6 +1344,120 @@ class BrainDB:
         dot = sum(a * b for a, b in zip(vec_a, vec_b))
         return max(0.0, min(1.0, float(dot)))
 
+    def embed_text_128d(self, text: str) -> List[float]:
+        """Alias para compute_semantic_vector (vetor LSH 128-D)."""
+        return self.compute_semantic_vector(text)
+
+    def passes_notability_gate(self, topic: str, fact: str, category: str = "") -> bool:
+        """
+        Filtra logs temporários/scratch não notáveis (ex.: verify_lane, tmp_, test_scratch),
+        permitindo que directivas, arquitetura e memórias explícitas sejam sempre registadas.
+        """
+        cat = (category or "").lower()
+        if cat in ("code_change", "file_edit"):
+            combined = f"{topic} {fact}".lower()
+            for reject_pat in ("verify_lane", "tmp_", "temp_", ".tmp.", "test_scratch"):
+                if reject_pat in combined:
+                    return False
+        return True
+
+    def resolve_salience_and_recency_axes(
+        self, query: str, salience: str = "auto", recency: str = "auto"
+    ) -> Dict[str, Any]:
+        """
+        Implementa o modelo ortogonal de dois eixos de garrytan/gbrain (salience-and-recency.md):
+        - salience: 'on' | 'off' (se 'auto', infere a partir do prompt)
+        - recency: 'off' | 'on' | 'strong' (se 'auto', infere a partir do prompt)
+        """
+        q_norm = self.strip_accents(str(query or "")).lower()
+
+        # 1. Triggers temporais explícitos (Recency)
+        strong_recency_triggers = (
+            "hoje", "agora mesmo", "neste momento", "esta manha", "esta tarde", "esta noite",
+            "today", "right now", "this morning", "just now", "currently"
+        )
+        normal_recency_triggers = (
+            "esta semana", "recente", "recentes", "ultimas", "ultimos", "ultima", "ultimo",
+            "o que mudou", "novo", "novos", "novas", "novidade", "this week", "recent",
+            "latest", "what changed", "changes", "fresh"
+        )
+
+        has_strong_rec = any(trig in q_norm for trig in strong_recency_triggers)
+        has_norm_rec = any(trig in q_norm for trig in normal_recency_triggers)
+
+        # 2. Triggers de saliência / mattering (Salience)
+        salience_triggers = (
+            "ponto de situacao", "resumo", "mais importante", "mais relevantes", "critico",
+            "critica", "prioridade", "prioridades", "status", "catch me up", "what matters",
+            "prep me", "key takeaways", "destaques", "importante"
+        )
+        has_salience = any(trig in q_norm for trig in salience_triggers)
+
+        # 3. Triggers de verdade canónica / consulta de código (Canonical Truth)
+        canonical_triggers = (
+            "como funciona", "o que e", "qual e o ip", "qual e a porta", "qual a porta",
+            "onde fica", "onde esta", "arquitetura", "who is", "what is", "explain",
+            "::", "()", "_engine", "braindb"
+        )
+        has_canonical = any(trig in q_norm for trig in canonical_triggers) or bool(
+            re.search(r"\b\w+\.(py|ts|js|html|json|md|sql)\b", q_norm)
+        )
+
+        # Dedução heurística
+        eff_sal = "off"
+        eff_rec = "off"
+
+        if has_strong_rec:
+            eff_rec = "strong"
+            eff_sal = "on"
+        elif has_norm_rec:
+            eff_rec = "on"
+            if has_salience:
+                eff_sal = "on"
+        elif has_salience:
+            eff_sal = "on"
+            eff_rec = "off"
+        elif has_canonical:
+            eff_sal = "off"
+            eff_rec = "off"
+        else:
+            eff_sal = "off"
+            eff_rec = "off"
+
+        # Sobreposição se o caller passou explicitamente
+        sal_source = "auto_heuristic"
+        rec_source = "auto_heuristic"
+
+        if salience in ("on", "off"):
+            eff_sal = salience
+            sal_source = "caller"
+
+        if recency in ("off", "on", "strong"):
+            eff_rec = recency
+            rec_source = "caller"
+
+        # Determinação da etiqueta de modo explicativa
+        if eff_rec == "off" and eff_sal == "off":
+            mode_label = "CANONICAL_TRUTH"
+        elif eff_rec == "strong":
+            mode_label = "CURRENT_STATE" if eff_sal == "on" else "FRESH_RECENT"
+        elif eff_rec == "on" and eff_sal == "on":
+            mode_label = "CURRENT_STATE"
+        elif eff_sal == "on" and eff_rec == "off":
+            mode_label = "MATTERING_SALIENT"
+        elif eff_rec == "on" and eff_sal == "off":
+            mode_label = "FRESH_RECENT"
+        else:
+            mode_label = "CANONICAL_TRUTH"
+
+        return {
+            "salience": eff_sal,
+            "recency": eff_rec,
+            "salience_source": sal_source,
+            "recency_source": rec_source,
+            "mode_label": mode_label,
+        }
+
     def search_memories(
         self,
         query: str,
@@ -1336,17 +1465,21 @@ class BrainDB:
         n_results: int = 5,
         update_stats: bool = True,
         include_superseded: bool = False,
+        salience: str = "auto",
+        recency: str = "auto",
+        stop_threshold: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
         """
         Pesquisa Híbrida Jev-Mem System-1 + HippoRAG 2 PPR + 4-Way RRF + Ebbinghaus Retention:
         FTS5 BM25 + 128-D LSH / 128-Bit BQ Hamming + Personalized PageRank (memory_edges) +
-        Ebbinghaus Spaced-Reinforcement Forgetting Curve + Adaptive Stopping.
+        Ebbinghaus Spaced-Reinforcement Forgetting Curve + Adaptive Stopping + Eixos GBrain.
         """
         ws = self.normalize_workspace(workspace)
         tokens = self.extract_search_tokens(query)
         jev_plan = self.jev_system1_route(query, ws)
         tier_weights = jev_plan["tier_weights"]
-        stop_threshold = float(jev_plan["adaptive_stop_threshold"])
+        effective_stop_threshold = float(jev_plan["adaptive_stop_threshold"]) if stop_threshold is None else float(stop_threshold)
+        axes = self.resolve_salience_and_recency_axes(query, salience=salience, recency=recency)
 
         with self._connect() as conn:
             total = conn.execute("SELECT COUNT(*) as c FROM memories;").fetchone()["c"]
@@ -1569,9 +1702,15 @@ class BrainDB:
                     if ("." in tok or "_" in tok or any(c.isdigit() for c in tok)) and tok in text_blob:
                         exact_tech_boost += 3.0
 
-                # Tech 3: Ebbinghaus Spaced-Reinforcement Forgetting Curve
+                # Tech 3: Ebbinghaus Spaced-Reinforcement Forgetting Curve + Eixos GBrain
+                EVERGREEN_CATEGORIES = {"architecture", "directive", "learned_rule", "infra", "security", "preference"}
+                m_cat = str(item.get("category") or "").lower()
+                is_evergreen = m_cat in EVERGREEN_CATEGORIES
+
                 recency_mult = 1.0
                 retention = 1.0
+                age_days = 0.0
+                freshness_boost = 0.0
                 ts_str = str(item.get("last_accessed") or item.get("created_at") or "")
                 if ts_str:
                     try:
@@ -1584,16 +1723,57 @@ class BrainDB:
                             importance=int(item.get("importance") or 3),
                             tier=mem_tier,
                         )
-                        recency_mult = 1.0 + 0.40 * retention
                     except Exception:
-                        recency_mult = 1.1
+                        retention = 0.85
                 item["ebbinghaus_retention"] = round(retention, 4)
 
+                # Decaimento temporal por eixos
+                if axes["recency"] == "off":
+                    recency_mult = 1.25 if is_evergreen else (1.0 + 0.20 * retention)
+                elif axes["recency"] == "on":
+                    recency_mult = max(1.15, 1.0 + 0.45 * retention) if is_evergreen else (1.0 + 0.45 * retention)
+                elif axes["recency"] == "strong":
+                    recency_mult = 1.0 + 0.45 * retention
+                    freshness_boost = 1.8 * math.exp(-age_days / 2.0)
+
+                # Eixo de saliência (mattering)
+                salience_boost = 0.0
+                if axes["salience"] == "on":
+                    salience_boost = (
+                        (0.55 * max(0, int(item.get("importance", 3)) - 2))
+                        + (1.2 if h_lock else 0.0)
+                        + min(1.0, int(item.get("access_count") or 0) * 0.08)
+                    )
+
                 raw_final = (
-                    item["score"] + rrf_boost + overlap_boost + sem_boost + ws_boost + imp_boost + exact_tech_boost + c_boost + trust_boost
+                    item["score"]
+                    + rrf_boost
+                    + overlap_boost
+                    + sem_boost
+                    + ws_boost
+                    + imp_boost
+                    + exact_tech_boost
+                    + c_boost
+                    + trust_boost
+                    + salience_boost
+                    + freshness_boost
                 )
                 item["final_score"] = round(raw_final * recency_mult * tier_mult, 3)
                 item["causal_degree"] = causal_deg.get(int(rid), 0)
+                item["gbrain_axes"] = axes
+                item["score_breakdown"] = {
+                    "bm25_fts": round(item["score"], 3),
+                    "rrf_score": item["rrf_score"],
+                    "semantic_lsh": round(sem_boost, 3),
+                    "workspace_boost": round(ws_boost, 3),
+                    "importance_boost": round(imp_boost, 3),
+                    "salience_boost": round(salience_boost, 3),
+                    "ppr_causal_boost": round(c_boost, 3),
+                    "trust_boost": round(trust_boost, 3),
+                    "exact_tech_boost": round(exact_tech_boost, 3),
+                    "recency_mult": round(recency_mult, 3),
+                    "tier_mult": round(tier_mult, 3),
+                }
                 scored_list.append(item)
 
             if not scored_list:
@@ -1601,6 +1781,20 @@ class BrainDB:
                     if int(item.get("importance", 3)) >= 5:
                         item["final_score"] = float(item.get("importance", 5)) * 0.4
                         item["jev_confidence"] = 0.55
+                        item["gbrain_axes"] = axes
+                        item["score_breakdown"] = {
+                            "bm25_fts": round(item.get("score", 0.0), 3),
+                            "rrf_score": 0.0,
+                            "semantic_lsh": 0.0,
+                            "workspace_boost": 0.0,
+                            "importance_boost": float(item.get("importance", 5)) * 0.4,
+                            "salience_boost": 0.0,
+                            "ppr_causal_boost": 0.0,
+                            "trust_boost": 0.0,
+                            "exact_tech_boost": 0.0,
+                            "recency_mult": 1.0,
+                            "tier_mult": 1.0,
+                        }
                         scored_list.append(item)
 
             scored_list.sort(key=lambda x: x["final_score"], reverse=True)
@@ -1612,7 +1806,7 @@ class BrainDB:
                 conf = round(min(0.99, max(0.15, item["final_score"] / max(max_sc, 4.0))), 2)
                 item["jev_confidence"] = conf
                 # Garantir pelo menos 2 resultados, e depois aplicar Adaptive Stopping
-                if idx >= 2 and conf < stop_threshold and len(filtered_top) >= 2:
+                if idx >= 2 and conf < effective_stop_threshold and len(filtered_top) >= 2:
                     break
                 filtered_top.append(item)
                 if len(filtered_top) >= n_results:
@@ -1634,6 +1828,128 @@ class BrainDB:
                 )
 
             return top_results
+
+    def explain_memory_query(
+        self,
+        query: str,
+        workspace: str = "brain_mcp",
+        target: str = "",
+        salience: str = "auto",
+        recency: str = "auto",
+        n_results: int = 6,
+    ) -> Dict[str, Any]:
+        """
+        Explica a pontuação, os eixos gbrain ativos e as decisões de corte da pesquisa de memórias.
+        Classifica candidatos em accepted_hits vs autocut_dropped e fornece target_explanation.
+        """
+        ws = self.normalize_workspace(workspace) if workspace and workspace != "all" else "brain_mcp"
+        axes = self.resolve_salience_and_recency_axes(query, salience=salience, recency=recency)
+        jev_plan = self.jev_system1_route(query, ws)
+        default_stop_th = float(jev_plan.get("adaptive_stop_threshold", 0.35))
+
+        # Pesquisa com stop_threshold muito baixo para recolher os 20 principais candidatos
+        raw_candidates = self.search_memories(
+            query=query,
+            workspace=ws,
+            n_results=20,
+            update_stats=False,
+            stop_threshold=0.01,
+            salience=salience,
+            recency=recency,
+        )
+
+        accepted: List[Dict[str, Any]] = []
+        dropped: List[Dict[str, Any]] = []
+
+        for idx, item in enumerate(raw_candidates):
+            conf = float(item.get("jev_confidence", 0.5))
+            if idx < n_results and (idx < 2 or conf >= default_stop_th):
+                accepted.append(item)
+            else:
+                drop_reason = "RANK_OVERFLOW_TOP_K" if idx >= n_results else "JEV_AUTOCUT_LOW_CONFIDENCE"
+                item_copy = dict(item)
+                item_copy["drop_reason"] = drop_reason
+                dropped.append(item_copy)
+
+        target_explanation: Optional[Dict[str, Any]] = None
+        if target:
+            target_str = str(target).strip()
+            target_low = target_str.lower()
+            # 1. Procurar em accepted_hits
+            for item in accepted:
+                if str(item.get("id")) == target_str or target_low in str(item.get("topic", "")).lower():
+                    target_explanation = {
+                        "status": "ACCEPTED",
+                        "id": item.get("id"),
+                        "topic": item.get("topic"),
+                        "confidence": item.get("jev_confidence"),
+                        "final_score": item.get("final_score"),
+                        "score_breakdown": item.get("score_breakdown"),
+                        "reason": "Passed ranking and threshold",
+                    }
+                    break
+
+            # 2. Procurar em dropped
+            if not target_explanation:
+                for item in dropped:
+                    if str(item.get("id")) == target_str or target_low in str(item.get("topic", "")).lower():
+                        target_explanation = {
+                            "status": "DROPPED",
+                            "id": item.get("id"),
+                            "topic": item.get("topic"),
+                            "confidence": item.get("jev_confidence"),
+                            "final_score": item.get("final_score"),
+                            "drop_reason": item.get("drop_reason"),
+                            "score_breakdown": item.get("score_breakdown"),
+                            "reason": f"Dropped due to {item.get('drop_reason')}",
+                        }
+                        break
+
+            # 3. Procurar na tabela memories se não constar nos top 20
+            if not target_explanation:
+                with self._connect() as conn:
+                    row = None
+                    if target_str.isdigit():
+                        row = conn.execute("SELECT * FROM memories WHERE id = ? LIMIT 1;", (int(target_str),)).fetchone()
+                    if not row:
+                        row = conn.execute("SELECT * FROM memories WHERE LOWER(topic) LIKE ? LIMIT 1;", (f"%{target_low}%",)).fetchone()
+                    if row:
+                        r_dict = dict(row)
+                        r_ws = r_dict.get("workspace", "global")
+                        if ws != "global" and r_ws not in (ws, "global"):
+                            target_explanation = {
+                                "status": "EXCLUDED",
+                                "id": r_dict.get("id"),
+                                "topic": r_dict.get("topic"),
+                                "memory_workspace": r_ws,
+                                "active_workspace": ws,
+                                "reason": "WORKSPACE_SCOPE_MISMATCH",
+                            }
+                        else:
+                            target_explanation = {
+                                "status": "EXCLUDED",
+                                "id": r_dict.get("id"),
+                                "topic": r_dict.get("topic"),
+                                "reason": "NO_LEXICAL_OR_LSH_SEED_MATCH",
+                            }
+                    else:
+                        target_explanation = {
+                            "status": "NOT_FOUND",
+                            "target": target_str,
+                            "reason": "NO_SUCH_MEMORY",
+                        }
+
+        return {
+            "ok": True,
+            "query": query,
+            "workspace": ws,
+            "axes": axes,
+            "accepted_count": len(accepted),
+            "dropped_count": len(dropped),
+            "accepted_hits": accepted,
+            "autocut_dropped": dropped[:8],
+            "target_explanation": target_explanation,
+        }
 
     def save_checkpoint(
         self,

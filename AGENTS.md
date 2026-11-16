@@ -1,6 +1,6 @@
 # AGENTS.md — brain_mcp
 
-# Antigravity Brain v8.2 — Pagoda LSM Folds, Archify Zero-Token Delta & Voice Protocol
+# Antigravity Brain v8.3 — GBrain Orthogonal Axes, Local Skill Resolver & Compiled Vault Dossiers
 
 1. **Pre-Injected Context (`[BRAIN_MEMORY]`)**: Prior to responding, check if an ephemeral `[BRAIN_MEMORY]` block was injected. Trust its file paths, checkpoints, and environment facts so you do not waste tool calls re-discovering project structure.
 2. **Zero-Token Memory Harvesting (`<!-- brain: Topic | Fact -->`)**: Whenever you solve a non-trivial bug, discover a critical IP/config/path, or make an architectural decision, append a hidden HTML comment at the very end of your response:
@@ -16,6 +16,10 @@
 6. **Pagoda LSM Folds & Archify Zero-Token Delta (`brain_decompress_fold` & `swarm_archify_delta`)**:
    - **Pagoda LSM Multi-Tier Reversible Folding (`brain_decompress_fold`)**: Checkpoints and turn episodes are compacted into lossless multi-tier zlib folds (`Tier-1/2/3`), reducing context bloat while remaining instantly reversible via fold ID.
    - **Archify Evidence Console & Git Delta (`swarm_archify_delta`)**: Query deterministic zero-LLM architecture maps, git deltas between revisions, upstream/downstream reachability, and conclusion-first explainers without wasting inference tokens.
+7. **GBrain Orthogonal Axes, Skill Resolver & Compiled Vault Dossiers (`brain_resolve_skill` & `brain_explain_ranking`)**:
+   - **Orthogonal Salience × Recency Ranking**: Memory retrieval separates importance (pinned/canonical truth) from time decay (Ebbinghaus recency). Debug ranking math and Autocut decisions via `brain_explain_ranking`.
+   - **Local Skill Resolver (`brain_resolve_skill`)**: When complex agent skills are omitted due to context-budget limits, resolve authoritative `SKILL.md` rules and trigger definitions locally at zero LLM token cost.
+   - **Compiled Truth & Dossiers (`.brain_vault/<ws>/*.md`)**: Maintain two-zone dossiers (`## 💎 Compiled Truth` + `## 📅 Chronological Timeline`) with bidirectional back-links (`## 🔗 Bidirectional Back-Links`) to guarantee single source of truth across agent sessions.
 
 <!-- BRAIN_AUTO_RULES_START -->
 ## 🧠 Antigravity Global Brain — Auto-Synced Rules (`brain_mcp`)

@@ -248,6 +248,8 @@ ALL_BRAIN_MCP_TOOLS = [
     "orbit_briefing_roi",
     "brain_decompress_fold",
     "swarm_archify_delta",
+    "brain_resolve_skill",
+    "brain_explain_ranking",
 ]
 
 INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {

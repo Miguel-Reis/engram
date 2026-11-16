@@ -3194,25 +3194,44 @@ class OrbitEngine:
             "Validar sempre AST e testes antes de concluir uma task.",
         ]
 
-        # 1. Gerar atlas.md (Painel 05 - Coluna 1)
+        # 1. Gerar notas em Formato Dossier Canónico de 2 Zonas (garrytan/gbrain)
+        today_iso = datetime.datetime.now().strftime("%Y-%m-%d")
         top_links = []
         for m in memories[:8]:
             t_clean = str(m.get("topic") or "nota").strip()
             slug_m = re.sub(r"[^a-z0-9_]+", "-", t_clean.lower()).strip("-")[:32] or "note"
             top_links.append((slug_m, t_clean, str(m.get("category") or "architecture"), str(m.get("fact") or "")))
+
+        for idx, (slug_m, t_clean, cat_m, fact_m) in enumerate(top_links):
             try:
+                # Detectar notas relacionadas no Vault para cross-linking bidirecional
+                related_links = []
+                for other_slug, other_title, _, _ in top_links:
+                    if other_slug != slug_m:
+                        if other_slug in fact_m.lower() or (len(other_title) >= 5 and other_title.lower() in fact_m.lower()):
+                            related_links.append(f"- [{other_title[:38]}]({other_slug}.md) · [[{other_slug}]]")
+                if not related_links and len(top_links) > 1:
+                    neighbor_slug, neighbor_title, _, _ = top_links[(idx + 1) % len(top_links)]
+                    related_links.append(f"- [{neighbor_title[:38]}]({neighbor_slug}.md) · [[{neighbor_slug}]]")
+
+                synaptic_block = "\n".join(related_links) if related_links else "- [[atlas]]\n- [[AGENTS]]"
+
                 note_md = (
                     f"---\n"
                     f"title: \"{t_clean}\"\n"
                     f"workspace: {ws}\n"
-                    f"category: {m.get('category', 'architecture')}\n"
-                    f"importance: {m.get('importance', 4)}\n"
+                    f"category: {cat_m}\n"
+                    f"importance: 4\n"
                     f"---\n\n"
                     f"# {t_clean}\n\n"
-                    f"{m.get('fact', '')}\n\n"
+                    f"## 💎 Compiled Truth (Estado Canónico Atual)\n"
+                    f"{fact_m}\n\n"
+                    f"## 📅 Chronological Timeline (Append-Only)\n"
+                    f"- **{today_iso}** | Memória sincronizada da base de conhecimento de `{ws}` ({cat_m}).\n\n"
                     f"## Synaptic Links\n"
                     f"- [[atlas]]\n"
                     f"- [[AGENTS]]\n"
+                    f"{synaptic_block}\n"
                 )
                 (vault_dir / f"{slug_m}.md").write_text(note_md, encoding="utf-8")
             except Exception:
@@ -3305,7 +3324,321 @@ class OrbitEngine:
         )
         (vault_dir / "AGENTS.md").write_text(agents_md, encoding="utf-8")
 
+        # 5. Executar a Lei de Ferro do Back-Linking Bidirecional GBrain
+        try:
+            self.enforce_vault_backlinks(workspace=ws)
+        except Exception:
+            pass
+
         return self.get_vault_studio_overview(workspace=ws)
+
+    def enforce_vault_backlinks(self, workspace: str = "brain_mcp") -> Dict[str, Any]:
+        """
+        Iron Law of Bidirectional Back-Linking (GBrain Vault Protocol):
+        - Scaneia todos os ficheiros .md em .brain_vault/<ws>/ (se vazio, corre sync_markdown_vault primeiro).
+        - Deteta referências de A.md para B.md via:
+          * Links explícitos [[slug_b]] ou (slug_b.md), OU
+          * Menção do título canónico / nome de módulo de B (>= 5 caracteres, case-insensitive).
+        - Garante que cada alvo referenciado B.md contém a secção '## 🔗 Bidirectional Back-Links'
+          no rodapé com `- **YYYY-MM-DD** | Referenciado em [{title_a}]({file_a})` (idempotente).
+        - Assegura '## 💎 Compiled Truth' em cada nota (exceto AGENTS.md), promovendo notas legadas.
+        """
+        ws = str(workspace or "brain_mcp").strip() or "brain_mcp"
+        if ws == "all":
+            ws = "brain_mcp"
+        vault_dir = self._get_vault_dir(ws)
+        md_files = list(vault_dir.glob("*.md"))
+        if not md_files:
+            self.sync_markdown_vault(workspace=ws)
+            md_files = list(vault_dir.glob("*.md"))
+
+        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+        # 1. Carregar notas e metadados
+        notes_data: Dict[str, Dict[str, Any]] = {}
+        for f in md_files:
+            try:
+                txt = f.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            title = f.stem
+            m_fm = re.search(r"^title:\s*[\"']?(.*?)[\"']?\s*$", txt, flags=re.M)
+            if m_fm:
+                title = m_fm.group(1).strip()
+            else:
+                m_h1 = re.search(r"^#\s+(.+)$", txt, flags=re.M)
+                if m_h1:
+                    title = m_h1.group(1).strip()
+            notes_data[f.name] = {
+                "file": f,
+                "name": f.name,
+                "stem": f.stem,
+                "title": title,
+                "text": txt,
+            }
+
+        compiled_count = 0
+        added_count = 0
+        total_links = 0
+        pairs: List[Dict[str, str]] = []
+
+        # 2. Assegurar '## 💎 Compiled Truth' em cada nota (exceto AGENTS.md)
+        for fname, data in list(notes_data.items()):
+            if fname == "AGENTS.md":
+                continue
+            txt = data["text"]
+            changed = False
+            if "## 💎 Compiled Truth" in txt:
+                compiled_count += 1
+            else:
+                h1_match = re.search(r"^(#\s+[^\n]+\n)", txt, flags=re.M)
+                if h1_match:
+                    h1_end = h1_match.end()
+                    body_rest = txt[h1_end:].strip()
+                    subsections = re.split(r"(?=\n##\s+)", body_rest, maxsplit=1)
+                    first_part = subsections[0].strip()
+                    rest_part = subsections[1] if len(subsections) > 1 else ""
+                    upgraded = (
+                        txt[:h1_end]
+                        + "\n## 💎 Compiled Truth (Estado Canónico Atual)\n"
+                        + (first_part if first_part else "Estado canónico compilado do dossier.")
+                        + "\n\n## 📅 Chronological Timeline (Append-Only)\n"
+                        + f"- **{today_str}** | Nota legada promovida para Dossier Canónico com Compiled Truth.\n"
+                        + (f"\n{rest_part.strip()}\n" if rest_part.strip() else "")
+                    )
+                else:
+                    upgraded = (
+                        f"# {data['title']}\n\n"
+                        f"## 💎 Compiled Truth (Estado Canónico Atual)\n"
+                        f"{txt.strip()}\n\n"
+                        f"## 📅 Chronological Timeline (Append-Only)\n"
+                        f"- **{today_str}** | Nota inicial canónica.\n"
+                    )
+                txt = upgraded
+                changed = True
+                compiled_count += 1
+
+            if changed:
+                data["file"].write_text(txt, encoding="utf-8")
+                data["text"] = txt
+
+        # 3. Detetar referências saintes de A para B
+        inbound_refs: Dict[str, List[Tuple[str, str]]] = {fn: [] for fn in notes_data}
+        for src_name, src_data in notes_data.items():
+            src_text = src_data["text"]
+            src_title = src_data["title"]
+            for tgt_name, tgt_data in notes_data.items():
+                if src_name == tgt_name:
+                    continue
+                tgt_stem = tgt_data["stem"]
+                tgt_title = tgt_data["title"]
+
+                is_referenced = False
+                # a. [[slug]] ou [[slug.md]]
+                if f"[[{tgt_stem}]]" in src_text or f"[[{tgt_name}]]" in src_text:
+                    is_referenced = True
+                # b. Markdown link (tgt_name) ou (tgt_stem.md)
+                elif f"({tgt_name})" in src_text or f"({tgt_stem}.md)" in src_text:
+                    is_referenced = True
+                # c. Menção do título canónico (>= 5 chars, case-insensitive)
+                elif len(tgt_title) >= 5 and re.search(r"\b" + re.escape(tgt_title) + r"\b", src_text, re.I):
+                    is_referenced = True
+                # d. Menção do slug direto (>= 5 chars, excluindo genéricos)
+                elif len(tgt_stem) >= 6 and re.search(r"\b" + re.escape(tgt_stem) + r"\b", src_text, re.I) and tgt_stem not in ("atlas", "agents"):
+                    is_referenced = True
+
+                if is_referenced:
+                    inbound_refs[tgt_name].append((src_title, src_name))
+                    pairs.append({"source": src_name, "target": tgt_name, "title": src_title})
+
+        # 4. Injetar / verificar '## 🔗 Bidirectional Back-Links' no rodapé de cada B.md
+        for tgt_name, refs in inbound_refs.items():
+            tgt_file = notes_data[tgt_name]["file"]
+            tgt_text = notes_data[tgt_name]["text"]
+
+            bl_header = "## 🔗 Bidirectional Back-Links"
+            has_bl_section = bl_header in tgt_text
+
+            if has_bl_section:
+                pre_bl, bl_body = tgt_text.split(bl_header, 1)
+            else:
+                pre_bl = tgt_text.rstrip()
+                bl_body = ""
+
+            bl_modified = False
+            current_bl_body = bl_body
+
+            for src_title, src_file in refs:
+                link_pattern = f"({src_file})"
+                if link_pattern in current_bl_body:
+                    total_links += 1
+                    continue
+
+                new_entry = f"- **{today_str}** | Referenciado em [{src_title}]({src_file})"
+                if not current_bl_body.strip():
+                    current_bl_body = f"\n{new_entry}\n"
+                else:
+                    current_bl_body = current_bl_body.rstrip() + f"\n{new_entry}\n"
+                added_count += 1
+                total_links += 1
+                bl_modified = True
+
+            if bl_modified or (not has_bl_section and refs):
+                final_text = pre_bl.rstrip() + f"\n\n{bl_header}\n" + current_bl_body.lstrip("\n")
+                tgt_file.write_text(final_text, encoding="utf-8")
+                notes_data[tgt_name]["text"] = final_text
+
+        return {
+            "ok": True,
+            "workspace": ws,
+            "notes_scanned": len(md_files),
+            "backlinks_verified": total_links,
+            "backlinks_added": added_count,
+            "compiled_dossiers": compiled_count,
+            "backlink_pairs": pairs[:20],
+        }
+
+    def compile_vault_dossier(
+        self,
+        workspace: str,
+        slug: str,
+        title: str,
+        compiled_truth: str,
+        timeline_entry: str = "",
+        related_slugs: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        GBrain Dossier Compiler:
+        Cria ou atualiza um dossier canónico de duas zonas em `.brain_vault/<ws>/<slug>.md`.
+        Substitui exclusivamente a secção '## 💎 Compiled Truth' preservando e anexando ao
+        '## 📅 Chronological Timeline'. Executa 'enforce_vault_backlinks' automaticamente.
+        """
+        ws = str(workspace or "brain_mcp").strip() or "brain_mcp"
+        vault_dir = self._get_vault_dir(ws)
+        clean_slug = re.sub(r"[^a-zA-Z0-9_\-]", "-", str(slug or "dossier").strip().replace(".md", "")).strip("-") or "dossier"
+        target_file = vault_dir / f"{clean_slug}.md"
+        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        clean_title = str(title or clean_slug.replace("-", " ").title()).strip()
+        clean_truth = str(compiled_truth or "").strip()
+        clean_entry = str(timeline_entry or "").strip() or "Dossier canónico atualizado."
+
+        # Processar slugs relacionados
+        rel_slugs = []
+        for s in (related_slugs or []):
+            cs = re.sub(r"[^a-zA-Z0-9_\-]", "-", str(s).strip().replace(".md", "")).strip("-")
+            if cs and cs != clean_slug and cs not in rel_slugs:
+                rel_slugs.append(cs)
+
+        if not target_file.is_file():
+            rel_links_md = "\n".join(f"- [[{s}]]" for s in rel_slugs)
+            synaptic_links_txt = "- [[atlas]]\n- [[AGENTS]]" + (f"\n{rel_links_md}" if rel_links_md else "")
+            new_content = (
+                f"---\n"
+                f"title: \"{clean_title}\"\n"
+                f"workspace: {ws}\n"
+                f"category: dossier\n"
+                f"updated: {today_str}\n"
+                f"---\n\n"
+                f"# {clean_title}\n\n"
+                f"## 💎 Compiled Truth (Estado Canónico Atual)\n"
+                f"{clean_truth}\n\n"
+                f"## 📅 Chronological Timeline (Append-Only)\n"
+                f"- **{today_str}** | {clean_entry}\n\n"
+                f"## Synaptic Links\n"
+                f"{synaptic_links_txt}\n"
+            )
+            target_file.write_text(new_content, encoding="utf-8")
+        else:
+            old_text = target_file.read_text(encoding="utf-8", errors="replace")
+
+            # 1. Substituir secção Compiled Truth
+            truth_header = "## 💎 Compiled Truth (Estado Canónico Atual)"
+            truth_pattern = r"(##\s+💎\s*Compiled\s*Truth[^\n]*\n)(.*?)(\n##|\Z)"
+            if re.search(truth_pattern, old_text, flags=re.S):
+                new_truth_block = f"{truth_header}\n{clean_truth}\n\n"
+                updated_text = re.sub(
+                    truth_pattern,
+                    lambda m: f"{new_truth_block}{m.group(3) if m.group(3) else ''}",
+                    old_text,
+                    count=1,
+                    flags=re.S,
+                )
+            else:
+                h1_match = re.search(r"^(#\s+[^\n]+\n)", old_text, flags=re.M)
+                if h1_match:
+                    h1_end = h1_match.end()
+                    updated_text = (
+                        old_text[:h1_end]
+                        + f"\n{truth_header}\n{clean_truth}\n\n"
+                        + old_text[h1_end:].lstrip()
+                    )
+                else:
+                    updated_text = f"# {clean_title}\n\n{truth_header}\n{clean_truth}\n\n" + old_text
+
+            # 2. Anexar à Chronological Timeline
+            timeline_header = "## 📅 Chronological Timeline (Append-Only)"
+            timeline_entry_line = f"- **{today_str}** | {clean_entry}"
+            if "## 📅 Chronological Timeline" in updated_text:
+                tl_pattern = r"(##\s+📅\s*Chronological\s*Timeline[^\n]*\n)(.*?)(\n##|\Z)"
+                m_tl = re.search(tl_pattern, updated_text, flags=re.S)
+                if m_tl:
+                    tl_body = m_tl.group(2).rstrip()
+                    new_tl_body = f"{tl_body}\n{timeline_entry_line}\n" if tl_body else f"{timeline_entry_line}\n"
+                    updated_text = (
+                        updated_text[: m_tl.start(2)]
+                        + new_tl_body
+                        + updated_text[m_tl.end(2) :]
+                    )
+            else:
+                if "## Synaptic Links" in updated_text:
+                    parts = updated_text.split("## Synaptic Links", 1)
+                    updated_text = (
+                        parts[0].rstrip()
+                        + f"\n\n{timeline_header}\n{timeline_entry_line}\n\n## Synaptic Links"
+                        + parts[1]
+                    )
+                else:
+                    updated_text = (
+                        updated_text.rstrip()
+                        + f"\n\n{timeline_header}\n{timeline_entry_line}\n"
+                    )
+
+            # 3. Assegurar related_slugs sob Synaptic Links
+            if rel_slugs:
+                if "## Synaptic Links" not in updated_text:
+                    updated_text = updated_text.rstrip() + "\n\n## Synaptic Links\n- [[atlas]]\n- [[AGENTS]]\n"
+                for rs in rel_slugs:
+                    if f"[[{rs}]]" not in updated_text:
+                        updated_text = updated_text.rstrip() + f"\n- [[{rs}]]\n"
+
+            target_file.write_text(updated_text, encoding="utf-8")
+
+        # Sincronizar facto no SQLite
+        try:
+            self.db.store_fact(
+                topic=f"[Vault Dossier] {clean_title[:60]}",
+                fact=f"Dossier canónico '{clean_title}' ({clean_slug}.md): {clean_truth[:280]}",
+                workspace=ws,
+                category="dossier",
+                tags=f"vault dossier compiled_truth {ws} {clean_slug}",
+                importance=5,
+                source_agent="orbit_vault",
+            )
+        except Exception:
+            pass
+
+        # Executar back-linking bidirecional
+        backlink_res = self.enforce_vault_backlinks(workspace=ws)
+
+        return {
+            "ok": True,
+            "workspace": ws,
+            "slug": f"{clean_slug}.md",
+            "title": clean_title,
+            "file_path": str(target_file),
+            "backlinks": backlink_res,
+            "vault_studio": self.get_vault_studio_overview(workspace=ws),
+        }
 
     def get_vault_studio_overview(self, workspace: str = "brain_mcp") -> Dict[str, Any]:
         """Devolve todos os dados em tempo real para os 6 painéis do Vault & Defuddle Studio."""
@@ -3383,6 +3716,20 @@ class OrbitEngine:
             {"id": "sqlite_fts5", "label": "SQLite FTS5 Memories", "items": total_mems, "color": "#818cf8"},
         ]
 
+        # Contagem de dossiers canónicos compilados e backlinks bidirecionais
+        compiled_dossiers_count = 0
+        bidirectional_backlinks_count = 0
+        for mf in md_files:
+            try:
+                txt = mf.read_text(encoding="utf-8", errors="replace")
+                if "## 💎 Compiled Truth" in txt:
+                    compiled_dossiers_count += 1
+                if "## 🔗 Bidirectional Back-Links" in txt:
+                    bl_part = txt.split("## 🔗 Bidirectional Back-Links", 1)[1]
+                    bidirectional_backlinks_count += len(re.findall(r"-\s+\*\*\d{4}-\d{2}-\d{2}\*\*", bl_part))
+            except Exception:
+                pass
+
         return {
             "ok": True,
             "workspace": ws,
@@ -3401,6 +3748,8 @@ class OrbitEngine:
             "agents_md": agents_text,
             "md_files_count": len(md_files),
             "md_files": [f.name for f in md_files[:20]],
+            "compiled_dossiers_count": compiled_dossiers_count,
+            "bidirectional_backlinks_count": bidirectional_backlinks_count,
         }
 
     def read_vault_note(self, workspace: str = "brain_mcp", filename: str = "atlas.md") -> Dict[str, Any]:

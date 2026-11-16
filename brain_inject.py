@@ -548,6 +548,7 @@ def build_ephemeral_context(
     lookahead_notices: Optional[List[str]] = None,
     db: Optional[BrainDB] = None,
     voice_context: Optional[Dict[str, Any]] = None,
+    skill_context: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Formata um bloco ultra-compacto TOON/Telegráfico com KV-Cache Prefix-Stable Canonical Layout.
@@ -569,6 +570,19 @@ def build_ephemeral_context(
         f"[BRAIN_MEMORY|ws={workspace}|mode={mode_tag}]"
     ]
 
+    active_db = db or BrainDB()
+    d_line = ""
+    if not is_micro:
+        if skill_context is None and user_query:
+            try:
+                from skill_resolver_engine import SkillResolverEngine
+                skill_context = SkillResolverEngine(active_db).resolve_skills_for_query(user_query, top_k=2)
+            except Exception:
+                skill_context = None
+        if skill_context:
+            d_line = skill_context.get("directive_line", "")
+    reserved_for_suffix = len(d_line) + 2 if d_line else 0
+
     # 1. Stable Prefix: Checkpoint do Workspace
     if checkpoint:
         c_goal = compress_fact_telegraphic(checkpoint.get("goal") or checkpoint.get("last_completed") or "Sessão ativa", 75)
@@ -579,7 +593,6 @@ def build_ephemeral_context(
 
     # 2. Stable Prefix: Pagoda LSM Timeline (quando not is_micro)
     if not is_micro:
-        active_db = db or BrainDB()
         try:
             from pagoda_fold_engine import PagodaFoldEngine
             pagoda_res = PagodaFoldEngine(active_db).get_active_pagoda_timeline(workspace=workspace, max_chars=260)
@@ -596,7 +609,8 @@ def build_ephemeral_context(
                 f"⚡[DELTA_CACHE|turn=#{delta_info.get('turn_number', 2)}|scout_map=cached_unchanged|mems_cached={delta_info.get('cached_count', 0)}|saved=~{delta_info.get('delta_saved_tokens', 0)}tok]"
             )
         elif scout_map:
-            parts.append(select_relevant_scout_map(scout_map, user_query=user_query, max_len=min(380, max(180, max_chars // 3))))
+            scout_budget = min(320, max(140, (max_chars - reserved_for_suffix) // 3))
+            parts.append(select_relevant_scout_map(scout_map, user_query=user_query, max_len=scout_budget))
 
     # Filtragem e separação de memórias fixadas vs dinâmicas
     stop_th = float((jev_route or {}).get("adaptive_stop_threshold") or 0.30)
@@ -652,7 +666,7 @@ def build_ephemeral_context(
     if not is_micro:
         for m in pinned_mems:
             entry = _format_memory_entry(m)
-            if entry and sum(len(p) for p in parts) + len(entry) + 2 <= max_chars:
+            if entry and sum(len(p) for p in parts) + len(entry) + 2 + reserved_for_suffix <= max_chars:
                 parts.append(entry)
 
     # 5. Volatile Elements: JEV System 1 Route
@@ -685,6 +699,20 @@ def build_ephemeral_context(
         return "\n".join(parts)[:max_chars]
 
     # 7. Volatile Elements: Orbit, Handoffs, DOTS Ready & Global Brain
+    d_line = ""
+    if not is_micro:
+        active_db = db or BrainDB()
+        if skill_context is None and user_query:
+            try:
+                from skill_resolver_engine import SkillResolverEngine
+                skill_context = SkillResolverEngine(active_db).resolve_skills_for_query(user_query, top_k=2)
+            except Exception:
+                skill_context = None
+        if skill_context:
+            d_line = skill_context.get("directive_line", "")
+
+    reserved_for_suffix = len(d_line) + 2 if d_line else 0
+
     is_delta = bool(delta_info and delta_info.get("is_delta_turn"))
     effective_gb_query = user_query or str((jev_route or {}).get("intent") or workspace)
     try:
@@ -697,27 +725,31 @@ def build_ephemeral_context(
                 if bc_txt.lower() in seen_bc:
                     continue
                 seen_bc.add(bc_txt.lower())
-                parts.append(f"📡[ORBIT|{bc['target_scope']}]:{bc_txt}")
+                bc_line = f"📡[ORBIT|{bc['target_scope']}]:{bc_txt}"
+                if sum(len(p) for p in parts) + len(bc_line) + 2 + reserved_for_suffix <= max_chars:
+                    parts.append(bc_line)
         if not is_micro and not is_delta:
             handoffs = orb.get_recent_handoffs(workspace=workspace, limit=1)
             if handoffs:
                 ho = handoffs[0]
-                parts.append(
-                    f"🔗[HANDOFF|{ho['from_agent']}->{ho['to_scope']}|{ho['modified_files'][:40]}]:{compress_fact_telegraphic(ho['summary'], 85)}"
-                )
+                ho_line = f"🔗[HANDOFF|{ho['from_agent']}->{ho['to_scope']}|{ho['modified_files'][:40]}]:{compress_fact_telegraphic(ho['summary'], 85)}"
+                if sum(len(p) for p in parts) + len(ho_line) + 2 + reserved_for_suffix <= max_chars:
+                    parts.append(ho_line)
             dots_dag = (orbit_brief or {}).get("dots_dag") if orbit_brief else orb.get_dots_dag(workspace=workspace)
             ready_list = (dots_dag or {}).get("ready_tasks") or (dots_dag or {}).get("ready_dots") or []
             if ready_list:
                 r_str = "; ".join(f"{d['dot_id']}(P{d.get('priority', 2)}):{d['title'][:38]}" for d in ready_list[:2])
-                parts.append(f"🎯[DOTS_READY|unblocked={len(ready_list)}]:{r_str}")
+                dots_line = f"🎯[DOTS_READY|unblocked={len(ready_list)}]:{r_str}"
+                if sum(len(p) for p in parts) + len(dots_line) + 2 + reserved_for_suffix <= max_chars:
+                    parts.append(dots_line)
             sl_state = (orbit_brief or {}).get("self_learn") if orbit_brief else orb.get_self_learn_status(workspace=workspace)
             if sl_state and sl_state.get("enabled"):
                 playbook = sl_state.get("learned_playbook") or []
                 if playbook:
                     pb_str = " | ".join(compress_fact_telegraphic( orb._extract_clean_rule_payload(str(p)), 65) for p in playbook[:2])
-                    parts.append(
-                        f"🧬[SELF_LEARN|iq={sl_state.get('brain_iq_score', 90)}%|cycles={sl_state.get('cycles_run', 1)}]:{pb_str}"
-                    )
+                    sl_line = f"🧬[SELF_LEARN|iq={sl_state.get('brain_iq_score', 90)}%|cycles={sl_state.get('cycles_run', 1)}]:{pb_str}"
+                    if sum(len(p) for p in parts) + len(sl_line) + 2 + reserved_for_suffix <= max_chars:
+                        parts.append(sl_line)
                 # Modo Global Total Sempre Ativo (v6.2 Cross-Encoder Reranked para a query atual)
                 global_top3 = orb.get_global_brain_top_wisdom(
                     query=effective_gb_query,
@@ -726,7 +758,9 @@ def build_ephemeral_context(
                 )
                 if global_top3:
                     gb_str = " | ".join(compress_fact_telegraphic(str(g), 68) for g in global_top3[:3])
-                    parts.append(f"🌐[GLOBAL_BRAIN|top3|iq=99.8%]:{gb_str}")
+                    gb_line = f"🌐[GLOBAL_BRAIN|top3|iq=99.8%]:{gb_str}"
+                    if sum(len(p) for p in parts) + len(gb_line) + 2 + reserved_for_suffix <= max_chars:
+                        parts.append(gb_line)
         elif not is_micro and is_delta:
             global_top3 = orb.get_global_brain_top_wisdom(
                 query=effective_gb_query,
@@ -735,19 +769,21 @@ def build_ephemeral_context(
             )
             if global_top3:
                 gb_str = " | ".join(compress_fact_telegraphic(str(g), 64) for g in global_top3[:3])
-                parts.append(f"🌐[GLOBAL_BRAIN|top3|iq=99.8%]:{gb_str}")
+                gb_line = f"🌐[GLOBAL_BRAIN|top3|iq=99.8%]:{gb_str}"
+                if sum(len(p) for p in parts) + len(gb_line) + 2 + reserved_for_suffix <= max_chars:
+                    parts.append(gb_line)
     except Exception:
         pass
 
     # 8. Volatile Elements: Lookahead Notices
     if lookahead_notices:
         for ln_notice in lookahead_notices[:2]:
-            if sum(len(p) for p in parts) + len(ln_notice) + 2 <= max_chars:
+            if sum(len(p) for p in parts) + len(ln_notice) + 2 + reserved_for_suffix <= max_chars:
                 parts.append(ln_notice)
     elif recent_actions:
         try:
             for ln_notice in get_notice_lookahead_alerts(BrainDB(), workspace, recent_actions, user_query)[:2]:
-                if sum(len(p) for p in parts) + len(ln_notice) + 2 <= max_chars:
+                if sum(len(p) for p in parts) + len(ln_notice) + 2 + reserved_for_suffix <= max_chars:
                     parts.append(ln_notice)
         except Exception:
             pass
@@ -756,9 +792,20 @@ def build_ephemeral_context(
     for m in dynamic_mems:
         entry = _format_memory_entry(m)
         if entry:
-            if sum(len(p) for p in parts) + len(entry) + 2 > max_chars:
+            if sum(len(p) for p in parts) + len(entry) + 2 + reserved_for_suffix > max_chars:
                 break
             parts.append(entry)
+
+    # 10. Suffix Section: Zero-Token Skill Resolver Directive Line
+    if d_line:
+        if sum(len(p) for p in parts) + len(d_line) + 2 <= max_chars:
+            parts.append(d_line)
+        else:
+            # Garante espaço para a diretiva de skill reduzindo os últimos elementos voláteis
+            while len(parts) > 3 and sum(len(p) for p in parts) + len(d_line) + 2 > max_chars:
+                parts.pop()
+            if sum(len(p) for p in parts) + len(d_line) + 2 <= max_chars:
+                parts.append(d_line)
 
     out_text = "\n".join(parts)
     return out_text[:max_chars] if len(out_text) > max_chars else out_text
@@ -774,6 +821,14 @@ def generate_inspector_preview(
     effective_query = raw_q or f"workspace {ws} architecture environment"
     budget_chars = compute_adaptive_budget(raw_q) if raw_q else MAX_EPHEMERAL_CHARS
     jev_route = db.jev_system1_route(effective_query, ws)
+    axes = db.resolve_salience_and_recency_axes(effective_query)
+
+    skill_res: Dict[str, Any] = {}
+    try:
+        from skill_resolver_engine import SkillResolverEngine
+        skill_res = SkillResolverEngine(db).resolve_skills_for_query(raw_q, top_k=2)
+    except Exception:
+        skill_res = {"ok": False, "total_skills_indexed": 0, "matched_skills": []}
 
     with db._connect() as conn:
         pinned_rows = [
@@ -851,6 +906,7 @@ def generate_inspector_preview(
         user_query=effective_query,
         db=db,
         voice_context=voice_ctx,
+        skill_context=skill_res,
     )
     est_tokens = max(1, len(ephemeral_text) // 4)
     saved_vs_raw = max(0, raw_tokens_est - est_tokens)
@@ -928,10 +984,19 @@ def generate_inspector_preview(
                 "kv_cache_prefix_stable": True,
                 "description": "Pagoda LSM Multi-Tier Folding (T1➔T2➔T3 sem decaimento ρ^k) + arquivo reversível zlib e prefixo KV-Cache estável",
             },
+            "8_gbrain_axes_and_skill_resolver": {
+                "active": True,
+                "mode_label": axes.get("mode_label", "CANONICAL_TRUTH"),
+                "total_skills_indexed": skill_res.get("total_skills_indexed", 0),
+                "matched_skills_count": len(skill_res.get("matched_skills", [])),
+                "description": "Eixos ortogonais Salience×Recency (Canonical Truth sem decay) + Skill Resolver Zero-Token para 130+ SKILL.md",
+            },
         },
         "voice_protocol": voice_ctx,
         "pagoda_protocol": pagoda_info,
         "jev_router": jev_route,
+        "gbrain_axes": axes,
+        "skill_resolver": skill_res,
         "ephemeral_block": ephemeral_text,
         "pinned_memories": [
             {"id": p["id"], "topic": p["topic"], "fact": p["fact"], "workspace": p["workspace"]}

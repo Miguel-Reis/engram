@@ -61,8 +61,8 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
     plugin_json_path = PLUGINS_DIR / "plugin.json"
     plugin_manifest = {
         "name": "antigravity-brain",
-        "version": "8.2.0",
-        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Pagoda LSM Multi-Tier Reversible Folds, Archify Zero-Token Delta, Voice Protocol & Asymmetric Swarm",
+        "version": "8.3.0",
+        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Pagoda LSM Multi-Tier Reversible Folds, Archify Zero-Token Delta, GBrain Dossiers & Local Skill Resolver",
         "hooks": "./hooks.json",
         "rules": ["./rules/AGENTS.md"],
     }
@@ -89,6 +89,10 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
 6. **Pagoda LSM Folds & Archify Zero-Token Delta (`brain_decompress_fold` & `swarm_archify_delta`)**:
    - **Pagoda LSM Multi-Tier Reversible Folding (`brain_decompress_fold`)**: Checkpoints and turn episodes are compacted into lossless multi-tier zlib folds (`Tier-1/2/3`), reducing context bloat while remaining instantly reversible via fold ID.
    - **Archify Evidence Console & Git Delta (`swarm_archify_delta`)**: Query deterministic zero-LLM architecture maps, git deltas between revisions, upstream/downstream reachability, and conclusion-first explainers without wasting inference tokens.
+7. **GBrain Orthogonal Axes, Skill Resolver & Compiled Vault Dossiers (`brain_resolve_skill` & `brain_explain_ranking`)**:
+   - **Orthogonal Salience × Recency Ranking**: Memory retrieval separates importance (pinned/canonical truth) from time decay (Ebbinghaus recency). Debug ranking math and Autocut decisions via `brain_explain_ranking`.
+   - **Local Skill Resolver (`brain_resolve_skill`)**: When complex agent skills are omitted due to context-budget limits, resolve authoritative `SKILL.md` rules and trigger definitions locally at zero LLM token cost.
+   - **Compiled Truth & Dossiers (`.brain_vault/<ws>/*.md`)**: Maintain two-zone dossiers (`## 💎 Compiled Truth` + `## 📅 Chronological Timeline`) with bidirectional back-links (`## 🔗 Bidirectional Back-Links`) to guarantee single source of truth across agent sessions.
 """
     (RULES_DIR / "AGENTS.md").write_text(agents_md_content, encoding="utf-8")
 
@@ -101,6 +105,7 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
             for fname in (
                 "server.py",
                 "db_engine.py",
+                "skill_resolver_engine.py",
                 "pagoda_fold_engine.py",
                 "archify_engine.py",
                 "orbit_engine.py",
