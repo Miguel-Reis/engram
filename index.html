@@ -5232,6 +5232,94 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
           </div>
         </div>
 
+        <!-- 🤖 Autonomous Swarm & Subagent Model Router (v8.5) -->
+        <div id="swarmModelRouterBox" style="margin-bottom:9px; padding:9px 10px; background:#060812; border:1px solid rgba(56,189,248,0.28); border-radius:7px; font-family:var(--font-mono);">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px;">
+            <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+              <span style="font-size:11px; font-weight:700; color:#38bdf8; letter-spacing:0.02em;">
+                🤖 Autonomous Swarm &amp; Subagent Model Router (v8.5)
+              </span>
+              <span class="rc-badge" style="font-size:8.5px; background:rgba(56,189,248,0.12); color:#7dd3fc; border:1px solid rgba(56,189,248,0.32);">
+                Complexity × Risk × Quota
+              </span>
+            </div>
+            <span id="routerQuotaBadge" class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.14); color:#34d399; border:1px solid rgba(16,185,129,0.4);">
+              Quota: GREEN · Poupança ~0%
+            </span>
+          </div>
+
+          <!-- 1. Policy Selector Bar -->
+          <div id="runtimePolicyBar" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; padding:6px 8px; background:#090c18; border:1px solid rgba(255,255,255,0.07); border-radius:6px;">
+            <span style="font-size:9.5px; font-weight:700; color:#cbd5e1; margin-right:2px;">
+              🤖 Política Automática de Modelos para Agentes &amp; Swarm:
+            </span>
+            <button type="button" class="quick-ag-btn active" data-policy="auto" onclick="setRuntimeRoutingPolicyUI('auto')" title="O Brain decide automaticamente o melhor modelo por lane, risco e quota">
+              🤖 Auto (Brain Decide)
+            </button>
+            <button type="button" class="quick-ag-btn" data-policy="balanced" onclick="setRuntimeRoutingPolicyUI('balanced')" title="Equilíbrio entre custo de quota e precisão">
+              ⚖️ Equilibrado
+            </button>
+            <button type="button" class="quick-ag-btn" data-policy="economy" onclick="setRuntimeRoutingPolicyUI('economy')" title="Prioriza modelos rápidos/leves para maximizar poupança de quota">
+              ⚡ Economia
+            </button>
+            <button type="button" class="quick-ag-btn" data-policy="quality" onclick="setRuntimeRoutingPolicyUI('quality')" title="Prioriza raciocínio profundo (pro / inherit) em todas as lanes críticas">
+              💎 Qualidade Máx.
+            </button>
+            <button type="button" class="quick-ag-btn" data-policy="local_first" onclick="setRuntimeRoutingPolicyUI('local_first')" title="Descarrega tarefas compatíveis para LLMs locais em VRAM ($0)">
+              🖥️ Local-First ($0)
+            </button>
+          </div>
+
+          <!-- 2. Live 6-Lane Model Assignment Matrix -->
+          <div style="margin-bottom:8px;">
+            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.04em;">
+              🧭 Matriz de Atribuição de Modelos por Lane (Swarm / Subagentes)
+            </div>
+            <div id="swarmModelMatrixGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:6px; font-size:10px;">
+              <div style="color:var(--text-muted); font-size:10px; grid-column:1 / -1;">A calcular matriz de roteamento de modelos...</div>
+            </div>
+          </div>
+
+          <!-- 3. Interactive Model Choice Simulator -->
+          <div style="padding-top:7px; border-top:1px solid rgba(255,255,255,0.07);">
+            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.04em;">
+              🧪 Simulador Interativo de Decisão de Modelo
+            </div>
+            <div id="swarmModelSimRow" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
+              <input
+                type="text"
+                id="routerSimTaskInput"
+                class="search-input"
+                style="flex:1 1 240px; min-width:180px; font-family:var(--font-mono); font-size:10.5px; padding:5px 9px; background:#070a14; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+                placeholder='Ex: "auditoria de segurança SQL e autenticação" ou "atualizar README"'
+                value="criar nova rota API e testes unitários"
+                onkeydown="if(event.key==='Enter') simulateAgentModelRouteUI()"
+              />
+              <select id="routerSimRoleSelect" class="select-sm" style="height:29px; font-family:var(--font-mono); font-size:10px; background:#070a14; border:1px solid var(--border-strong); color:#cbd5e1; border-radius:6px;">
+                <option value="scout">Role: scout</option>
+                <option value="docs">Role: docs</option>
+                <option value="ui">Role: ui</option>
+                <option value="api" selected>Role: api</option>
+                <option value="tests">Role: tests</option>
+                <option value="architect">Role: architect</option>
+                <option value="security">Role: security</option>
+              </select>
+              <select id="routerSimRiskSelect" class="select-sm" style="height:29px; font-family:var(--font-mono); font-size:10px; background:#070a14; border:1px solid var(--border-strong); color:#cbd5e1; border-radius:6px;">
+                <option value="LOW">Risk: LOW</option>
+                <option value="MEDIUM" selected>Risk: MEDIUM</option>
+                <option value="HIGH">Risk: HIGH</option>
+                <option value="CRITICAL">Risk: CRITICAL</option>
+              </select>
+              <button type="button" class="btn btn-primary" id="btnSimRouteModel" style="padding:4px 10px; font-size:10.5px; background:#0284c7; border-color:#38bdf8; color:#fff; white-space:nowrap;" onclick="simulateAgentModelRouteUI()">
+                🧠 Decidir Modelo
+              </button>
+            </div>
+            <div id="routerSimOutput" style="background:#040710; border:1px solid rgba(56,189,248,0.2); border-radius:6px; padding:7px 9px; font-size:10px; color:#94a3b8;">
+              Clique em <strong style="color:#7dd3fc;">🧠 Decidir Modelo</strong> para simular a decisão do Brain para esta tarefa, role e risco.
+            </div>
+          </div>
+        </div>
+
         <!-- 7-IDE Multi-Platform Bridge Grid -->
         <div>
           <div style="font-size:9.5px; font-weight:700; color:#94a3b8; font-family:var(--font-mono); text-transform:uppercase; margin-bottom:5px; letter-spacing:0.04em;">
@@ -14318,7 +14406,14 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
           }).join('');
         }
 
-        // 4. Update 7-IDE Multi-Platform Bridge Grid
+        // 4. Update Autonomous Swarm & Subagent Model Router Matrix (v8.5)
+        window._lastRuntimeRouterMeta = {
+          quota_status: data.quota_status || (data.quota && (data.quota.status || data.quota.level)) || data.quota_level || 'GREEN',
+          estimated_cost_savings_pct: data.estimated_cost_savings_pct ?? data.avg_cost_savings_pct ?? data.avg_savings_pct ?? null
+        };
+        renderSwarmModelMatrixUI(data.swarm_model_matrix, data.routing_policy);
+
+        // 5. Update 7-IDE Multi-Platform Bridge Grid
         if (bridgeGrid) {
           const targets = (data.ide_bridge && Array.isArray(data.ide_bridge.targets))
             ? data.ide_bridge.targets
@@ -14398,6 +14493,249 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         }
       } catch (err) {
         showToast(`⚠️ Erro ao ligar ${targetId}: ${err.message || String(err)}`);
+      }
+    }
+
+    function _getRouterModelBadgeStyle(modelName, isLocal = false) {
+      const m = String(modelName || '').toLowerCase();
+      if (isLocal || m.includes('local') || m.includes('ollama') || m.includes('vram') || m.includes(':')) {
+        return { fg: '#34d399', bg: 'rgba(16,185,129,0.16)', border: 'rgba(16,185,129,0.45)', icon: '🖥️' };
+      }
+      if (m.includes('flash_lite') || m.includes('lite') || m.includes('haiku') || m.includes('mini')) {
+        return { fg: '#22d3ee', bg: 'rgba(6,182,212,0.16)', border: 'rgba(6,182,212,0.42)', icon: '⚡' };
+      }
+      if (m.includes('flash')) {
+        return { fg: '#38bdf8', bg: 'rgba(56,189,248,0.16)', border: 'rgba(56,189,248,0.42)', icon: '🚀' };
+      }
+      if (m.includes('pro') || m.includes('opus')) {
+        return { fg: '#fbbf24', bg: 'rgba(245,158,11,0.16)', border: 'rgba(245,158,11,0.45)', icon: '💎' };
+      }
+      return { fg: '#a5b4fc', bg: 'rgba(99,102,241,0.16)', border: 'rgba(99,102,241,0.42)', icon: '🧬' };
+    }
+
+    function _normalizeSwarmMatrixEntries(matrix) {
+      if (!matrix) return [];
+      if (Array.isArray(matrix)) return matrix;
+      if (typeof matrix === 'object') {
+        if (Array.isArray(matrix.lanes)) return matrix.lanes;
+        if (Array.isArray(matrix.matrix)) return matrix.matrix;
+        return Object.entries(matrix)
+          .filter(([k, v]) => v && typeof v === 'object' && !['quota', 'meta', 'summary'].includes(k))
+          .map(([k, v]) => ({ lane: k, role: v.role || k, ...v }));
+      }
+      return [];
+    }
+
+    function renderSwarmModelMatrixUI(matrix, activePolicy) {
+      const policy = String(activePolicy || 'auto').toLowerCase();
+      const policyBar = document.getElementById('runtimePolicyBar');
+      if (policyBar) {
+        policyBar.querySelectorAll('[data-policy]').forEach(btn => {
+          const isMatch = String(btn.getAttribute('data-policy') || '').toLowerCase() === policy;
+          btn.classList.toggle('active', isMatch);
+          if (isMatch) {
+            btn.style.borderColor = '#38bdf8';
+            btn.style.background = 'rgba(56,189,248,0.18)';
+            btn.style.color = '#f0f9ff';
+          } else {
+            btn.style.borderColor = '';
+            btn.style.background = '';
+            btn.style.color = '';
+          }
+        });
+      }
+
+      const items = _normalizeSwarmMatrixEntries(matrix);
+      const quotaBadge = document.getElementById('routerQuotaBadge');
+      const grid = document.getElementById('swarmModelMatrixGrid');
+
+      const meta = window._lastRuntimeRouterMeta || {};
+      const rawQuota = (matrix && !Array.isArray(matrix) && (matrix.quota_status || matrix.quota_level))
+        || meta.quota_status
+        || 'GREEN';
+      const quotaUpper = String(rawQuota).toUpperCase();
+
+      let avgSavings = (matrix && !Array.isArray(matrix) && (matrix.avg_savings_pct ?? matrix.estimated_cost_savings_pct))
+        ?? meta.estimated_cost_savings_pct;
+      if (avgSavings == null && items.length) {
+        const savingsVals = items
+          .map(it => Number(it.estimated_cost_savings_pct ?? it.cost_savings_pct ?? it.savings_pct ?? it.quota_savings_pct))
+          .filter(v => Number.isFinite(v));
+        if (savingsVals.length) {
+          avgSavings = savingsVals.reduce((acc, v) => acc + v, 0) / savingsVals.length;
+        }
+      }
+      const savingsNum = Number.isFinite(Number(avgSavings)) ? Math.max(0, Math.round(Number(avgSavings))) : 0;
+
+      if (quotaBadge) {
+        let qFg = '#34d399', qBg = 'rgba(16,185,129,0.14)', qBd = 'rgba(16,185,129,0.4)';
+        if (quotaUpper.includes('RED') || quotaUpper.includes('CRIT') || quotaUpper.includes('LOW')) {
+          qFg = '#fb7185'; qBg = 'rgba(244,63,94,0.16)'; qBd = 'rgba(244,63,94,0.45)';
+        } else if (quotaUpper.includes('YELLOW') || quotaUpper.includes('AMBER') || quotaUpper.includes('WARN')) {
+          qFg = '#fbbf24'; qBg = 'rgba(245,158,11,0.16)'; qBd = 'rgba(245,158,11,0.45)';
+        }
+        quotaBadge.style.color = qFg;
+        quotaBadge.style.background = qBg;
+        quotaBadge.style.borderColor = qBd;
+        quotaBadge.textContent = `Quota: ${quotaUpper} · Poupança ~${savingsNum}%`;
+      }
+
+      if (!grid) return;
+      if (!items.length) {
+        grid.innerHTML = `<div style="color:var(--text-muted); font-size:10px; grid-column:1 / -1;">Matriz de roteamento ainda sem lanes disponíveis (aguardando /api/runtime).</div>`;
+        return;
+      }
+
+      grid.innerHTML = items.map(item => {
+        const laneRaw = item.lane || item.role || item.name || item.id || 'AGENT';
+        const laneLabel = String(laneRaw).toUpperCase();
+        const roleKey = String(item.role || laneRaw).toLowerCase();
+        const modelName = item.recommended_model || item.model || item.assigned_model || item.antigravity_model_param || item.target_model || 'inherit';
+        const isLocal = Boolean(item.is_local || item.local || String(item.provider || '').toLowerCase() === 'local');
+        const badgeStyle = _getRouterModelBadgeStyle(modelName, isLocal);
+
+        const rawComp = item.complexity_score ?? item.complexity ?? item.score;
+        const compNum = Number(rawComp);
+        const compText = Number.isFinite(compNum) ? (compNum <= 1 ? compNum.toFixed(2) : String(Math.round(compNum))) : 'N/D';
+
+        const rawSave = item.estimated_cost_savings_pct ?? item.cost_savings_pct ?? item.savings_pct ?? item.quota_savings_pct;
+        const saveNum = Number.isFinite(Number(rawSave)) ? Math.max(0, Math.round(Number(rawSave))) : 0;
+        const tip = item.reason ? String(item.reason) : `${laneLabel} -> ${modelName}`;
+
+        return `
+          <div
+            title="${escapeHtml(tip)}"
+            onclick="const sel=document.getElementById('routerSimRoleSelect'); if(sel && Array.from(sel.options).some(o=>o.value==='${escapeHtml(roleKey)}')){ sel.value='${escapeHtml(roleKey)}'; }"
+            style="cursor:pointer; display:flex; flex-direction:column; gap:5px; padding:7px 8px; border-radius:6px; background:#090d1a; border:1px solid ${badgeStyle.border}; transition:transform 0.12s ease;"
+          >
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+              <strong style="color:#f8fafc; font-size:10.5px; letter-spacing:0.03em;">${escapeHtml(laneLabel)}</strong>
+              <span style="font-size:9px; color:#6ee7b7; font-weight:700;">-${saveNum}% quota</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+              <span class="rc-badge" style="font-size:9px; background:${badgeStyle.bg}; color:${badgeStyle.fg}; border:1px solid ${badgeStyle.border}; font-weight:700;">
+                ${badgeStyle.icon} ${escapeHtml(String(modelName))}
+              </span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:9px; color:#94a3b8;">
+              <span>Complex.: <strong style="color:#cbd5e1;">${escapeHtml(compText)}</strong></span>
+              ${item.risk ? `<span>${escapeHtml(String(item.risk))}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function setRuntimeRoutingPolicyUI(policy) {
+      if (!policy) return;
+      const policyBar = document.getElementById('runtimePolicyBar');
+      const btns = policyBar ? Array.from(policyBar.querySelectorAll('[data-policy]')) : [];
+      btns.forEach(b => { b.disabled = true; });
+      try {
+        const res = await fetch('/api/runtime/policy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ policy })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          showToast(`⚠️ Falha ao atualizar política Swarm: ${(data && data.error) || 'erro desconhecido'}`);
+          return;
+        }
+        const activePol = data.routing_policy || data.policy || policy;
+        window._lastRuntimeRouterMeta = {
+          quota_status: data.quota_status || (data.quota && (data.quota.status || data.quota.level)) || window._lastRuntimeRouterMeta?.quota_status || 'GREEN',
+          estimated_cost_savings_pct: data.estimated_cost_savings_pct ?? data.avg_cost_savings_pct ?? data.avg_savings_pct ?? null
+        };
+        showToast(`🤖 Política de Modelos Swarm atualizada para: ${activePol}`);
+        renderSwarmModelMatrixUI(data.swarm_model_matrix, activePol);
+      } catch (err) {
+        showToast(`⚠️ Erro de rede em /api/runtime/policy: ${err.message || String(err)}`);
+      } finally {
+        btns.forEach(b => { b.disabled = false; });
+      }
+    }
+
+    async function simulateAgentModelRouteUI() {
+      const taskInput = document.getElementById('routerSimTaskInput');
+      const roleSelect = document.getElementById('routerSimRoleSelect');
+      const riskSelect = document.getElementById('routerSimRiskSelect');
+      const btn = document.getElementById('btnSimRouteModel');
+      const outBox = document.getElementById('routerSimOutput');
+
+      const task = (taskInput && taskInput.value ? taskInput.value : 'criar nova rota API e testes unitários').trim();
+      const role = roleSelect ? roleSelect.value : 'api';
+      const risk = riskSelect ? riskSelect.value : 'MEDIUM';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ A decidir...';
+      }
+      if (outBox) {
+        outBox.innerHTML = `<span style="color:#7dd3fc;">⏳ A consultar o Brain Model Router...</span>`;
+      }
+
+      try {
+        const qs = new URLSearchParams({ task, role, risk }).toString();
+        const res = await fetch(`/api/runtime/route-model?${qs}`);
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          if (outBox) {
+            outBox.innerHTML = `<span style="color:#fb7185;">❌ Erro em /api/runtime/route-model: ${escapeHtml((data && data.error) || 'Falha ao simular decisão')}</span>`;
+          }
+          return;
+        }
+
+        const dec = data.decision || data.route || data;
+        const recModel = dec.recommended_model || dec.model || 'inherit';
+        const agParam = dec.antigravity_model_param ?? 'N/D';
+        const claudeParam = dec.claude_model_param ?? 'N/D';
+        const codexParam = dec.codex_model_param ?? 'N/D';
+        const compScore = dec.complexity_score != null ? Number(dec.complexity_score) : null;
+        const compStr = compScore != null && Number.isFinite(compScore) ? (compScore <= 1 ? compScore.toFixed(2) : String(compScore)) : 'N/D';
+        const savePct = dec.estimated_cost_savings_pct != null ? `${Math.round(Number(dec.estimated_cost_savings_pct))}%` : '0%';
+        const reason = dec.reason || 'Decisão calculada por complexidade, risco e política de quota ativa.';
+        const badgeStyle = _getRouterModelBadgeStyle(recModel, Boolean(dec.is_local));
+
+        if (outBox) {
+          outBox.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span style="color:#94a3b8;">recommended_model:</span>
+                <span class="rc-badge" style="font-size:10px; background:${badgeStyle.bg}; color:${badgeStyle.fg}; border:1px solid ${badgeStyle.border}; font-weight:800;">
+                  ${badgeStyle.icon} ${escapeHtml(String(recModel))}
+                </span>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:9.5px;">
+                <span>complexity_score: <strong style="color:#fbbf24;">${escapeHtml(compStr)}</strong></span>
+                <span>estimated_cost_savings_pct: <strong style="color:#34d399;">-${escapeHtml(savePct)}</strong></span>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:6px; margin-bottom:6px; font-size:9.5px;">
+              <div style="background:#080c18; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 6px;">
+                <span style="color:#64748b;">antigravity_model_param:</span> <code style="color:#7dd3fc;">${escapeHtml(String(agParam))}</code>
+              </div>
+              <div style="background:#080c18; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 6px;">
+                <span style="color:#64748b;">claude_model_param:</span> <code style="color:#c4b5fd;">${escapeHtml(String(claudeParam))}</code>
+              </div>
+              <div style="background:#080c18; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:4px 6px;">
+                <span style="color:#64748b;">codex_model_param:</span> <code style="color:#a7f3d0;">${escapeHtml(String(codexParam))}</code>
+              </div>
+            </div>
+            <div style="font-size:9.5px; color:#cbd5e1; line-height:1.4;">
+              <span style="color:#64748b;">reason:</span> ${escapeHtml(String(reason))}
+            </div>
+          `;
+        }
+      } catch (err) {
+        if (outBox) {
+          outBox.innerHTML = `<span style="color:#fb7185;">⚠️ Erro de rede em /api/runtime/route-model: ${escapeHtml(err.message || String(err))}</span>`;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🧠 Decidir Modelo';
+        }
       }
     }
 

@@ -580,6 +580,38 @@ def get_notice_lookahead_alerts(
     return notices[:2]
 
 
+_SWARM_ROUTER_KEYWORDS = (
+    "swarm",
+    "subagent",
+    "agente",
+    "agent",
+    "enxame",
+    "lane",
+    "paralelo",
+    "parallel",
+    "modelo",
+    "model",
+    "implementa",
+    "implement",
+    "cria",
+    "create",
+    "build",
+    "refatora",
+    "refactor",
+    "plan",
+    "ultraplan",
+    "audita",
+    "audit",
+)
+
+
+def _should_inject_swarm_router(user_query: str) -> bool:
+    q_low = (user_query or "").strip().lower()
+    if not q_low:
+        return False
+    return any(kw in q_low for kw in _SWARM_ROUTER_KEYWORDS)
+
+
 def build_ephemeral_context(
     memories: List[Dict[str, Any]],
     checkpoint: Optional[Dict[str, Any]],
@@ -597,6 +629,7 @@ def build_ephemeral_context(
     voice_context: Optional[Dict[str, Any]] = None,
     skill_context: Optional[Dict[str, Any]] = None,
     runtime_profile: Optional[Dict[str, Any]] = None,
+    swarm_model_matrix: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Formata um bloco ultra-compacto TOON/Telegráfico com KV-Cache Prefix-Stable Canonical Layout.
@@ -624,6 +657,7 @@ def build_ephemeral_context(
 
     active_db = db or BrainDB()
     d_line = ""
+    router_line = ""
     if not is_micro:
         if skill_context is None and user_query:
             try:
@@ -633,7 +667,23 @@ def build_ephemeral_context(
                 skill_context = None
         if skill_context:
             d_line = skill_context.get("directive_line", "")
-    reserved_for_suffix = len(d_line) + 2 if d_line else 0
+        if _should_inject_swarm_router(user_query):
+            if swarm_model_matrix and swarm_model_matrix.get("directive_line"):
+                router_line = str(swarm_model_matrix["directive_line"])
+            else:
+                try:
+                    from runtime_detector import plan_swarm_model_matrix
+                    host_id = str((runtime_profile or {}).get("platform_id") or "")
+                    sm_res = plan_swarm_model_matrix(
+                        task=user_query,
+                        platform_id=host_id,
+                        db=active_db,
+                        probe_local=False,
+                    )
+                    router_line = str((sm_res or {}).get("directive_line") or "")
+                except Exception:
+                    router_line = ""
+    reserved_for_suffix = (len(d_line) + 2 if d_line else 0) + (len(router_line) + 2 if router_line else 0)
 
     # 1. Stable Prefix: Checkpoint do Workspace
     if checkpoint:
@@ -751,19 +801,7 @@ def build_ephemeral_context(
         return "\n".join(parts)[:max_chars]
 
     # 7. Volatile Elements: Orbit, Handoffs, DOTS Ready & Global Brain
-    d_line = ""
-    if not is_micro:
-        active_db = db or BrainDB()
-        if skill_context is None and user_query:
-            try:
-                from skill_resolver_engine import SkillResolverEngine
-                skill_context = SkillResolverEngine(active_db).resolve_skills_for_query(user_query, top_k=2)
-            except Exception:
-                skill_context = None
-        if skill_context:
-            d_line = skill_context.get("directive_line", "")
-
-    reserved_for_suffix = len(d_line) + 2 if d_line else 0
+    reserved_for_suffix = (len(d_line) + 2 if d_line else 0) + (len(router_line) + 2 if router_line else 0)
 
     is_delta = bool(delta_info and delta_info.get("is_delta_turn"))
     effective_gb_query = user_query or str((jev_route or {}).get("intent") or workspace)
@@ -848,16 +886,17 @@ def build_ephemeral_context(
                 break
             parts.append(entry)
 
-    # 10. Suffix Section: Zero-Token Skill Resolver Directive Line
-    if d_line:
-        if sum(len(p) for p in parts) + len(d_line) + 2 <= max_chars:
-            parts.append(d_line)
+    # 10. Suffix Section: Zero-Token Skill Resolver + Autonomous Swarm Model Router Directives
+    for suffix_line in (d_line, router_line):
+        if not suffix_line:
+            continue
+        if sum(len(p) for p in parts) + len(suffix_line) + 2 <= max_chars:
+            parts.append(suffix_line)
         else:
-            # Garante espaço para a diretiva de skill reduzindo os últimos elementos voláteis
-            while len(parts) > 3 and sum(len(p) for p in parts) + len(d_line) + 2 > max_chars:
+            while len(parts) > 3 and sum(len(p) for p in parts) + len(suffix_line) + 2 > max_chars:
                 parts.pop()
-            if sum(len(p) for p in parts) + len(d_line) + 2 <= max_chars:
-                parts.append(d_line)
+            if sum(len(p) for p in parts) + len(suffix_line) + 2 <= max_chars:
+                parts.append(suffix_line)
 
     out_text = "\n".join(parts)
     return out_text[:max_chars] if len(out_text) > max_chars else out_text
@@ -951,6 +990,18 @@ def generate_inspector_preview(
         allow_write=False,
     )
 
+    swarm_model_matrix: Dict[str, Any] = {}
+    try:
+        from runtime_detector import plan_swarm_model_matrix
+        swarm_model_matrix = plan_swarm_model_matrix(
+            task=effective_query,
+            platform_id=str(runtime_profile.get("platform_id") or ""),
+            db=db,
+            probe_local=False,
+        )
+    except Exception:
+        swarm_model_matrix = {}
+
     ephemeral_text = build_ephemeral_context(
         combined,
         checkpoint,
@@ -965,6 +1016,7 @@ def generate_inspector_preview(
         voice_context=voice_ctx,
         skill_context=skill_res,
         runtime_profile=runtime_profile,
+        swarm_model_matrix=swarm_model_matrix,
     )
     est_tokens = max(1, len(ephemeral_text) // 4)
     saved_vs_raw = max(0, raw_tokens_est - est_tokens)
@@ -1056,6 +1108,7 @@ def generate_inspector_preview(
         "gbrain_axes": axes,
         "skill_resolver": skill_res,
         "runtime_profile": runtime_profile,
+        "swarm_model_matrix": swarm_model_matrix,
         "ephemeral_block": ephemeral_text,
         "pinned_memories": [
             {"id": p["id"], "topic": p["topic"], "fact": p["fact"], "workspace": p["workspace"]}

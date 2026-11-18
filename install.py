@@ -62,8 +62,8 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
     plugin_json_path = PLUGINS_DIR / "plugin.json"
     plugin_manifest = {
         "name": "antigravity-brain",
-        "version": "8.4.0",
-        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Multi-Model & Multi-Platform Runtime Intelligence, 7-IDE Cross-OS Bridge, Pagoda LSM Folds, Archify Delta, GBrain Dossiers & Local Skill Resolver",
+        "version": "8.5.0",
+        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Autonomous Swarm & Subagent Model Router, Multi-Model & Multi-Platform Runtime Intelligence, 7-IDE Cross-OS Bridge, Pagoda LSM Folds, Archify Delta, GBrain Dossiers & Local Skill Resolver",
         "hooks": "./hooks.json",
         "rules": ["./rules/AGENTS.md"],
     }
@@ -94,9 +94,10 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
    - **Orthogonal Salience × Recency Ranking**: Memory retrieval separates importance (pinned/canonical truth) from time decay (Ebbinghaus recency). Debug ranking math and Autocut decisions via `brain_explain_ranking`.
    - **Local Skill Resolver (`brain_resolve_skill`)**: When complex agent skills are omitted due to context-budget limits, resolve authoritative `SKILL.md` rules and trigger definitions locally at zero LLM token cost.
    - **Compiled Truth & Dossiers (`.brain_vault/<ws>/*.md`)**: Maintain two-zone dossiers (`## 💎 Compiled Truth` + `## 📅 Chronological Timeline`) with bidirectional back-links (`## 🔗 Bidirectional Back-Links`) to guarantee single source of truth across agent sessions.
-8. **Multi-Model & Multi-Platform Runtime Intelligence (`brain_runtime_info` & `brain://runtime/profile`)**:
+8. **Multi-Model Runtime Intelligence & Autonomous Swarm Model Router (`brain_runtime_info`, `brain_route_agent_model` & `brain://runtime/profile`)**:
    - **Automatic Cloud & Local Model Detection**: `runtime_detector.py` detects the active host IDE/CLI (`antigravity`, `claude_code`, `codex_cli`, `cursor`, `windsurf`, `opencode`, `claude_desktop`), OS, active cloud model (Claude, GPT/Codex, Gemini, DeepSeek, Llama, Qwen), and local LLM runtimes (`Ollama`, `LM Studio`, `vLLM`, `llama.cpp`), scaling context budgets dynamically.
-   - **Model-Agnostic Swarm Routing & 7-IDE Bridge**: Inspect active runtime telemetry via `brain_runtime_info` or `GET /api/runtime`, report custom models via `brain_runtime_info(report_model=...)`, and safely connect any of the 7 supported IDEs/CLIs across Windows, macOS, and Linux via `POST /api/runtime/connect` or `install.py --targets ...`.
+   - **Autonomous Subagent & Swarm Model Routing**: Whenever launching subagents or swarms (`invoke_subagent`, `swarm`, or `Agent`), automatically use the Brain's `🤖[SWARM_MODEL_ROUTER]` model choice injected in `[BRAIN_MEMORY]` (or call `brain_route_agent_model`) unless the user explicitly overrides the model.
+   - **Model-Agnostic Swarm Routing & 7-IDE Bridge**: Inspect active runtime telemetry via `brain_runtime_info` or `GET /api/runtime`, configure routing policy via `POST /api/runtime/policy` (`auto|quality|balanced|economy|local_first`), report custom models via `brain_runtime_info(report_model=...)`, and safely connect any of the 7 supported IDEs/CLIs across Windows, macOS, and Linux via `POST /api/runtime/connect` or `install.py --targets ...`.
 """
     (RULES_DIR / "AGENTS.md").write_text(agents_md_content, encoding="utf-8")
 
@@ -213,7 +214,7 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
 
     if not silent:
         print("✅ Hooks globais configurados em:", global_hooks_path)
-        print("✅ Plugin Antigravity Brain v8.4 instalado em:", PLUGINS_DIR)
+        print("✅ Plugin Antigravity Brain v8.5 instalado em:", PLUGINS_DIR)
         print("✅ Servidor MCP registado em:", mcp_cfg_path)
         if bridge_result.get("updated_tools"):
             print("✅ Ponte Multi-IDE conectada para:", ", ".join(bridge_result["updated_tools"]))
@@ -249,7 +250,7 @@ def main() -> None:
     no_restart = bool(args.no_restart) or os.environ.get("BRAIN_NO_RESTART") == "1"
     if not silent:
         print("=" * 68)
-        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.4")
+        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.5")
         print("=" * 68)
 
     configure_hooks_and_plugin(silent=silent, targets=args.targets)

@@ -1,27 +1,27 @@
 <div align="center">
 
-# 🧠 Antigravity Brain v8.4 — Multi-Model Runtime Intelligence & 7-IDE Cross-OS Bridge
+# 🧠 Antigravity Brain v8.5 — Autonomous Swarm Model Router & 7-IDE Cross-OS Bridge
 
-**Zero-Round-Trip Persistent Memory Engine, Multi-Model Cloud + Local LLM Detection (Ollama / LM Studio / vLLM / llama.cpp), 7-IDE Cross-OS MCP & Hook Bridge (Windows / macOS / Linux), GBrain Salience × Recency Ranking, Compiled Vault Dossiers, Local Zero-Token Skill Resolver, Pagoda LSM Folds, Archify Zero-Token Delta & 24 MCP Tools**
+**Zero-Round-Trip Persistent Memory Engine, Autonomous Swarm & Subagent Model Router (`<0.5ms`), Multi-Model Cloud + Local LLM Detection (Ollama / LM Studio / vLLM / llama.cpp), 7-IDE Cross-OS MCP & Hook Bridge (Windows / macOS / Linux), GBrain Salience × Recency Ranking, Compiled Vault Dossiers, Local Zero-Token Skill Resolver, Pagoda LSM Folds, Archify Zero-Token Delta & 25 MCP Tools**
 
-[![Version](https://img.shields.io/badge/version-8.4.0_Carbon_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/antigravity-brain/releases)
+[![Version](https://img.shields.io/badge/version-8.5.0_Carbon_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/antigravity-brain/releases)
 [![Python](https://img.shields.io/badge/python-3.10%2B%20(Zero--Deps)-38bdf8?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Engine](https://img.shields.io/badge/SQLite_WAL-FTS5_%2B_Pagoda_LSM_%2B_128--Bit_BQ-10b981?style=for-the-badge&logo=sqlite&logoColor=white)](./db_engine.py)
 [![Archify](https://img.shields.io/badge/Archify-Zero--Token_Delta_%26_Evidence_Console-06b6d4?style=for-the-badge)](./archify_engine.py)
-[![MCP 2026](https://img.shields.io/badge/MCP_2026-24_Tools_%2B_Resources_%2B_Prompts-e4e4e7?style=for-the-badge)](./server.py)
+[![MCP 2026](https://img.shields.io/badge/MCP_2026-25_Tools_%2B_Resources_%2B_Prompts-e4e4e7?style=for-the-badge)](./server.py)
 [![Tests](https://img.shields.io/badge/Tests-27%2F27_Passing-10b981?style=for-the-badge)](./test_brain.py)
 
 *Built with 100% Python Standard Library (`sqlite3`, `ast`, `http.server`, `concurrent.futures`) and Vanilla HTML5 / Canvas2D / ECS `Float32Array` SoA — zero `pip` packages required, zero cloud telemetry, sub-10ms local execution.*
 
-[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v84) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-24-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
+[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v85) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-25-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
 
 </div>
 
 ---
 
-## 🚀 Frontier 2025–2026 Technologies (v8.4)
+## 🚀 Frontier 2025–2026 Technologies (v8.5)
 
-**Antigravity Brain v8.4** integrates state-of-the-art cognitive memory, multi-model runtime detection, cross-OS 7-IDE bridging, and codebase graph breakthroughs in pure Python + SQLite WAL:
+**Antigravity Brain v8.5** integrates state-of-the-art cognitive memory, autonomous Swarm model routing, multi-model runtime detection, cross-OS 7-IDE bridging, and codebase graph breakthroughs in pure Python + SQLite WAL:
 
 | Technology | Module & Symbols | How It Works & Impact |
 | :--- | :--- | :--- |
@@ -37,6 +37,7 @@
 | **10. Pagoda LSM Multi-Tier Reversible Context Folding** | [`pagoda_fold_engine.py`](./pagoda_fold_engine.py) · `fold_current_checkpoint()`, `fold_turn_episode()`, `decompress_fold()` | Compacts project milestones and turn history into **lossless multi-tier `zlib` archives (`Tier-1/2/3`)**, saving up to 80% context tokens while remaining instantly reversible via fold ID. |
 | **11. Archify Zero-Token Evidence Console & Git Architecture Delta** | [`archify_engine.py`](./archify_engine.py) · `build_archify_spec()`, `compute_architecture_delta()`, `compute_reachability_focus()` | Computes deterministic architecture maps, in-memory git deltas (`HEAD~1 vs Worktree`), 7-signal reachability focus, and conclusion-first explainers with **zero LLM tokens and zero external dependencies**. |
 | **12. Multi-Model Runtime Intelligence & 7-IDE Cross-OS Bridge** | [`runtime_detector.py`](./runtime_detector.py) · `detect_runtime_profile()`, `detect_local_llm_runtimes()`<br>[`orbit_engine.py`](./orbit_engine.py) · `get_mcp_bridge_status()`, `connect_all_ai_tools()` | Auto-detects active host IDE/CLI, OS (**Windows / macOS / Linux**), cloud models (Claude, GPT/Codex, Gemini, DeepSeek, Llama, Qwen), and local runtimes (**Ollama, LM Studio, vLLM, llama.cpp**). Safely connects **7 IDEs/CLIs** (`antigravity`, `claude_code`, `codex_cli`, `cursor`, `windsurf`, `opencode`, `claude_desktop`) and adapts Swarm routing dynamically. |
+| **13. Autonomous Swarm & Subagent Model Router (`<0.5ms`)** | [`runtime_detector.py`](./runtime_detector.py) · `recommend_agent_model()`, `plan_swarm_model_matrix()`<br>[`server.py`](./server.py) · `brain_route_agent_model` | Scores task complexity (`0..100`), role, blast radius, file count, 5h quota zone (`GREEN`/`AMBER`/`RED`), and routing policy (`auto`, `quality`, `balanced`, `economy`, `local_first`) to select exact platform parameters (`flash_lite`/`flash`/`pro`, `haiku`/`sonnet`/`opus`, `gpt-5-mini`/`gpt-5.3-codex`/`o3`, or loaded local VRAM models) and inject `🤖[SWARM_MODEL_ROUTER]` directives. |
 
 ---
 
@@ -114,9 +115,9 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 
 ---
 
-## 🧰 MCP 2026 Server (24 Tools + Resources + Prompts)
+## 🧰 MCP 2026 Server (25 Tools + Resources + Prompts)
 
-[`server.py`](./server.py) implements a zero-dependency **MCP JSON-RPC 2.0 Stdio Server** (`v8.4.0`) with exact UTF-8 byte framing, `initialize` `clientInfo` host capture, and MCP 2026 `Tool Annotations` (`readOnlyHint`, `idempotentHint`, `destructiveHint`):
+[`server.py`](./server.py) implements a zero-dependency **MCP JSON-RPC 2.0 Stdio Server** (`v8.5.0`) with exact UTF-8 byte framing, `initialize` `clientInfo` host capture, and MCP 2026 `Tool Annotations` (`readOnlyHint`, `idempotentHint`, `destructiveHint`):
 
 ### Native MCP Resources (`resources/list`, `resources/read`, `resources/templates/list`)
 - `brain://memories/pinned` — Active human-locked directives and global meta-rules
@@ -135,7 +136,7 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 - `bugfix-lineage` — Root-cause debugging template with causal bugfix history & AST alerts
 - `swarm-dispatch` — 4-Lane Asymmetric Swarm decomposition template (`UI`, `API`, `TESTS`, `DOCS`)
 
-### 24 Native MCP Tools (`tools/list`, `tools/call`)
+### 25 Native MCP Tools (`tools/list`, `tools/call`)
 | Category | Tool Name | Read-Only | Description |
 | :--- | :--- | :---: | :--- |
 | **Core Memory** | `store_fact` | `false` | Store or update an architectural fact, bug fix, or directive with bi-temporal superseding & secret redaction. |
@@ -162,6 +163,7 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 | **Local Skills** | `brain_resolve_skill` | `true` | Zero-token local `SKILL.md` resolver across 130+ installed Antigravity skills, rescuing context-budget-excluded skills. |
 | **Ranking Explain** | `brain_explain_ranking` | `true` | Explainable hybrid search debugger (`Salience × Recency` orthogonal axes + `BM25/LSH/PPR` math + `Autocut` drop reasons). |
 | **Runtime Info** | `brain_runtime_info` | `true` | Detect or explicitly report active host IDE/CLI, OS, cloud/local LLM model, local runtimes, and 7-IDE MCP bridge status. |
+| **Model Router** | `brain_route_agent_model` | `true` | Route a subagent or Swarm lane to the optimal platform model (`flash_lite`/`flash`/`pro`, `haiku`/`sonnet`/`opus`, `gpt-5-mini`/`o3`, or local VRAM) by complexity, risk, policy & 5h quota. |
 
 ---
 
@@ -248,10 +250,10 @@ Output (`27/27 PASS`):
 | [`ast_impact_watcher.py`](./ast_impact_watcher.py) | Persistent SQLite AST symbol SHA-256 snapshotter, **Git Diff Blast-Radius Analyzer**, multi-language brace scanner, and unified AI-Defence secret scanner. |
 | [`pagoda_fold_engine.py`](./pagoda_fold_engine.py) | **Pagoda LSM Reversible Folding Engine**: Multi-tier `zlib` compaction (`Tier-1/2/3`), checkpoint folding, token savings telemetry, and lossless decompression by ID. |
 | [`archify_engine.py`](./archify_engine.py) | **Archify Zero-Token Architecture Engine**: Deterministic architecture map (`signal-flow`), git architecture delta, upstream/downstream reachability focus, conclusion-first explainers, and standalone HTML Evidence Console export. |
-| [`token_diet.py`](./token_diet.py) | Dynamic intent-based MCP tool pruner across all 24 tools, platform-aware Swarm topology routing, and 5-hour quota profiler (`LEAN` vs `FULL`). |
-| [`server.py`](./server.py) | Zero-dependency **MCP 2026 JSON-RPC 2.0 `stdio` server** (`v8.4.0`) with `clientInfo` capture, UTF-8 byte framing, 24 tools (`readOnlyHint` annotations), 8 native `Resources` (`brain://...`), and 3 `Prompts`. |
-| [`web_dashboard.py`](./web_dashboard.py) | Local HTTP/SSE server (`127.0.0.1:8765`) powered by a 16-worker `ThreadPoolExecutor`, `/api/runtime` & `/api/runtime/connect` endpoints, strict `POST`/`DELETE` CSRF protection, `4 MB` payload cap, and secret-redacted edits. |
-| [`index.html`](./index.html) | Single-file **Carbon Studio OS v8.4** UI (`01 Córtex`, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`, `08 AST & BFS Inspector`, `Orbit Mission Control`). |
+| [`token_diet.py`](./token_diet.py) | Dynamic intent-based MCP tool pruner across all 25 tools, platform-aware Swarm topology routing, and 5-hour quota profiler (`LEAN` vs `FULL`). |
+| [`server.py`](./server.py) | Zero-dependency **MCP 2026 JSON-RPC 2.0 `stdio` server** (`v8.5.0`) with `clientInfo` capture, UTF-8 byte framing, 25 tools (`readOnlyHint` annotations), 8 native `Resources` (`brain://...`), and 3 `Prompts`. |
+| [`web_dashboard.py`](./web_dashboard.py) | Local HTTP/SSE server (`127.0.0.1:8765`) powered by a 16-worker `ThreadPoolExecutor`, `/api/runtime`, `/api/runtime/route-model`, `/api/runtime/policy` & `/api/runtime/connect` endpoints, strict `POST`/`DELETE` CSRF protection, `4 MB` payload cap, and secret-redacted edits. |
+| [`index.html`](./index.html) | Single-file **Carbon Studio OS v8.5** UI (`01 Córtex`, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`, `08 AST & BFS Inspector`, `Orbit Mission Control`). |
 | [`install.py`](./install.py) / [`auto_updater.py`](./auto_updater.py) | Cross-OS automated installer (`--targets`), runtime synchronizer, and GitHub `origin/main` hot-reload updater. |
 | [`test_brain.py`](./test_brain.py) | End-to-end 27-suite automated verification benchmark. |
 

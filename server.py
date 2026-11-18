@@ -28,7 +28,7 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str, version: str = "8.4.0") -> None:
+    def __init__(self, name: str, version: str = "8.5.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
@@ -50,6 +50,7 @@ class StdioMCPServer:
         "brain_resolve_skill",
         "brain_explain_ranking",
         "brain_runtime_info",
+        "brain_route_agent_model",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -735,7 +736,7 @@ except Exception:
     pass
 
 # Create the MCP server
-mcp = MCPServer("antigravity-brain", version="8.4.0")
+mcp = MCPServer("antigravity-brain", version="8.5.0")
 mcp.db = db
 
 
@@ -1265,6 +1266,60 @@ def brain_runtime_info(
             "os_platform": sys.platform,
             "ide_bridge": orbit.get_mcp_bridge_status(),
         }
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_route_agent_model(
+    task: str,
+    role: str = "worker",
+    files_count: int = 1,
+    blast_radius: str = "LOW",
+    policy: str = "",
+) -> str:
+    """Routes a subagent or Swarm lane to the optimal LLM model parameter based on task complexity, role, blast radius, active 5h quota pressure, and routing policy.
+
+    Args:
+        task: Description of the task or subagent prompt to evaluate
+        role: Agent or lane role (e.g. 'scout', 'docs', 'ui', 'api', 'tests', 'worker', 'architect', 'security', 'debugger')
+        files_count: Number of files touched by this task (default 1)
+        blast_radius: Risk/blast radius level: 'LOW', 'MEDIUM', 'HIGH', or 'CRITICAL' (default 'LOW')
+        policy: Optional routing policy override: 'auto', 'quality', 'balanced', 'economy', or 'local_first'
+    """
+    target_db = mcp.db or db
+    host_plat = str(mcp.connected_client.get("platform_id") or "")
+    try:
+        from runtime_detector import plan_swarm_model_matrix, recommend_agent_model
+
+        rec = recommend_agent_model(
+            task=task,
+            role=role,
+            files_count=files_count,
+            blast_radius=blast_radius,
+            policy=policy,
+            platform_id=host_plat,
+            db=target_db,
+            probe_local=False,
+        )
+        matrix = plan_swarm_model_matrix(
+            task=task,
+            blast_radius=blast_radius,
+            policy=policy,
+            platform_id=host_plat,
+            db=target_db,
+            probe_local=False,
+        )
+        res = {
+            "ok": True,
+            "recommendation": rec,
+            "recommended_model": rec.get("recommended_model"),
+            "antigravity_model_param": rec.get("antigravity_model_param"),
+            "claude_model_param": rec.get("claude_model_param"),
+            "codex_model_param": rec.get("codex_model_param"),
+            "matrix": matrix,
+        }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "task": task, "role": role}
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 

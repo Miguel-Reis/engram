@@ -508,7 +508,11 @@ class SwarmEngine:
         }
 
     def _build_24_tasks_from_scout(
-        self, goal: str, scout_data: Dict[str, Any], mode: str = "full"
+        self,
+        goal: str,
+        scout_data: Dict[str, Any],
+        mode: str = "full",
+        model_matrix: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """Decompõe o objetivo + ficheiros reais do Scout em 24 tarefas dinâmicas (6 UI, 6 API, 6 TESTS, 6 DOCS)."""
         files_by_lane: Dict[str, List[Dict[str, Any]]] = {
@@ -594,11 +598,18 @@ class SwarmEngine:
             f"{mode_prefix}48-agent asymmetric swarm playbook",
         ]
 
+        matrix_lanes = (model_matrix or {}).get("lanes") or {}
+        ui_m = str((matrix_lanes.get("UI") or {}).get("recommended_model") or "flash")
+        api_m = str((matrix_lanes.get("API") or {}).get("recommended_model") or "flash")
+        tests_m = str((matrix_lanes.get("TESTS") or {}).get("recommended_model") or "flash")
+        docs_m = str((matrix_lanes.get("DOCS") or {}).get("recommended_model") or "flash_lite")
+        arch_m = str((matrix_lanes.get("ARCHITECT") or {}).get("recommended_model") or "inherit")
+
         lane_models = {
-            "UI": "flash · self",
-            "API": "flash · self",
-            "TESTS": "flash · test-engineer",
-            "DOCS": "flash_lite · self",
+            "UI": f"{ui_m} · self",
+            "API": f"{api_m} · self",
+            "TESTS": f"{tests_m} · test-engineer",
+            "DOCS": f"{docs_m} · self",
         }
         argon_core_tasks = {"ui-01", "ui-03", "ui-07", "api-01", "api-02", "api-07"}
         all_tasks: List[Dict[str, Any]] = []
@@ -614,9 +625,9 @@ class SwarmEngine:
                 code = f"{prefix}-{i + 1:02d}"
                 tfile, sym = _pick_file_and_sym(lane_name, i, fb_file, "verify_ast_symbols")
                 w_model = (
-                    "gemini-4-argon · inherit"
+                    f"{arch_m} · core"
                     if code in argon_core_tasks
-                    else lane_models.get(lane_name, "flash · self")
+                    else lane_models.get(lane_name, f"{api_m} · self")
                 )
                 all_tasks.append(
                     {
@@ -691,7 +702,22 @@ class SwarmEngine:
         t_start = time.time()
         clean_goal = " ".join((goal or "Execução Assimétrica 24 Lanes").replace("\\n", " ").split())[:95]
         scout = self.run_codebase_scout(workspace_path)
-        tasks_spec = self._build_24_tasks_from_scout(clean_goal, scout, mode=mode)
+        router_matrix: Dict[str, Any] = {}
+        try:
+            from runtime_detector import plan_swarm_model_matrix
+
+            router_matrix = plan_swarm_model_matrix(task=clean_goal, db=self.db)
+        except Exception:
+            router_matrix = {}
+
+        lanes_m = router_matrix.get("lanes") or {}
+        arch_m = str((lanes_m.get("ARCHITECT") or {}).get("recommended_model") or "inherit")
+        api_m = str((lanes_m.get("API") or {}).get("recommended_model") or "flash")
+        scout_m = str((lanes_m.get("SCOUT") or {}).get("recommended_model") or "flash_lite")
+        pol_lbl = str(router_matrix.get("policy") or "auto")
+        tasks_spec = self._build_24_tasks_from_scout(
+            clean_goal, scout, mode=mode, model_matrix=router_matrix
+        )
 
         with self.db._connect() as conn:
             cur = conn.execute(
@@ -711,9 +737,9 @@ class SwarmEngine:
                     scout["workspace"],
                     scout["workspace_path"],
                     "swarming" if animate_live else "done",
-                    "Gemini 4 Argon (inherit / pro)",
-                    f"Gemini 4 Argon + Flash ({mode.upper()})",
-                    "flash_lite (research)",
+                    f"{arch_m} (policy={pol_lbl})",
+                    f"{arch_m} + {api_m} ({mode.upper()})",
+                    f"{scout_m} (research)",
                     2840,
                     scout["files_count"],
                     scout["symbols_count"],
@@ -738,19 +764,19 @@ class SwarmEngine:
                 conn,
                 run_id,
                 "scout",
-                f"SCOUT-01 (Model=flash_lite) leu {scout['files_count']} ficheiros ({scout['symbols_count']} símbolos AST) em {scout['duration_ms']}ms -> Blackboard partilhado",
+                f"SCOUT-01 (Model={scout_m}) leu {scout['files_count']} ficheiros ({scout['symbols_count']} símbolos AST) em {scout['duration_ms']}ms -> Blackboard partilhado",
             )
             self._log_event(
                 conn,
                 run_id,
                 "plan",
-                f"ARCHITECT (Gemini 4 Argon) bloqueou plano '{clean_goal[:48]}' (Modo: {mode.upper()})",
+                f"ARCHITECT ({arch_m}) bloqueou plano '{clean_goal[:48]}' (Modo: {mode.upper()} · Policy: {pol_lbl})",
             )
             self._log_event(
                 conn,
                 run_id,
                 "disp",
-                "DISPATCHER (Gemini 4 Argon + Flash/Flash-Lite) lançou 48 workers em 4 lanes (12 UI, 12 API, 12 TESTS, 12 DOCS)",
+                f"DISPATCHER ({arch_m} + {api_m}/{scout_m}) lançou {len(tasks_spec)} workers em 4 lanes (UI, API, TESTS, DOCS)",
             )
 
             per_lane = max(1, len(tasks_spec) // 4)
@@ -1529,11 +1555,24 @@ class SwarmEngine:
                             }
                         )
 
+        model_router_matrix: Dict[str, Any] = {}
+        try:
+            from runtime_detector import plan_swarm_model_matrix
+
+            model_router_matrix = plan_swarm_model_matrix(
+                task=str(run_dict.get("goal") or ""),
+                db=self.db,
+                probe_local=False,
+            )
+        except Exception:
+            model_router_matrix = {}
+
         return {
             "run": run_dict,
             "lanes": lanes,
             "lane_pheromones": lane_pheromones,
             "jev_router": jev_router,
+            "model_router_matrix": model_router_matrix,
             "tasks": all_tasks,
             "sessions_and_subagents": sessions_and_subagents,
             "workspaces": sorted(ws_set),

@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import time
+import unicodedata
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,12 @@ from typing import Any, Dict, List, Optional
 _LOCAL_PROBE_LOCK = threading.Lock()
 _LOCAL_PROBE_CACHE: Dict[str, Any] = {"ts": 0.0, "data": None}
 _LOCAL_PROBE_TTL_SEC = 30.0
+
+_QUOTA_PRESSURE_LOCK = threading.Lock()
+_QUOTA_PRESSURE_CACHE: Dict[str, Dict[str, Any]] = {}
+_QUOTA_PRESSURE_TTL_SEC = 20.0
+
+VALID_ROUTING_POLICIES = ("auto", "quality", "balanced", "economy", "local_first")
 
 _LOCAL_MODEL_MARKERS = (
     "ollama",
@@ -990,3 +997,397 @@ def get_runtime_history(db: Any, limit: int = 12) -> List[Dict[str, Any]]:
             return out
     except Exception:
         return []
+
+
+# ==============================================================================
+# Autonomous Swarm & Subagent Model Router (<0.5ms, zero-dependency) — v8.5
+# ==============================================================================
+
+_LITE_ROLES = frozenset({
+    "scout", "docs", "doc", "indexer", "formatter", "research_simple", "summarizer", "research",
+})
+_FAST_ROLES = frozenset({
+    "ui", "api", "tests", "test", "worker", "verifier", "frontend", "backend", "qa",
+})
+_FRONTIER_ROLES = frozenset({
+    "architect", "arch", "security", "sec", "debugger", "debug", "migration",
+    "orchestrator", "reviewer", "auditor", "security-auditor", "code-reviewer",
+})
+_SECURITY_ROLES = frozenset({"security", "sec", "auditor", "security-auditor"})
+
+_UPGRADE_KEYWORDS = (
+    "security", "seguranca", "pentest", "owasp", "auth", "crypt", "criptograf",
+    "race condition", "deadlock", "migration", "migracao", "architecture", "arquitetura",
+    "refactor core", "zero-downtime", "sql injection", "sqli", "xss", "audit", "auditoria",
+    "complex", "complexo", "critica", "critico", "vulnerability", "vulnerabilidade",
+)
+_DOWNGRADE_KEYWORDS = (
+    "typo", "comment", "comentario", "readme", "docstring", "rename", "renomear",
+    "format", "formatar", "badge", "translate", "traduz", "lint", "bump version",
+    "listar ficheiros", "list files",
+)
+
+_TIER_TO_PLATFORM_MODEL: Dict[str, Dict[str, str]] = {
+    "antigravity": {"lite": "flash_lite", "fast": "flash", "inherit": "inherit", "pro": "pro"},
+    "claude_code": {"lite": "haiku", "fast": "sonnet", "inherit": "sonnet", "pro": "opus"},
+    "claude_desktop": {"lite": "haiku", "fast": "sonnet", "inherit": "sonnet", "pro": "opus"},
+    "codex_cli": {"lite": "gpt-5-mini", "fast": "gpt-5.3-codex", "inherit": "gpt-5.3-codex", "pro": "o3"},
+    "cursor": {"lite": "fast-mini", "fast": "balanced-standard", "inherit": "active-default", "pro": "frontier-reasoning"},
+    "windsurf": {"lite": "fast-mini", "fast": "balanced-standard", "inherit": "active-default", "pro": "frontier-reasoning"},
+    "opencode": {"lite": "fast-mini", "fast": "balanced-standard", "inherit": "active-default", "pro": "frontier-reasoning"},
+    "generic_mcp": {"lite": "fast-mini", "fast": "balanced-standard", "inherit": "active-default", "pro": "frontier-reasoning"},
+}
+_TIER_SAVINGS_PCT: Dict[str, int] = {"lite": 88, "fast": 62, "inherit": 15, "pro": 0}
+
+
+def _ascii_fold(text: str) -> str:
+    norm = unicodedata.normalize("NFKD", str(text or ""))
+    return "".join(ch for ch in norm if not unicodedata.combining(ch)).lower()
+
+
+def _ensure_runtime_preferences_table(conn: Any) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runtime_preferences (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
+
+def get_routing_policy(db: Any = None) -> str:
+    """Return the persisted swarm routing policy ('auto' default)."""
+    if db is None:
+        return "auto"
+    try:
+        with db._connect() as conn:
+            _ensure_runtime_preferences_table(conn)
+            row = conn.execute(
+                "SELECT value FROM runtime_preferences WHERE key = 'swarm_routing_policy' LIMIT 1;"
+            ).fetchone()
+            if row:
+                val = str(row["value"] or "").strip().lower()
+                if val in VALID_ROUTING_POLICIES:
+                    return val
+    except Exception:
+        pass
+    return "auto"
+
+
+def set_routing_policy(db: Any, policy: str) -> Dict[str, Any]:
+    """Validate and persist the swarm routing policy into SQLite runtime_preferences."""
+    pol = str(policy or "").strip().lower()
+    if pol not in VALID_ROUTING_POLICIES:
+        return {
+            "ok": False,
+            "error": f"Invalid policy '{policy}'. Valid policies: {', '.join(VALID_ROUTING_POLICIES)}",
+            "valid_policies": list(VALID_ROUTING_POLICIES),
+        }
+    if db is None:
+        return {"ok": True, "policy": pol, "persisted": False}
+    try:
+        with db._connect() as conn:
+            _ensure_runtime_preferences_table(conn)
+            conn.execute(
+                """
+                INSERT INTO runtime_preferences (key, value, updated_at)
+                VALUES ('swarm_routing_policy', ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP;
+                """,
+                (pol,),
+            )
+        return {"ok": True, "policy": pol, "persisted": True}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _get_quota_pressure(db: Any = None) -> Dict[str, Any]:
+    """Safely query 5h quota radar with 20s cache and fast fallback."""
+    fallback = {"remaining_pct": 80.0, "zone": "GREEN"}
+    if db is None:
+        return fallback
+
+    cache_key = str(getattr(db, "db_path", id(db)))
+    now = time.monotonic()
+    with _QUOTA_PRESSURE_LOCK:
+        cached = _QUOTA_PRESSURE_CACHE.get(cache_key)
+        if cached and (now - float(cached.get("ts") or 0.0)) < _QUOTA_PRESSURE_TTL_SEC:
+            return dict(cached["data"])
+
+    try:
+        from orbit_engine import OrbitEngine
+
+        orb = OrbitEngine(db)
+        radar: Any = None
+        if hasattr(orb, "get_quota_5h_radar"):
+            radar = orb.get_quota_5h_radar()
+        elif hasattr(orb, "get_5h_quota_radar"):
+            radar = orb.get_5h_quota_radar()
+
+        if isinstance(radar, dict):
+            if radar.get("remaining_pct") is not None:
+                rem = float(radar["remaining_pct"])
+            elif radar.get("usage_pct") is not None:
+                rem = 100.0 - float(radar["usage_pct"])
+            else:
+                rem = 80.0
+            rem = round(max(0.0, min(100.0, rem)), 1)
+            zone = "GREEN" if rem >= 50.0 else ("AMBER" if rem >= 20.0 else "RED")
+            res = {"remaining_pct": rem, "zone": zone}
+            with _QUOTA_PRESSURE_LOCK:
+                _QUOTA_PRESSURE_CACHE[cache_key] = {"ts": now, "data": res}
+            return res
+    except Exception:
+        pass
+    return fallback
+
+
+def _get_loaded_local_model_name(
+    profile: Dict[str, Any],
+    probe_local: bool = False,
+) -> str:
+    """Return a loaded local VRAM model name if available without blocking when probe_local=False."""
+    local_rt: Optional[Dict[str, Any]] = None
+    if probe_local:
+        try:
+            local_rt = detect_local_llm_runtimes(timeout_ms=150)
+        except Exception:
+            local_rt = None
+    else:
+        with _LOCAL_PROBE_LOCK:
+            cached = _LOCAL_PROBE_CACHE.get("data")
+            if cached and (time.monotonic() - float(_LOCAL_PROBE_CACHE.get("ts") or 0.0)) < _LOCAL_PROBE_TTL_SEC:
+                local_rt = cached
+
+    if isinstance(local_rt, dict):
+        primary = local_rt.get("primary_loaded_local_model")
+        if isinstance(primary, dict) and primary.get("name"):
+            return str(primary["name"]).strip()
+
+    if profile.get("is_local_model") and profile.get("model_raw"):
+        return str(profile["model_raw"]).strip()
+    return ""
+
+
+def _score_and_route_role(
+    task_folded: str,
+    role: str,
+    files_count: int,
+    blast_radius: str,
+    effective_policy: str,
+    host: str,
+    quota_zone: str,
+    quota_rem: float,
+    local_candidate: str,
+) -> Dict[str, Any]:
+    role_norm = (role or "worker").strip().lower()
+    if role_norm in _LITE_ROLES:
+        score = 15
+    elif role_norm in _FRONTIER_ROLES:
+        score = 82
+    elif role_norm in _FAST_ROLES:
+        score = 48
+    else:
+        score = 48
+
+    is_security_context = role_norm in _SECURITY_ROLES or any(
+        kw in task_folded for kw in ("security", "seguranca", "pentest", "owasp", "sql injection", "sqli", "xss", "auth")
+    )
+
+    if any(kw in task_folded for kw in _UPGRADE_KEYWORDS):
+        score += 22
+    if any(kw in task_folded for kw in _DOWNGRADE_KEYWORDS):
+        score -= 20
+
+    blast_norm = (blast_radius or "LOW").strip().upper()
+    if blast_norm == "CRITICAL":
+        score += 25
+    elif blast_norm == "HIGH":
+        score += 15
+    elif blast_norm == "MEDIUM":
+        score += 5
+
+    f_cnt = max(1, int(files_count or 1))
+    if f_cnt >= 5:
+        score += 15
+    elif f_cnt >= 3:
+        score += 8
+
+    if effective_policy == "quality":
+        score += 18
+    elif effective_policy == "economy":
+        score -= 22
+    elif effective_policy in ("auto", "balanced"):
+        if quota_zone == "AMBER":
+            score -= 14
+        elif quota_zone == "RED":
+            score -= 28
+
+    score = max(0, min(100, int(round(score))))
+
+    if score < 35:
+        tier = "lite"
+    elif score <= 71:
+        tier = "fast"
+    elif score <= 87:
+        tier = "inherit"
+    else:
+        tier = "pro"
+
+    if quota_zone == "RED" and is_security_context and tier == "lite":
+        tier = "fast"
+
+    use_local = False
+    local_name = ""
+    if local_candidate and (
+        effective_policy == "local_first"
+        or (effective_policy in ("auto", "balanced") and quota_zone == "RED")
+    ):
+        use_local = True
+        local_name = local_candidate
+
+    agy_param = _TIER_TO_PLATFORM_MODEL["antigravity"][tier]
+    claude_param = _TIER_TO_PLATFORM_MODEL["claude_code"][tier]
+    codex_param = _TIER_TO_PLATFORM_MODEL["codex_cli"][tier]
+    plat_map = _TIER_TO_PLATFORM_MODEL.get(host, _TIER_TO_PLATFORM_MODEL["generic_mcp"])
+    platform_model = local_name if use_local else plat_map[tier]
+    savings_pct = 100 if use_local else _TIER_SAVINGS_PCT[tier]
+
+    reason_pt = (
+        f"role={role_norm} · score={score}/100 · tier={tier} · "
+        f"policy={effective_policy} · quota={quota_zone}({quota_rem:.0f}%)"
+    )
+    if use_local:
+        reason_pt += f" · local={local_name}"
+
+    return {
+        "ok": True,
+        "platform_id": host,
+        "policy": effective_policy,
+        "quota_zone": quota_zone,
+        "quota_remaining_pct": quota_rem,
+        "role": role,
+        "complexity_score": score,
+        "tier": tier,
+        "recommended_model": platform_model,
+        "antigravity_model_param": agy_param,
+        "claude_model_param": claude_param,
+        "codex_model_param": codex_param,
+        "use_local_model": use_local,
+        "local_model_name": local_name,
+        "estimated_cost_savings_pct": savings_pct,
+        "reason": reason_pt,
+    }
+
+
+def recommend_agent_model(
+    task: str = "",
+    role: str = "worker",
+    files_count: int = 1,
+    blast_radius: str = "LOW",
+    policy: str = "",
+    platform_id: str = "",
+    db: Any = None,
+    probe_local: bool = False,
+) -> Dict[str, Any]:
+    """
+    Autonomous Subagent Model Router (<0.5ms):
+    Recommends the optimal model parameter for a subagent based on role, task complexity,
+    blast radius, file count, active routing policy, 5h quota pressure, and local VRAM models.
+    """
+    req_pol = (policy or "").strip().lower()
+    effective_policy = req_pol if req_pol in VALID_ROUTING_POLICIES else get_routing_policy(db)
+    profile = detect_runtime_profile(host_hint=platform_id, db=db, probe_local=probe_local)
+    host = str(profile.get("platform_id") or "antigravity")
+    quota_info = _get_quota_pressure(db)
+    quota_zone = str(quota_info.get("zone") or "GREEN")
+    quota_rem = float(quota_info.get("remaining_pct") if quota_info.get("remaining_pct") is not None else 80.0)
+    local_candidate = _get_loaded_local_model_name(profile, probe_local=probe_local)
+    task_folded = _ascii_fold(task)
+
+    return _score_and_route_role(
+        task_folded=task_folded,
+        role=role,
+        files_count=files_count,
+        blast_radius=blast_radius,
+        effective_policy=effective_policy,
+        host=host,
+        quota_zone=quota_zone,
+        quota_rem=quota_rem,
+        local_candidate=local_candidate,
+    )
+
+
+def plan_swarm_model_matrix(
+    task: str = "",
+    blast_radius: str = "LOW",
+    policy: str = "",
+    platform_id: str = "",
+    db: Any = None,
+    probe_local: bool = False,
+) -> Dict[str, Any]:
+    """
+    Compute optimal model assignments across all canonical Swarm lanes
+    (SCOUT, DOCS, UI, API, TESTS, ARCHITECT, SECURITY) and emit a compact directive_line.
+    """
+    req_pol = (policy or "").strip().lower()
+    effective_policy = req_pol if req_pol in VALID_ROUTING_POLICIES else get_routing_policy(db)
+    profile = detect_runtime_profile(host_hint=platform_id, db=db, probe_local=probe_local)
+    host = str(profile.get("platform_id") or "antigravity")
+    quota_info = _get_quota_pressure(db)
+    quota_zone = str(quota_info.get("zone") or "GREEN")
+    quota_rem = float(quota_info.get("remaining_pct") if quota_info.get("remaining_pct") is not None else 80.0)
+    local_candidate = _get_loaded_local_model_name(profile, probe_local=probe_local)
+    task_folded = _ascii_fold(task)
+
+    lane_roles = (
+        ("SCOUT", "scout", 1),
+        ("DOCS", "docs", 1),
+        ("UI", "ui", 1),
+        ("API", "api", 1),
+        ("TESTS", "tests", 1),
+        ("ARCHITECT", "architect", 2),
+        ("SECURITY", "security", 2),
+    )
+    lanes: Dict[str, Dict[str, Any]] = {}
+    for lane_key, role_name, f_cnt in lane_roles:
+        lanes[lane_key] = _score_and_route_role(
+            task_folded=task_folded,
+            role=role_name,
+            files_count=f_cnt,
+            blast_radius=blast_radius,
+            effective_policy=effective_policy,
+            host=host,
+            quota_zone=quota_zone,
+            quota_rem=quota_rem,
+            local_candidate=local_candidate,
+        )
+
+    avg_savings = int(
+        round(sum(int(r.get("estimated_cost_savings_pct") or 0) for r in lanes.values()) / max(1, len(lanes)))
+    )
+    m_scout = lanes["SCOUT"]["recommended_model"]
+    m_api = lanes["API"]["recommended_model"]
+    m_arch = lanes["ARCHITECT"]["recommended_model"]
+    m_sec = lanes["SECURITY"]["recommended_model"]
+    arch_sec_lbl = m_arch if m_arch == m_sec else f"{m_arch}/{m_sec}"
+
+    directive_line = (
+        f"🤖[SWARM_MODEL_ROUTER|policy={effective_policy}|quota={quota_zone}|host={host}]: "
+        f"SCOUT={m_scout} | UI/API/TESTS={m_api} | ARCH/SEC={arch_sec_lbl} (-{avg_savings}% quota)"
+    )
+
+    return {
+        "ok": True,
+        "platform_id": host,
+        "policy": effective_policy,
+        "quota_zone": quota_zone,
+        "quota_remaining_pct": quota_rem,
+        "avg_cost_savings_pct": avg_savings,
+        "lanes": lanes,
+        "directive_line": directive_line,
+    }

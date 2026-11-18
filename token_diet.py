@@ -251,6 +251,7 @@ ALL_BRAIN_MCP_TOOLS = [
     "brain_resolve_skill",
     "brain_explain_ranking",
     "brain_runtime_info",
+    "brain_route_agent_model",
 ]
 
 INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {

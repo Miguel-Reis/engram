@@ -1453,6 +1453,38 @@ def run_all_tests() -> None:
         assert "brain_runtime_info" in tool_names, f"Tool MCP #24 brain_runtime_info ausente: {tool_names}"
         assert "brain://runtime/profile" in res_uris, f"Resource MCP brain://runtime/profile ausente: {res_uris}"
 
+        # 34. Antigravity Brain v8.5 (Autonomous Swarm & Subagent Model Router + Policy Persistence + MCP Tool #25)
+        from runtime_detector import (
+            get_routing_policy,
+            plan_swarm_model_matrix,
+            recommend_agent_model,
+            set_routing_policy,
+        )
+
+        rec_scout = recommend_agent_model("ler readme e listar ficheiros", role="scout", platform_id="antigravity", db=gb_db)
+        assert rec_scout["recommended_model"] == "flash_lite" and rec_scout["claude_model_param"] == "haiku", f"Roteamento SCOUT falhou: {rec_scout}"
+
+        rec_sec = recommend_agent_model(
+            "auditoria critica de seguranca SQL injection e auth",
+            role="security",
+            blast_radius="CRITICAL",
+            files_count=6,
+            platform_id="antigravity",
+            db=gb_db,
+        )
+        assert rec_sec["recommended_model"] == "pro" and rec_sec["claude_model_param"] == "opus", f"Roteamento SECURITY CRITICAL falhou: {rec_sec}"
+
+        set_routing_policy(gb_db, "economy")
+        assert get_routing_policy(gb_db) == "economy", "Persistência de política economy falhou"
+        rec_eco = recommend_agent_model("criar componente UI simples", role="ui", platform_id="antigravity", db=gb_db)
+        assert rec_eco["recommended_model"] in ("flash_lite", "flash") and rec_eco["estimated_cost_savings_pct"] >= 60, f"Política economy falhou: {rec_eco}"
+        set_routing_policy(gb_db, "auto")
+
+        mat_v85 = plan_swarm_model_matrix(task="implementar nova API e testes", platform_id="antigravity", db=gb_db)
+        assert mat_v85["ok"] is True and "🤖[SWARM_MODEL_ROUTER|" in mat_v85["directive_line"], f"Matriz Swarm v8.5 inválida: {mat_v85}"
+        assert set(mat_v85["lanes"].keys()) >= {"SCOUT", "DOCS", "UI", "API", "TESTS", "ARCHITECT", "SECURITY"}, f"Lanes em falta: {mat_v85['lanes'].keys()}"
+        assert "brain_route_agent_model" in tool_names, f"Tool MCP #25 brain_route_agent_model ausente: {tool_names}"
+
     assert 'id="tabBtnJarvis"' not in html_content, "tabBtnJarvis ainda existe em index.html!"
     assert 'id="jarvisWorkspace"' not in html_content, "jarvisWorkspace ainda existe em index.html!"
 
@@ -1527,9 +1559,17 @@ def run_all_tests() -> None:
         'id="runtimeIdeBridgeGrid"',
         "function refreshRuntimeProfileUI(",
         "function connectIdeBridgeTargetUI(",
+        'id="swarmModelRouterBox"',
+        'id="runtimePolicyBar"',
+        'id="swarmModelMatrixGrid"',
+        'id="routerSimTaskInput"',
+        'id="routerSimOutput"',
+        "function setRuntimeRoutingPolicyUI(",
+        "function simulateAgentModelRouteUI(",
+        "function renderSwarmModelMatrixUI(",
     ):
-        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.4 em falta em index.html: {gb_ui_token}"
-    print("[PASS] Pack Completo v6.0..v8.4 Studio OS (Multi-Model Cloud+Local LLM, Universal Hook Adapter, 7-IDE Cross-OS Bridge, GBrain, Pagoda & Archify) OK")
+        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.5 em falta em index.html: {gb_ui_token}"
+    print("[PASS] Pack Completo v6.0..v8.5 Studio OS (Autonomous Swarm Model Router, Multi-Model Cloud+Local LLM, 7-IDE Cross-OS Bridge, GBrain, Pagoda & Archify) OK")
 
 
 if __name__ == "__main__":

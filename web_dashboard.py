@@ -818,7 +818,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "antigravity-brain-v8.4"})
+            self._send_json({"status": "ok", "service": "antigravity-brain-v8.5"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -877,7 +877,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/manifest.json":
             manifest = {
-                "name": "Antigravity Brain v8.4 — Carbon Studio OS",
+                "name": "Antigravity Brain v8.5 — Carbon Studio OS",
                 "short_name": "Brain OS",
                 "start_url": "/?app=1#graph",
                 "display": "standalone",
@@ -1224,7 +1224,9 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 from runtime_detector import (
                     detect_local_llm_runtimes,
                     detect_runtime_profile,
+                    get_routing_policy,
                     get_runtime_history,
+                    plan_swarm_model_matrix,
                 )
 
                 db = BrainDB()
@@ -1233,6 +1235,12 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 local_runtimes = detect_local_llm_runtimes(force_refresh=force_flag)
                 history = get_runtime_history(db, limit=10)
                 ide_bridge = orbit.get_mcp_bridge_status()
+                routing_policy = get_routing_policy(db)
+                swarm_model_matrix = plan_swarm_model_matrix(
+                    platform_id=str((profile or {}).get("platform_id") or ""),
+                    db=db,
+                    probe_local=False,
+                )
                 self._send_json(
                     {
                         "ok": True,
@@ -1240,8 +1248,42 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                         "local_runtimes": local_runtimes,
                         "history": history,
                         "ide_bridge": ide_bridge,
+                        "routing_policy": routing_policy,
+                        "swarm_model_matrix": swarm_model_matrix,
                     }
                 )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
+            return
+
+        if parsed.path == "/api/runtime/route-model":
+            qs = urllib.parse.parse_qs(parsed.query)
+            task = qs.get("task", [""])[0]
+            role = qs.get("role", ["worker"])[0]
+            files_count = _safe_int(qs.get("files", ["1"])[0], default=1, min_v=1)
+            risk = qs.get("risk", ["LOW"])[0]
+            policy = qs.get("policy", [""])[0]
+            try:
+                from runtime_detector import plan_swarm_model_matrix, recommend_agent_model
+
+                db = BrainDB()
+                rec = recommend_agent_model(
+                    task=task,
+                    role=role,
+                    files_count=files_count,
+                    blast_radius=risk,
+                    policy=policy,
+                    db=db,
+                    probe_local=False,
+                )
+                matrix = plan_swarm_model_matrix(
+                    task=task,
+                    blast_radius=risk,
+                    policy=policy,
+                    db=db,
+                    probe_local=False,
+                )
+                self._send_json({"ok": True, "recommendation": rec, "matrix": matrix})
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc)}, 500)
             return
@@ -1839,6 +1881,31 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                     "url": f"http://127.0.0.1:{PORT}/#graph",
                 }
             )
+            return
+
+        if parsed.path == "/api/runtime/policy":
+            try:
+                from runtime_detector import plan_swarm_model_matrix, set_routing_policy
+
+                policy = str(body.get("policy", "")).strip().lower()
+                res = set_routing_policy(db, policy)
+                if not res.get("ok"):
+                    self._send_json(res, 400)
+                    return
+                matrix = plan_swarm_model_matrix(
+                    policy=res["policy"],
+                    db=db,
+                    probe_local=False,
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "routing_policy": res["policy"],
+                        "swarm_model_matrix": matrix,
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
             return
 
         if parsed.path == "/api/runtime/connect":

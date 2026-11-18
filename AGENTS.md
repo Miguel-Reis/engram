@@ -1,6 +1,6 @@
 # AGENTS.md — brain_mcp
 
-# Antigravity Brain v8.4 — Multi-Model Runtime Intelligence, 7-IDE Bridge & GBrain Dossiers
+# Antigravity Brain v8.5 — Autonomous Swarm Model Router, Multi-Model Runtime Intelligence & GBrain Dossiers
 
 1. **Pre-Injected Context (`[BRAIN_MEMORY]`)**: Prior to responding, check if an ephemeral `[BRAIN_MEMORY]` block was injected. Trust its file paths, checkpoints, and environment facts so you do not waste tool calls re-discovering project structure.
 2. **Zero-Token Memory Harvesting (`<!-- brain: Topic | Fact -->`)**: Whenever you solve a non-trivial bug, discover a critical IP/config/path, or make an architectural decision, append a hidden HTML comment at the very end of your response:
@@ -20,9 +20,10 @@
    - **Orthogonal Salience × Recency Ranking**: Memory retrieval separates importance (pinned/canonical truth) from time decay (Ebbinghaus recency). Debug ranking math and Autocut decisions via `brain_explain_ranking`.
    - **Local Skill Resolver (`brain_resolve_skill`)**: When complex agent skills are omitted due to context-budget limits, resolve authoritative `SKILL.md` rules and trigger definitions locally at zero LLM token cost.
    - **Compiled Truth & Dossiers (`.brain_vault/<ws>/*.md`)**: Maintain two-zone dossiers (`## 💎 Compiled Truth` + `## 📅 Chronological Timeline`) with bidirectional back-links (`## 🔗 Bidirectional Back-Links`) to guarantee single source of truth across agent sessions.
-8. **Multi-Model & Multi-Platform Runtime Intelligence (`brain_runtime_info` & `brain://runtime/profile`)**:
+8. **Multi-Model Runtime Intelligence & Autonomous Swarm Model Router (`brain_runtime_info`, `brain_route_agent_model` & `brain://runtime/profile`)**:
    - **Automatic Cloud & Local Model Detection**: `runtime_detector.py` detects the active host IDE/CLI (`antigravity`, `claude_code`, `codex_cli`, `cursor`, `windsurf`, `opencode`, `claude_desktop`), OS (`Windows`/`macOS`/`Linux`), active cloud model (Claude, GPT/Codex, Gemini, DeepSeek, Llama, Qwen), and local LLM runtimes (`Ollama`, `LM Studio`, `vLLM`, `llama.cpp`), dynamically adapting context budgets and Swarm subagent topologies.
-   - **7-IDE Cross-OS Bridge & Runtime Telemetry**: Inspect runtime detection via `brain_runtime_info`, `brain://runtime/profile`, or `GET /api/runtime`; report explicit models via `brain_runtime_info(report_model=...)` or `POST /api/runtime/connect`; and safely merge MCP/hook configs across all 7 supported IDEs/CLIs without overwriting existing settings.
+   - **Autonomous Subagent & Swarm Model Routing**: Whenever launching subagents or swarms (`invoke_subagent`, `swarm`, or `Agent`), automatically use the Brain's `🤖[SWARM_MODEL_ROUTER]` model choice injected in `[BRAIN_MEMORY]` (or call `brain_route_agent_model`) unless the user explicitly overrides the model.
+   - **7-IDE Cross-OS Bridge & Runtime Telemetry**: Inspect runtime detection via `brain_runtime_info`, `brain://runtime/profile`, or `GET /api/runtime`; manage routing policies via `POST /api/runtime/policy` (`auto|quality|balanced|economy|local_first`); report explicit models via `brain_runtime_info(report_model=...)` or `POST /api/runtime/connect`; and safely merge MCP/hook configs across all 7 supported IDEs/CLIs without overwriting existing settings.
 
 <!-- BRAIN_AUTO_RULES_START -->
 ## 🧠 Antigravity Global Brain — Auto-Synced Rules (`brain_mcp`)
