@@ -109,8 +109,6 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
     scratch_brain_dir = GEMINI_DIR / "antigravity" / "scratch" / "brain_mcp"
     try:
         if scratch_brain_dir.is_dir() and scratch_brain_dir.resolve() != REPO_DIR.resolve():
-            import shutil
-
             for fname in (
                 "server.py",
                 "db_engine.py",
