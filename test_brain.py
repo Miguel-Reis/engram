@@ -319,7 +319,7 @@ def run_all_tests() -> None:
     assert len(out_lines) == 3, f"Esperadas 3 respostas JSON-RPC no stdout, obteve {len(out_lines)}: {out_lines}"
 
     init_resp = json.loads(out_lines[0])
-    assert init_resp.get("id") == 1 and init_resp["result"]["serverInfo"]["name"] == "antigravity-brain"
+    assert init_resp.get("id") == 1 and init_resp["result"]["serverInfo"]["name"] == "engram" and init_resp["result"]["serverInfo"]["version"] == "9.0.0"
 
     tools_resp = json.loads(out_lines[1])
     tool_names = [t["name"] for t in tools_resp["result"]["tools"]]
@@ -1516,7 +1516,7 @@ def run_all_tests() -> None:
         "studio-section-card",
         "studio-hero-banner",
         "holo-tower-heat-fill",
-        "Antigravity Brain v7.0 — Precision Studio OS",
+        "Engram v9.0 — Universal AI Memory & Swarm OS",
         "STUDIO v5.3",
         "4 × 12 workers (48)",
         "96 / 96",

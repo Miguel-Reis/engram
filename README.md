@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🧠 Antigravity Brain v8.5 — Autonomous Swarm Model Router & 7-IDE Cross-OS Bridge
+# 🧠 Engram v9.0 — Universal AI Memory & Swarm OS
 
 **Zero-Round-Trip Persistent Memory Engine, Autonomous Swarm & Subagent Model Router (`<0.5ms`), Multi-Model Cloud + Local LLM Detection (Ollama / LM Studio / vLLM / llama.cpp), 7-IDE Cross-OS MCP & Hook Bridge (Windows / macOS / Linux), GBrain Salience × Recency Ranking, Compiled Vault Dossiers, Local Zero-Token Skill Resolver, Pagoda LSM Folds, Archify Zero-Token Delta & 25 MCP Tools**
 
-[![Version](https://img.shields.io/badge/version-8.5.0_Carbon_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/antigravity-brain/releases)
+[![Version](https://img.shields.io/badge/version-9.0.0_Engram_OS-10b981?style=for-the-badge)](https://github.com/Miguel-Reis/engram/releases)
 [![Python](https://img.shields.io/badge/python-3.10%2B%20(Zero--Deps)-38bdf8?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Engine](https://img.shields.io/badge/SQLite_WAL-FTS5_%2B_Pagoda_LSM_%2B_128--Bit_BQ-10b981?style=for-the-badge&logo=sqlite&logoColor=white)](./db_engine.py)
 [![Archify](https://img.shields.io/badge/Archify-Zero--Token_Delta_%26_Evidence_Console-06b6d4?style=for-the-badge)](./archify_engine.py)
@@ -13,15 +13,15 @@
 
 *Built with 100% Python Standard Library (`sqlite3`, `ast`, `http.server`, `concurrent.futures`) and Vanilla HTML5 / Canvas2D / ECS `Float32Array` SoA — zero `pip` packages required, zero cloud telemetry, sub-10ms local execution.*
 
-[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v85) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-25-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
+[Quick Install](#-quick-install) • [Frontier Technologies](#-frontier-20252026-technologies-v90) • [Architecture](#-how-it-works-zero-round-trip-memory-protocol) • [Token Diet (-96%)](#-5-stage-token-diet--context-pipeline) • [Carbon Studio OS](#️-carbon-studio-os-dashboard-http1270018765) • [MCP 2026 Server](#-mcp-2026-server-25-tools--resources--prompts) • [Testing](#-verification--test-suite-2727-pass)
 
 </div>
 
 ---
 
-## 🚀 Frontier 2025–2026 Technologies (v8.5)
+## 🚀 Frontier 2025–2026 Technologies (v9.0)
 
-**Antigravity Brain v8.5** integrates state-of-the-art cognitive memory, autonomous Swarm model routing, multi-model runtime detection, cross-OS 7-IDE bridging, and codebase graph breakthroughs in pure Python + SQLite WAL:
+**Engram v9.0** integrates state-of-the-art cognitive memory, autonomous Swarm model routing, multi-model runtime detection, cross-OS 7-IDE bridging, and codebase graph breakthroughs in pure Python + SQLite WAL:
 
 | Technology | Module & Symbols | How It Works & Impact |
 | :--- | :--- | :--- |
@@ -51,7 +51,7 @@ flowchart LR
         H3["🌾 Stop Hook\n(brain_harvest.py)"]
     end
 
-    subgraph Core["Antigravity Brain v7.2 Core (SQLite WAL · Schema v72)"]
+    subgraph Core["Engram v9.0 Core (SQLite WAL · Schema v72)"]
         DB[("🗄️ brain.db\nFTS5 BM25 + 128-Bit BQ\n+ HippoRAG 2 PPR")]
         JEV["🧭 JEV-S1 Router (<0.05ms)\nWorking [W] · Semantic [S] · Episodic [E]\n+ Notice Lookahead"]
         AST["🌳 Graphify AST & Git Co-Change\n562 Nodes · 1,823 Edges · Blast Radius"]
@@ -117,7 +117,7 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 
 ## 🧰 MCP 2026 Server (25 Tools + Resources + Prompts)
 
-[`server.py`](./server.py) implements a zero-dependency **MCP JSON-RPC 2.0 Stdio Server** (`v8.5.0`) with exact UTF-8 byte framing, `initialize` `clientInfo` host capture, and MCP 2026 `Tool Annotations` (`readOnlyHint`, `idempotentHint`, `destructiveHint`):
+[`server.py`](./server.py) implements a zero-dependency **MCP JSON-RPC 2.0 Stdio Server** (`v9.0.0`) with exact UTF-8 byte framing, `initialize` `clientInfo` host capture, and MCP 2026 `Tool Annotations` (`readOnlyHint`, `idempotentHint`, `destructiveHint`):
 
 ### Native MCP Resources (`resources/list`, `resources/read`, `resources/templates/list`)
 - `brain://memories/pinned` — Active human-locked directives and global meta-rules
@@ -172,14 +172,14 @@ Redesigned end-to-end with the **Carbon Studio OS v8.1** design system (**Matte 
 ### Option A — One-Line PowerShell Install (Windows)
 
 ```powershell
-git clone https://github.com/Miguel-Reis/antigravity-brain.git "$HOME\.gemini\antigravity\scratch\brain_mcp"; python "$HOME\.gemini\antigravity\scratch\brain_mcp\install.py"
+git clone https://github.com/Miguel-Reis/engram.git "$HOME\.gemini\antigravity\scratch\brain_mcp"; python "$HOME\.gemini\antigravity\scratch\brain_mcp\install.py"
 ```
 
 ### Option B — Standard Git Clone (Windows / macOS / Linux)
 
 ```bash
-git clone https://github.com/Miguel-Reis/antigravity-brain.git
-cd antigravity-brain
+git clone https://github.com/Miguel-Reis/engram.git
+cd engram
 python install.py          # Windows (Antigravity default)
 python3 install.py         # macOS / Linux (Antigravity default)
 python install.py --targets claude_code,codex_cli,cursor,windsurf,opencode,claude_desktop
@@ -187,8 +187,8 @@ python install.py --targets claude_code,codex_cli,cursor,windsurf,opencode,claud
 
 Running [`install.py`](./install.py) automatically:
 1. Configures global `PreInvocation` and `Stop` hooks in `~/.gemini/config/hooks.json`.
-2. Installs the agent rules (`AGENTS.md`) and runtime in `~/.gemini/config/plugins/antigravity-brain`.
-3. Registers the `antigravity-brain` MCP server in `~/.gemini/config/mcp_config.json` (and optionally merges configs across all 7 IDEs/CLIs via `--targets`).
+2. Installs the agent rules (`AGENTS.md`) and runtime in `~/.gemini/config/plugins/engram`.
+3. Registers the `engram` MCP server in `~/.gemini/config/mcp_config.json` (and optionally merges configs across all 7 IDEs/CLIs via `--targets`).
 4. Starts the **Carbon Studio OS Web Dashboard** on [`http://127.0.0.1:8765`](http://127.0.0.1:8765).
 
 ---
@@ -251,9 +251,9 @@ Output (`27/27 PASS`):
 | [`pagoda_fold_engine.py`](./pagoda_fold_engine.py) | **Pagoda LSM Reversible Folding Engine**: Multi-tier `zlib` compaction (`Tier-1/2/3`), checkpoint folding, token savings telemetry, and lossless decompression by ID. |
 | [`archify_engine.py`](./archify_engine.py) | **Archify Zero-Token Architecture Engine**: Deterministic architecture map (`signal-flow`), git architecture delta, upstream/downstream reachability focus, conclusion-first explainers, and standalone HTML Evidence Console export. |
 | [`token_diet.py`](./token_diet.py) | Dynamic intent-based MCP tool pruner across all 25 tools, platform-aware Swarm topology routing, and 5-hour quota profiler (`LEAN` vs `FULL`). |
-| [`server.py`](./server.py) | Zero-dependency **MCP 2026 JSON-RPC 2.0 `stdio` server** (`v8.5.0`) with `clientInfo` capture, UTF-8 byte framing, 25 tools (`readOnlyHint` annotations), 8 native `Resources` (`brain://...`), and 3 `Prompts`. |
+| [`server.py`](./server.py) | Zero-dependency **MCP 2026 JSON-RPC 2.0 `stdio` server** (`v9.0.0`) with `clientInfo` capture, UTF-8 byte framing, 25 tools (`readOnlyHint` annotations), 8 native `Resources` (`brain://...`), and 3 `Prompts`. |
 | [`web_dashboard.py`](./web_dashboard.py) | Local HTTP/SSE server (`127.0.0.1:8765`) powered by a 16-worker `ThreadPoolExecutor`, `/api/runtime`, `/api/runtime/route-model`, `/api/runtime/policy` & `/api/runtime/connect` endpoints, strict `POST`/`DELETE` CSRF protection, `4 MB` payload cap, and secret-redacted edits. |
-| [`index.html`](./index.html) | Single-file **Carbon Studio OS v8.5** UI (`01 Córtex`, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`, `08 AST & BFS Inspector`, `Orbit Mission Control`). |
+| [`index.html`](./index.html) | Single-file **Engram v9.0 — Carbon Studio OS** UI (`01 Córtex`, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`, `08 AST & BFS Inspector`, `Orbit Mission Control`). |
 | [`install.py`](./install.py) / [`auto_updater.py`](./auto_updater.py) | Cross-OS automated installer (`--targets`), runtime synchronizer, and GitHub `origin/main` hot-reload updater. |
 | [`test_brain.py`](./test_brain.py) | End-to-end 27-suite automated verification benchmark. |
 

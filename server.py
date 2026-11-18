@@ -28,7 +28,7 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str, version: str = "8.5.0") -> None:
+    def __init__(self, name: str = "engram", version: str = "9.0.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
@@ -713,7 +713,7 @@ class StdioMCPServer:
                 break
             except Exception as exc:
                 try:
-                    sys.stderr.write(f"[antigravity-brain MCP error] {exc}\n")
+                    sys.stderr.write(f"[engram MCP error] {exc}\n")
                     sys.stderr.flush()
                 except Exception:
                     pass
@@ -736,7 +736,7 @@ except Exception:
     pass
 
 # Create the MCP server
-mcp = MCPServer("antigravity-brain", version="8.5.0")
+mcp = MCPServer("engram", version="9.0.0")
 mcp.db = db
 
 

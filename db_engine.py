@@ -551,7 +551,7 @@ class BrainDB:
                 ws_remap = {
                     "brain_mcp": (
                         "office_3d", "swarm_24x", "graphify_ast", "token_diet",
-                        "antigravity-brain", "claude-architect-coder", "strix", "antigravity-backup",
+                        "engram", "antigravity-brain", "claude-architect-coder", "strix", "antigravity-backup",
                     ),
                     "global": (
                         "brain", "scratch", "test", "ui-ux-pro-max-skill", "ultraplan",
@@ -2726,13 +2726,13 @@ class BrainDB:
         # Construir documento Markdown compatível com Obsidian Vault (com [[WikiLinks]] entre notas)
         md_lines = [
             "---",
-            f"title: Antigravity Brain Vault ({ws_clean.upper()})",
+            f"title: Engram Vault ({ws_clean.upper()})",
             "version: 2.8",
             f"memories_count: {len(mems)}",
             f"checkpoints_count: {len(chks)}",
             "---",
             "",
-            f"# 🧠 Antigravity Brain Vault — `{ws_clean.upper()}`",
+            f"# 🧠 Engram Vault — `{ws_clean.upper()}`",
             "",
             "## 🏁 Checkpoints de Projeto",
         ]
@@ -2844,7 +2844,7 @@ class BrainDB:
 
 
 def seed_initial_memories(db: BrainDB) -> int:
-    """Popula o Brain com o contexto base da arquitetura Antigravity Brain v2."""
+    """Popula o Brain com o contexto base da arquitetura Engram v9.0."""
     repo_dir = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
     scratch_dir = os.path.expanduser("~/.gemini/antigravity/scratch").replace("\\", "/")
     config_dir = os.path.expanduser("~/.gemini/config").replace("\\", "/")
@@ -2859,7 +2859,7 @@ def seed_initial_memories(db: BrainDB) -> int:
             5,
         ),
         (
-            "Arquitetura Antigravity Brain v2 (Zero-Round-Trip)",
+            "Arquitetura Engram v9.0 (Zero-Round-Trip)",
             f"O Brain v2 usa hooks nativos em {config_dir}/hooks.json (PreInvocation -> brain_inject.py e Stop -> brain_harvest.py) ligados a brain.db (SQLite FTS5 BM25). Injeta ephemeralMessage antes da resposta em <40ms sem gastar chamadas extra de tool.",
             "brain_mcp",
             "architecture",

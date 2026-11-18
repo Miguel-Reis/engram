@@ -17,8 +17,8 @@ MCP_SCHEMAS_DIR = os.path.expanduser("~/.gemini/antigravity/mcp")
 PLUGINS_DIR = os.path.join(CONFIG_DIR, "plugins")
 BRAIN_CONV_DIR = os.path.expanduser("~/.gemini/antigravity/brain")
 
-LEAN_MCP_SERVERS = {"antigravity-brain", "codebase-memory", "context7"}
-CORE_PLUGINS = {"antigravity-brain", "claude-architect-coder", "context7", "strix"}
+LEAN_MCP_SERVERS = {"engram", "antigravity-brain", "codebase-memory", "context7"}
+CORE_PLUGINS = {"engram", "antigravity-brain", "claude-architect-coder", "context7", "strix"}
 
 
 def audit_mcp_servers() -> List[Dict[str, Any]]:
@@ -257,32 +257,32 @@ ALL_BRAIN_MCP_TOOLS = [
 INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {
     "bugfix_diagnosis": {
         "active_tools": ["swarm_symbol_lookup", "swarm_impact_graph", "swarm_graph_path", "search_brain", "store_fact"],
-        "active_mcps": ["antigravity-brain", "codebase-memory"],
+        "active_mcps": ["engram", "codebase-memory"],
         "subagent_topology": "SCOUT (fast-tier) -> DEBUG-WORKER (Active Architect) -> QA-VERIFY (fast-tier)",
     },
     "ui_3d_interactive": {
         "active_tools": ["swarm_symbol_lookup", "swarm_status", "swarm_update_task", "store_fact"],
-        "active_mcps": ["antigravity-brain"],
+        "active_mcps": ["engram"],
         "subagent_topology": "UI-01 (Active Architect) + QA-BROWSER (fast-tier)",
     },
     "architecture_synthesis": {
         "active_tools": ["swarm_scout", "swarm_archify_delta", "swarm_graph_path", "swarm_architecture_report", "save_checkpoint"],
-        "active_mcps": ["antigravity-brain", "context7"],
+        "active_mcps": ["engram", "context7"],
         "subagent_topology": "ARCH-01 (Active Architect) -> 4 Parallel Lanes (UI, API, TESTS, DOCS)",
     },
     "quota_performance": {
         "active_tools": ["brain_prune_tools", "brain_stats", "swarm_scout", "save_checkpoint"],
-        "active_mcps": ["antigravity-brain"],
+        "active_mcps": ["engram"],
         "subagent_topology": "SCOUT (fast-tier · Single-Pass)",
     },
     "security_privacy_gate": {
         "active_tools": ["swarm_impact_graph", "swarm_sandbox", "search_brain", "store_fact"],
-        "active_mcps": ["antigravity-brain"],
+        "active_mcps": ["engram"],
         "subagent_topology": "SECURITY-GATE (Active Architect) + AI-Defence Redactor",
     },
     "general_engineering": {
         "active_tools": ["swarm_symbol_lookup", "search_brain", "store_fact", "save_checkpoint"],
-        "active_mcps": ["antigravity-brain", "codebase-memory"],
+        "active_mcps": ["engram", "codebase-memory"],
         "subagent_topology": "Active Architect (inherit) + Scout Shared Map",
     },
 }
@@ -363,7 +363,7 @@ def print_status() -> None:
     plug_report = audit_plugins()
 
     print("=" * 72)
-    print(" 🧠 ANTIGRAVITY BRAIN v2 & AUDITORIA DE QUOTA (5h / TOKENS)")
+    print(" 🧠 ENGRAM v9.0 & AUDITORIA DE QUOTA (5h / TOKENS)")
     print("=" * 72)
 
     print("\n[1] ESTADO DA BASE DE DADOS (brain.db - SQLite FTS5 BM25)")
@@ -404,7 +404,7 @@ def print_status() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Antigravity Brain v2 & Token Diet CLI")
+    parser = argparse.ArgumentParser(description="Engram v9.0 & Token Diet CLI")
     sub = parser.add_subparsers(dest="cmd")
 
     sub.add_parser("status", help="Exibe relatório completo do Brain e auditoria de tokens")

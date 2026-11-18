@@ -397,7 +397,7 @@ def harvest_all_workspace_context(db: BrainDB) -> Dict[str, int]:
                 db.save_checkpoint(
                     workspace="brain_mcp",
                     project="brain_mcp",
-                    goal="Antigravity Brain Engine v8.3 (GBrain Unified Architecture & Orthogonal Memory Search)",
+                    goal="Engram Engine v9.0 (GBrain Unified Architecture & Orthogonal Memory Search)",
                     status="Ativo • Fonte Isolada e Canónica",
                     stack="Python 3.12+, SQLite WAL + FTS5 BM25, Antigravity Hooks, MCP, Swarm",
                     last_completed="Isolamento de contexto e compilação canónica de dossiers",
@@ -499,7 +499,7 @@ def build_obsidian_graph_payload(
                 "category": "workspace",
                 "importance": 5,
                 "val": 22,
-                "fact": f"Workspace / Projeto '{ws}' no Antigravity Brain.",
+                "fact": f"Workspace / Projeto '{ws}' no Engram.",
                 "tags": ws,
             }
         )
@@ -818,7 +818,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "antigravity-brain-v8.5"})
+            self._send_json({"status": "ok", "service": "engram-v9.0"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -877,8 +877,8 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/manifest.json":
             manifest = {
-                "name": "Antigravity Brain v8.5 — Carbon Studio OS",
-                "short_name": "Brain OS",
+                "name": "Engram v9.0 — Universal AI Memory & Swarm OS",
+                "short_name": "Engram",
                 "start_url": "/?app=1#graph",
                 "display": "standalone",
                 "background_color": "#08080a",

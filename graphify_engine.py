@@ -1,5 +1,5 @@
 """
-Graphify Knowledge Graph Engine for Antigravity Brain (Zero-LLM Deterministic AST + SQL + HTTP + MCP)
+Graphify Knowledge Graph Engine for Engram (Zero-LLM Deterministic AST + SQL + HTTP + MCP)
 ====================================================================================================
 Inspirado na arquitetura Graphify (safishamsi/graphify):
   1. Grafo de Conhecimento Multi-Modal Full-Stack:
@@ -1103,7 +1103,7 @@ class GraphifyEngine:
                 )
 
         md_lines = [
-            "# 🕸️ GRAPH_REPORT.md — Antigravity Brain Multi-Modal Knowledge Graph",
+            "# 🕸️ GRAPH_REPORT.md — Engram Multi-Modal Knowledge Graph",
             "",
             "> **Gerado automaticamente por `graphify_engine.py`** (Zero-LLM Deterministic AST + SQL + HTTP + MCP Graph)",
             "",

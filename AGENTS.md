@@ -1,12 +1,12 @@
-# AGENTS.md — brain_mcp
+# AGENTS.md — Engram (`brain_mcp`)
 
-# Antigravity Brain v8.5 — Autonomous Swarm Model Router, Multi-Model Runtime Intelligence & GBrain Dossiers
+# Engram v9.0 — Universal AI Memory, Autonomous Swarm Model Router & GBrain Dossiers
 
 1. **Pre-Injected Context (`[BRAIN_MEMORY]`)**: Prior to responding, check if an ephemeral `[BRAIN_MEMORY]` block was injected. Trust its file paths, checkpoints, and environment facts so you do not waste tool calls re-discovering project structure.
 2. **Zero-Token Memory Harvesting (`<!-- brain: Topic | Fact -->`)**: Whenever you solve a non-trivial bug, discover a critical IP/config/path, or make an architectural decision, append a hidden HTML comment at the very end of your response:
    `<!-- brain: Short Topic | Concise actionable fact with exact paths/values -->`
    The `Stop` hook (`brain_harvest.py`) automatically indexes these comments and any edited files into `brain.db` at zero LLM token cost.
-3. **Explicit Search**: Only call the `antigravity-brain` MCP tool (`search_brain`) if you need a deep query that was not covered by the automatic `[BRAIN_MEMORY]` injection.
+3. **Explicit Search**: Only call the `engram` MCP tool (`search_brain`) if you need a deep query that was not covered by the automatic `[BRAIN_MEMORY]` injection.
 4. **Scout-First Asymmetric Swarm Protocol (`SCOUT ➔ PLAN ➔ SWARM ➔ VERIFY`)**:
    - **Shared Codebase Map (`[SCOUT_SHARED_MAP]`)**: Before launching multi-file work, run `SwarmEngine.run_codebase_scout()` (or `swarm_scout` / `swarm_start`) so the codebase is indexed **1 time** and shared in `brain.db` across all agents via `PreInvocation`.
    - **Decoupled Architect & Lightweight Lanes**: Read the goal and `[SCOUT_SHARED_MAP]` once as the Architect, decompose into isolated lanes (`UI`, `API`, `TESTS`, `DOCS`), and delegate parallel execution via `invoke_subagent` with `Model="flash"` or `"flash_lite"`, passing the exact target file and symbols so workers never re-read the codebase.
@@ -26,7 +26,7 @@
    - **7-IDE Cross-OS Bridge & Runtime Telemetry**: Inspect runtime detection via `brain_runtime_info`, `brain://runtime/profile`, or `GET /api/runtime`; manage routing policies via `POST /api/runtime/policy` (`auto|quality|balanced|economy|local_first`); report explicit models via `brain_runtime_info(report_model=...)` or `POST /api/runtime/connect`; and safely merge MCP/hook configs across all 7 supported IDEs/CLIs without overwriting existing settings.
 
 <!-- BRAIN_AUTO_RULES_START -->
-## 🧠 Antigravity Global Brain — Auto-Synced Rules (`brain_mcp`)
+## 🧠 Engram Global Brain — Auto-Synced Rules (`brain_mcp`)
 > Atualizado automaticamente pelo Universal Repo Rules Sync (v6.1).
 
 ### 🧬 Regras Destiladas (Self-Learn Playbook)

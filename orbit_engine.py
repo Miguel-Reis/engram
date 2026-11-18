@@ -16,7 +16,7 @@ _INITIALIZED_ORBIT_DBS: set[str] = set()
 
 class OrbitEngine:
     """
-    Orbit Agent OS Engine for Antigravity Brain v4.5:
+    Orbit Agent OS Engine for Engram:
     1. Mission Control Approval Inbox ('Needs Your Yes' / 'Approve All' / 'Redirect')
     2. Trust Hierarchy ('Human Edits Always Win' + Agent Provenance)
     3. Multi-Scope Broadcast Directives (All Fleet / Department Lane / Workspace)
@@ -774,7 +774,7 @@ class OrbitEngine:
                 if cpath.is_file():
                     try:
                         raw_txt = cpath.read_text(encoding="utf-8", errors="ignore")
-                        if "antigravity-brain" in raw_txt:
+                        if "[mcp_servers.engram]" in raw_txt or "[mcp_servers.antigravity-brain]" in raw_txt or "antigravity-brain" in raw_txt:
                             is_connected = True
                     except Exception:
                         pass
@@ -790,23 +790,27 @@ class OrbitEngine:
                             if "brain_inject.py" in hooks_blob or "brain_harvest.py" in hooks_blob:
                                 hooks_connected = True
                                 is_connected = True
-                            if "antigravity-brain" in srvs or "antigravity-brain" in raw_txt:
+                            if "engram" in srvs or "antigravity-brain" in srvs or "antigravity-brain" in raw_txt:
                                 is_connected = True
                     except Exception:
                         pass
                 if not is_connected and alt_path and alt_path.is_file():
                     try:
                         alt_raw = json.loads(alt_path.read_text(encoding="utf-8", errors="ignore"))
-                        if isinstance(alt_raw, dict) and "antigravity-brain" in (alt_raw.get("mcpServers") or {}):
-                            is_connected = True
+                        if isinstance(alt_raw, dict):
+                            alt_srvs = alt_raw.get("mcpServers") or {}
+                            if "engram" in alt_srvs or "antigravity-brain" in alt_srvs:
+                                is_connected = True
                     except Exception:
                         pass
             elif fmt == "json_opencode_mcp":
                 if cpath.is_file():
                     try:
                         raw = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
-                        if isinstance(raw, dict) and "antigravity-brain" in (raw.get("mcp") or {}):
-                            is_connected = True
+                        if isinstance(raw, dict):
+                            mcp_map = raw.get("mcp") or {}
+                            if "engram" in mcp_map or "antigravity-brain" in mcp_map:
+                                is_connected = True
                     except Exception:
                         pass
             else:
@@ -814,7 +818,7 @@ class OrbitEngine:
                     try:
                         raw = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
                         srvs = raw.get("mcpServers") or {} if isinstance(raw, dict) else {}
-                        if "antigravity-brain" in srvs:
+                        if "engram" in srvs or "antigravity-brain" in srvs:
                             is_connected = True
                     except Exception:
                         pass
@@ -845,7 +849,7 @@ class OrbitEngine:
 
         snippet = {
             "mcpServers": {
-                "antigravity-brain": {
+                "engram": {
                     "command": python_cmd,
                     "args": ["-u", server_py],
                 }
@@ -892,12 +896,12 @@ class OrbitEngine:
                 cpath.parent.mkdir(parents=True, exist_ok=True)
                 if fmt == "toml_codex":
                     existing_toml = cpath.read_text(encoding="utf-8", errors="ignore") if cpath.is_file() else ""
-                    if "[mcp_servers.antigravity-brain]" not in existing_toml:
+                    if "[mcp_servers.engram]" not in existing_toml and "[mcp_servers.antigravity-brain]" not in existing_toml:
                         prefix = "" if (not existing_toml or existing_toml.endswith("\n")) else "\n"
                         if existing_toml.strip():
                             prefix += "\n"
                         toml_block = (
-                            f"{prefix}[mcp_servers.antigravity-brain]\n"
+                            f"{prefix}[mcp_servers.engram]\n"
                             f'command = "{python_cmd}"\n'
                             f'args = ["-u", "{server_py}"]\n'
                         )
@@ -918,7 +922,8 @@ class OrbitEngine:
                     if not isinstance(mcp_map, dict):
                         mcp_map = {}
                         cfg["mcp"] = mcp_map
-                    mcp_map["antigravity-brain"] = {
+                    mcp_map.pop("antigravity-brain", None)
+                    mcp_map["engram"] = {
                         "type": "local",
                         "command": [python_cmd, "-u", server_py],
                         "enabled": True,
@@ -940,7 +945,8 @@ class OrbitEngine:
                     if not isinstance(srvs, dict):
                         srvs = {}
                         cfg["mcpServers"] = srvs
-                    srvs["antigravity-brain"] = {
+                    srvs.pop("antigravity-brain", None)
+                    srvs["engram"] = {
                         "command": python_cmd,
                         "args": ["-u", server_py],
                     }
@@ -989,7 +995,8 @@ class OrbitEngine:
                 if not isinstance(srvs, dict):
                     srvs = {}
                     cfg["mcpServers"] = srvs
-                srvs["antigravity-brain"] = {
+                srvs.pop("antigravity-brain", None)
+                srvs["engram"] = {
                     "command": python_cmd,
                     "args": ["-u", server_py],
                 }
@@ -1348,7 +1355,7 @@ class OrbitEngine:
                     f"claimed_by: \"{item.get('claimed_by') or ''}\"\n"
                     "---\n\n"
                     f"# {item['dot_id']} — {item['title']}\n\n"
-                    f"{item.get('summary') or 'Tarefa gerida pelo motor DOTS DAG do Antigravity Brain.'}\n"
+                    f"{item.get('summary') or 'Tarefa gerida pelo motor DOTS DAG do Engram.'}\n"
                 )
                 md_path.write_text(md_content, encoding="utf-8")
                 written_files.append(str(md_path))
@@ -1366,7 +1373,7 @@ class OrbitEngine:
         "all", "global", "brain", "scratch", "test", "dev", "api", "app", "apps",
         "panel", "docs", "nodes", "templates", "internal", "image", "install",
         "unpacked", "[id]", "[backupid]", "office_3d", "swarm_24x", "graphify_ast",
-        "token_diet", "_m2bob_1091_extract", "antigravity-backup", "antigravity-brain",
+        "token_diet", "_m2bob_1091_extract", "antigravity-backup", "antigravity-brain", "engram",
         "claude-architect-coder", "strix", "ui-ux-pro-max-skill", "ultraplan",
         "network_infra", "vps_infra", "00_automation", "boost", "build", "char_encoding",
         "find", "xc_decode", "aura", "llm", "backend", "dockerruntime", "fastdl", "watchdog", "nginx",
@@ -3233,7 +3240,7 @@ class OrbitEngine:
                 _validate_ssrf_target(source_url)
                 req = urllib.request.Request(
                     source_url,
-                    headers={"User-Agent": "Mozilla/5.0 (AntigravityBrainDefuddle/5.4)"},
+                    headers={"User-Agent": "Mozilla/5.0 (EngramDefuddle/9.0)"},
                 )
                 opener = urllib.request.build_opener(_SafeSSRFRedirectHandler())
                 with opener.open(req, timeout=6) as resp:
@@ -4175,7 +4182,7 @@ class OrbitEngine:
 
         block_lines = [
             "<!-- BRAIN_AUTO_RULES_START -->",
-            f"## 🧠 Antigravity Global Brain — Auto-Synced Rules (`{ws}`)",
+            f"## 🧠 Engram Global Brain — Auto-Synced Rules (`{ws}`)",
             "> Atualizado automaticamente pelo Universal Repo Rules Sync (v6.1).",
             "",
             "### 🧬 Regras Destiladas (Self-Learn Playbook)",
@@ -4254,7 +4261,7 @@ class OrbitEngine:
             "---",
             "",
             f"# 🧪 Regression Test Suite — `{ws}`",
-            "> Gerado automaticamente a partir de memórias `bug_fix` do Antigravity Brain v6.1.",
+            "> Gerado automaticamente a partir de memórias `bug_fix` do Engram v9.0.",
             "",
             "```python",
             "import pytest",

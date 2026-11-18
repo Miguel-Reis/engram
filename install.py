@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -10,13 +11,16 @@ REPO_DIR = Path(__file__).resolve().parent
 HOME_DIR = Path.home()
 GEMINI_DIR = HOME_DIR / ".gemini"
 CONFIG_DIR = GEMINI_DIR / "config"
-PLUGINS_DIR = CONFIG_DIR / "plugins" / "antigravity-brain"
+PLUGINS_DIR = CONFIG_DIR / "plugins" / "engram"
+LEGACY_PLUGINS_DIR = CONFIG_DIR / "plugins" / "antigravity-brain"
 RULES_DIR = PLUGINS_DIR / "rules"
 
 
 def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity") -> Dict[str, Any]:
     """Configura automaticamente os hooks globais, plugin e MCP para qualquer utilizador."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    if LEGACY_PLUGINS_DIR.exists():
+        shutil.rmtree(LEGACY_PLUGINS_DIR, ignore_errors=True)
     RULES_DIR.mkdir(parents=True, exist_ok=True)
 
     python_cmd = "python" if os.name == "nt" else "python3"
@@ -58,12 +62,12 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
         json.dumps(existing_hooks, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    # 2. Atualizar ~/.gemini/config/plugins/antigravity-brain/
+    # 2. Atualizar ~/.gemini/config/plugins/engram/
     plugin_json_path = PLUGINS_DIR / "plugin.json"
     plugin_manifest = {
-        "name": "antigravity-brain",
-        "version": "8.5.0",
-        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Autonomous Swarm & Subagent Model Router, Multi-Model & Multi-Platform Runtime Intelligence, 7-IDE Cross-OS Bridge, Pagoda LSM Folds, Archify Delta, GBrain Dossiers & Local Skill Resolver",
+        "name": "engram",
+        "version": "9.0.0",
+        "description": "Engram — Universal Zero-Token AI Memory, AST Intelligence, Voice Zero-Call & Autonomous Swarm OS",
         "hooks": "./hooks.json",
         "rules": ["./rules/AGENTS.md"],
     }
@@ -74,13 +78,13 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
         json.dumps(hooks_payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    agents_md_content = """# Antigravity Brain v2 — Zero-Round-Trip Memory Protocol
+    agents_md_content = """# Engram v9.0 — Universal Zero-Round-Trip Memory & Swarm Protocol
 
 1. **Pre-Injected Context (`[BRAIN_MEMORY]`)**: Prior to responding, check if an ephemeral `[BRAIN_MEMORY]` block was injected. Trust its file paths, checkpoints, and environment facts so you do not waste tool calls re-discovering project structure.
 2. **Zero-Token Memory Harvesting (`<!-- brain: Topic | Fact -->`)**: Whenever you solve a non-trivial bug, discover a critical IP/config/path, or make an architectural decision, append a hidden HTML comment at the very end of your response:
    `<!-- brain: Short Topic | Concise actionable fact with exact paths/values -->`
    The `Stop` hook (`brain_harvest.py`) automatically indexes these comments and any edited files into `brain.db` at zero LLM token cost.
-3. **Explicit Search**: Only call the `antigravity-brain` MCP tool (`search_brain`) if you need a deep query that was not covered by the automatic `[BRAIN_MEMORY]` injection.
+3. **Explicit Search**: Only call the `engram` MCP tool (`search_brain`) if you need a deep query that was not covered by the automatic `[BRAIN_MEMORY]` injection.
 4. **Scout-First Asymmetric Swarm Protocol (`SCOUT ➔ PLAN ➔ SWARM ➔ VERIFY`)**:
    - **Shared Codebase Map (`[SCOUT_SHARED_MAP]`)**: Before launching multi-file work, run `SwarmEngine.run_codebase_scout()` (or `swarm_scout` / `swarm_start`) so the codebase is indexed **1 time** and shared in `brain.db` across all agents via `PreInvocation`.
    - **Decoupled Architect & Lightweight Lanes**: Read the goal and `[SCOUT_SHARED_MAP]` once as the Architect, decompose into isolated lanes (`UI`, `API`, `TESTS`, `DOCS`), and delegate parallel execution via `invoke_subagent` with `Model="flash"` or `"flash_lite"`, passing the exact target file and symbols so workers never re-read the codebase.
@@ -146,7 +150,8 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
             mcp_cfg = {"mcpServers": {}}
 
     servers = mcp_cfg.setdefault("mcpServers", {})
-    servers["antigravity-brain"] = {
+    servers.pop("antigravity-brain", None)
+    servers["engram"] = {
         "command": python_cmd,
         "args": ["-u", server_script],
     }
@@ -179,7 +184,7 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
             HOME_DIR / "OneDrive" / "Ambiente de Trabalho",
         ):
             if d_cand.is_dir():
-                for sc_name in ("Antigravity Brain.lnk", "Antigravity Brain.url"):
+                for sc_name in ("Antigravity Brain.lnk", "Antigravity Brain.url", "Engram.lnk", "Engram.url"):
                     sc_path = d_cand / sc_name
                     if sc_path.is_file():
                         try:
@@ -214,7 +219,7 @@ def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity
 
     if not silent:
         print("✅ Hooks globais configurados em:", global_hooks_path)
-        print("✅ Plugin Antigravity Brain v8.5 instalado em:", PLUGINS_DIR)
+        print("✅ Plugin Engram v9.0 instalado em:", PLUGINS_DIR)
         print("✅ Servidor MCP registado em:", mcp_cfg_path)
         if bridge_result.get("updated_tools"):
             print("✅ Ponte Multi-IDE conectada para:", ", ".join(bridge_result["updated_tools"]))
@@ -250,7 +255,7 @@ def main() -> None:
     no_restart = bool(args.no_restart) or os.environ.get("BRAIN_NO_RESTART") == "1"
     if not silent:
         print("=" * 68)
-        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.5")
+        print(" 🧠 ENGRAM v9.0 — UNIVERSAL AI MEMORY & SWARM OS")
         print("=" * 68)
 
     configure_hooks_and_plugin(silent=silent, targets=args.targets)

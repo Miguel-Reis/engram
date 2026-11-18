@@ -1,7 +1,7 @@
 {
-  "name": "antigravity-brain",
+  "name": "engram",
   "private": true,
-  "version": "8.5.0",
+  "version": "9.0.0",
   "scripts": {
     "dev": "python app.py",
     "start": "python web_dashboard.py --no-browser",

@@ -53,7 +53,7 @@ _OFFICE_MCP_CACHE: Dict[str, Any] = {"ts": 0.0, "data": []}
 
 class SwarmEngine:
     """
-    Motor Asymmetric Swarm + Scout Shared Codebase Blackboard para Antigravity Brain v2.
+    Motor Asymmetric Swarm + Scout Shared Codebase Blackboard para Engram v9.0.
     Usa os modelos e subagentes nativos do Antigravity (invoke_subagent):
       0. SCOUT (Model='flash_lite', TypeName='research'): Lê a codebase 1 única vez e grava um Mapa Partilhado no brain.db.
       1. ARCHITECT (Model='pro' / inherit): Lê o objetivo + Mapa do Scout 1 vez, gera as 4 lanes (UI, API, TESTS, DOCS) e para de gastar tokens.
@@ -2575,7 +2575,7 @@ class SwarmEngine:
             pass
 
         board_info = dict(run_row) if run_row else {
-            "goal": "Antigravity Brain v5.3",
+            "goal": "Engram v9.0",
             "status": "done",
             "completed_tasks": 48,
             "total_tasks": 48,
@@ -2862,7 +2862,7 @@ class SwarmEngine:
         if any(k in low for k in ("quota", "lean", "token", "mcp", "dieta")):
             mcp_stat = {
                 "ok": True,
-                "servers": ["antigravity-brain"],
+                "servers": ["engram"],
                 "status": "active",
                 "active_mcps": 1,
                 "estimated_overhead_tokens": 220,

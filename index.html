@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#08080a" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="manifest" href="/manifest.json" />
-  <title>Antigravity Brain v7.0 — Precision Studio OS</title>
+  <title>Engram v9.0 — Universal AI Memory & Swarm OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -2838,10 +2838,10 @@
       <span class="brand-dot"></span>
       <div style="display:flex; flex-direction:column; line-height:1.15; max-width:225px; overflow:hidden;">
         <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-size:12.5px; font-weight:800; letter-spacing:0.01em; color:#f4f4f5; white-space:nowrap; text-transform:uppercase;">Antigravity Brain</span>
-          <span class="brand-badge">OS v7.0</span>
+          <span style="font-size:12.5px; font-weight:800; letter-spacing:0.01em; color:#f4f4f5; white-space:nowrap; text-transform:uppercase;">Engram</span>
+          <span class="brand-badge">OS v9.0</span>
         </div>
-        <span style="font-size:9px; color:#71717a; font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="lblTopSubConcept">CARBON STUDIO · JEV-S1</span>
+        <span style="font-size:9px; color:#71717a; font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="lblTopSubConcept">Universal AI Memory &amp; Swarm OS</span>
       </div>
     </div>
 
@@ -3209,7 +3209,7 @@
 
           <button class="btn" id="btnGitUpdate" onclick="triggerGitUpdate()" style="width:100%; justify-content:space-between; padding:7px 11px;">
             <span>📦 Sincronizar Git &amp; Hooks</span>
-            <span id="lblGitSha" style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">v7.0</span>
+            <span id="lblGitSha" style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">v9.0</span>
           </button>
         </div>
 
@@ -11399,7 +11399,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Antigravity_Brain_Vault_${ws}.md`;
+        a.download = `Engram_Vault_${ws}.md`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(`📦 Exportado Obsidian Vault (${data.memories_count} notas com [[WikiLinks]])!`);
@@ -16019,7 +16019,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       'all', 'global', 'brain', 'scratch', 'test', 'dev', 'api', 'app', 'apps',
       'panel', 'docs', 'nodes', 'templates', 'internal', 'image', 'install',
       'unpacked', '[id]', '[backupid]', 'office_3d', 'swarm_24x', 'graphify_ast',
-      'token_diet', '_m2bob_1091_extract', 'antigravity-backup', 'antigravity-brain',
+      'token_diet', '_m2bob_1091_extract', 'antigravity-backup', 'engram-plugin',
       'claude-architect-coder', 'strix', 'ui-ux-pro-max-skill', 'ultraplan',
       'network_infra', 'vps_infra', '00_automation', 'boost', 'build', 'char_encoding',
       'find', 'xc_decode', 'aura', 'llm', 'backend', 'dockerruntime', 'fastdl', 'watchdog', 'nginx'
@@ -16278,7 +16278,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       const filesSection = fileSet.map(f => `- \`${f}\``).join('\n');
       const factsSection = scoredNodes.slice(0, 4).map(({ n }) =>
         `- **[${n.category || 'core'}] ${n.topic}**: ${(n.fact || '').slice(0, 180)}`
-      ).join('\n') || `- Projeto \`${ws}\` indexado no Antigravity Brain.`;
+      ).join('\n') || `- Projeto \`${ws}\` indexado no Engram.`;
       const rulesList = (sl.learned_playbook && sl.learned_playbook.length)
         ? sl.learned_playbook
         : [`[${ws}] Preservar contratos existentes e validar sintaxe/testes antes de concluir.`];
@@ -16872,7 +16872,7 @@ ${rulesSection}`;
           inp.value = 'https://docs.obsidian.md/Home';
         }
       } else if (kind === 'html') {
-        inp.value = '<html><head><title>Obsidian + Antigravity Brain Architecture</title><scr' + 'ipt>trackAds();<\/scr' + 'ipt></head><body><nav>Home | Pricing | Cookie Banner | 40 Ads</nav><article><h1>How memory compounds in Antigravity</h1><p>Every session distills reusable knowledge into plain Markdown (.md) inside .brain_vault and indexes 32-D vectors in db_engine.py.</p><h2>Zero-Token Context</h2><ul><li>Use orbit_engine.py and index.html surgical pointers.</li><li>Link concepts with [[wikilinks]] and sync AGENTS.md.</li></ul></article><footer>Copyright Ads Tracker</footer></body></html>';
+        inp.value = '<html><head><title>Obsidian + Engram Architecture</title><scr' + 'ipt>trackAds();<\/scr' + 'ipt></head><body><nav>Home | Pricing | Cookie Banner | 40 Ads</nav><article><h1>How memory compounds in Antigravity</h1><p>Every session distills reusable knowledge into plain Markdown (.md) inside .brain_vault and indexes 32-D vectors in db_engine.py.</p><h2>Zero-Token Context</h2><ul><li>Use orbit_engine.py and index.html surgical pointers.</li><li>Link concepts with [[wikilinks]] and sync AGENTS.md.</li></ul></article><footer>Copyright Ads Tracker</footer></body></html>';
       } else {
         inp.value = '[2026-11-08 INFO] Starting noisy build log...\n<scr' + 'ipt>noise_blob_991823<\/scr' + 'ipt>\n# Root Cause Analysis: Token Diet & Defuddle\n- Stripped 88% of boilerplate HTML and stacktrace repetition.\n- Linked directly to orbit_engine.py and web_dashboard.py.\n- Verified 27/27 automated tests in test_brain.py.';
       }

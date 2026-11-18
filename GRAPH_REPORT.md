@@ -1,14 +1,14 @@
-# 🕸️ GRAPH_REPORT.md — Antigravity Brain Multi-Modal Knowledge Graph
+# 🕸️ GRAPH_REPORT.md — Engram Multi-Modal Knowledge Graph
 
 > **Gerado automaticamente por `graphify_engine.py`** (Zero-LLM Deterministic AST + SQL + HTTP + MCP Graph)
 
 ## 1. Telemetria Executiva & Eficiência de Tokens
 - **Total de Nós Multi-Modais**: `703` (`FILE`: 20, `CLASS`: 11, `FUNCTION`: 274, `JS_FUNCTION`: 289, `API_ROUTE`: 54, `MCP_TOOL`: 25, `SQL_TABLE`: 29)
-- **Total de Arestas Tipadas**: `2453`
+- **Total de Arestas Tipadas**: `2452`
   - 🟢 **EXTRACTED (1.00)**: `1659` arestas (AST / DDL / Rota literal 100% determinística)
-  - 🔵 **INFERRED (0.85)**: `718` arestas (Resolução cruzada de métodos e handlers)
+  - 🔵 **INFERRED (0.85)**: `717` arestas (Resolução cruzada de métodos e handlers)
   - 🟡 **AMBIGUOUS (0.55)**: `76` arestas (Despacho polimórfico / múltiplos candidatos)
-- **Compressão de Contexto (Graphify Token Diet)**: `510,869` tokens brutos ➔ `360` tokens de índice (**`1419.1x` menos tokens**)
+- **Compressão de Contexto (Graphify Token Diet)**: `510,944` tokens brutos ➔ `360` tokens de índice (**`1419.3x` menos tokens**)
 
 ## 2. Top God Nodes (Centros de Gravidade Arquitetónica)
 | # | Entidade | Tipo | Ficheiro | Grau (In/Out) | Alcance Ficheiros | Score Centralidade | Comunidade |
@@ -32,9 +32,9 @@
 - **Obsidian 2D Graph & 3D Agent Office UI** (`303` nós) — Exemplos: `office_agents`, `SwarmEngine._ensure_core_office_agents`, `SwarmEngine._sync_live_conversations_to_office`, `SwarmEngine.get_office_state`, `SwarmEngine.assign_office_agent_directive`, `SwarmEngine.spawn_custom_office_agent`
 
 ## 4. Cadeias Causais Full-Stack Verificadas (BFS Shortest Paths)
-- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `2776.5x`):  
+- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `2776.9x`):  
   `triggerAstSaveAuditUI` (JS_FUNCTION) ➔ `/api/ast/watch` (API_ROUTE) ➔ `AstImpactWatcher.get_watcher_status` (FUNCTION) ➔ `ast_save_audits` (SQL_TABLE)
-- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `3870.2x`):  
+- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `3870.8x`):  
   `swarm_watch_audit` (MCP_TOOL) ➔ `server.py` (FILE) ➔ `BrainDB` (CLASS)
-- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `2776.5x`):  
+- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `2776.9x`):  
   `createAndVerifySandboxUI` (JS_FUNCTION) ➔ `/api/swarm/sandbox` (API_ROUTE) ➔ `SwarmEngine.manage_subagent_sandbox` (FUNCTION) ➔ `swarm_sandboxes` (SQL_TABLE)
