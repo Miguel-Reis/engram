@@ -669,13 +669,36 @@ class OrbitEngine:
             return out
 
     # =========================================================================
-    # 4. ONE-CLICK MULTI-AI MCP BRIDGE (ANTIGRAVITY, CURSOR, CLAUDE, WINDSURF)
+    # 4. ONE-CLICK MULTI-AI MCP BRIDGE (7-PLATFORM CROSS-OS: WIN / MAC / LINUX)
     # =========================================================================
+    @staticmethod
+    def _resolve_cross_os_paths() -> Dict[str, Any]:
+        home = Path.home()
+        is_win = os.name == "nt" or sys.platform.startswith("win")
+        is_mac = sys.platform == "darwin"
+        python_cmd = "python" if is_win else "python3"
+        if is_win:
+            appdata = Path(os.environ.get("APPDATA", str(home / "AppData" / "Roaming")))
+            claude_desktop_cfg = appdata / "Claude" / "claude_desktop_config.json"
+        elif is_mac:
+            claude_desktop_cfg = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        else:
+            claude_desktop_cfg = home / ".config" / "Claude" / "claude_desktop_config.json"
+
+        return {
+            "home": home,
+            "python_cmd": python_cmd,
+            "os_platform": sys.platform,
+            "claude_desktop_cfg": claude_desktop_cfg,
+        }
+
     def get_mcp_bridge_status(self) -> Dict[str, Any]:
         repo_dir = Path(os.path.dirname(os.path.abspath(__file__)))
         server_py = str((repo_dir / "server.py").resolve()).replace("\\", "/")
-        home = Path.home()
-        appdata = Path(os.environ.get("APPDATA", str(home / "AppData" / "Roaming")))
+        os_info = self._resolve_cross_os_paths()
+        home: Path = os_info["home"]
+        python_cmd: str = os_info["python_cmd"]
+        claude_desktop_cfg: Path = os_info["claude_desktop_cfg"]
 
         targets = [
             {
@@ -683,24 +706,57 @@ class OrbitEngine:
                 "name": "Google Antigravity IDE",
                 "config_path": home / ".gemini" / "config" / "mcp_config.json",
                 "icon": "🚀",
+                "config_format": "json_mcpServers",
+                "hooks_supported": True,
+            },
+            {
+                "id": "claude_code",
+                "name": "Claude Code CLI",
+                "config_path": home / ".claude" / "settings.json",
+                "alt_config_path": home / ".claude.json",
+                "icon": "🧠",
+                "config_format": "claude_code_settings",
+                "hooks_supported": True,
+            },
+            {
+                "id": "codex_cli",
+                "name": "OpenAI Codex CLI",
+                "config_path": home / ".codex" / "config.toml",
+                "icon": "⚙️",
+                "config_format": "toml_codex",
+                "hooks_supported": False,
             },
             {
                 "id": "cursor",
                 "name": "Cursor AI IDE",
                 "config_path": home / ".cursor" / "mcp.json",
                 "icon": "⚡",
+                "config_format": "json_mcpServers",
+                "hooks_supported": False,
             },
             {
                 "id": "windsurf",
                 "name": "Windsurf (Codeium)",
                 "config_path": home / ".codeium" / "windsurf" / "mcp_config.json",
                 "icon": "🌊",
+                "config_format": "json_mcpServers",
+                "hooks_supported": False,
+            },
+            {
+                "id": "opencode",
+                "name": "OpenCode CLI",
+                "config_path": home / ".config" / "opencode" / "opencode.json",
+                "icon": "🧩",
+                "config_format": "json_opencode_mcp",
+                "hooks_supported": False,
             },
             {
                 "id": "claude_desktop",
                 "name": "Claude Desktop / Cowork",
-                "config_path": appdata / "Claude" / "claude_desktop_config.json",
+                "config_path": claude_desktop_cfg,
                 "icon": "🤖",
+                "config_format": "json_mcpServers",
+                "hooks_supported": False,
             },
         ]
 
@@ -708,16 +764,68 @@ class OrbitEngine:
         connected_count = 0
         for t in targets:
             cpath: Path = t["config_path"]
+            alt_path: Optional[Path] = t.get("alt_config_path")
+            fmt = t["config_format"]
             is_connected = False
-            parent_exists = cpath.parent.exists()
-            if cpath.is_file():
-                try:
-                    raw = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
-                    srvs = raw.get("mcpServers") or {}
-                    if "antigravity-brain" in srvs:
-                        is_connected = True
-                except Exception:
-                    pass
+            hooks_connected = False
+            parent_exists = cpath.parent.exists() or cpath.is_file() or (alt_path.is_file() if alt_path else False)
+
+            if fmt == "toml_codex":
+                if cpath.is_file():
+                    try:
+                        raw_txt = cpath.read_text(encoding="utf-8", errors="ignore")
+                        if "antigravity-brain" in raw_txt:
+                            is_connected = True
+                    except Exception:
+                        pass
+            elif fmt == "claude_code_settings":
+                if cpath.is_file():
+                    try:
+                        raw_txt = cpath.read_text(encoding="utf-8", errors="ignore")
+                        raw = json.loads(raw_txt) if raw_txt.strip() else {}
+                        if isinstance(raw, dict):
+                            srvs = raw.get("mcpServers") or {}
+                            hooks_obj = raw.get("hooks") or {}
+                            hooks_blob = json.dumps(hooks_obj, ensure_ascii=False)
+                            if "brain_inject.py" in hooks_blob or "brain_harvest.py" in hooks_blob:
+                                hooks_connected = True
+                                is_connected = True
+                            if "antigravity-brain" in srvs or "antigravity-brain" in raw_txt:
+                                is_connected = True
+                    except Exception:
+                        pass
+                if not is_connected and alt_path and alt_path.is_file():
+                    try:
+                        alt_raw = json.loads(alt_path.read_text(encoding="utf-8", errors="ignore"))
+                        if isinstance(alt_raw, dict) and "antigravity-brain" in (alt_raw.get("mcpServers") or {}):
+                            is_connected = True
+                    except Exception:
+                        pass
+            elif fmt == "json_opencode_mcp":
+                if cpath.is_file():
+                    try:
+                        raw = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
+                        if isinstance(raw, dict) and "antigravity-brain" in (raw.get("mcp") or {}):
+                            is_connected = True
+                    except Exception:
+                        pass
+            else:
+                if cpath.is_file():
+                    try:
+                        raw = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
+                        srvs = raw.get("mcpServers") or {} if isinstance(raw, dict) else {}
+                        if "antigravity-brain" in srvs:
+                            is_connected = True
+                    except Exception:
+                        pass
+                if fmt == "json_mcpServers" and t["id"] == "antigravity":
+                    gemini_hooks = home / ".gemini" / "config" / "hooks.json"
+                    if gemini_hooks.is_file():
+                        try:
+                            hooks_connected = "brain_inject.py" in gemini_hooks.read_text(encoding="utf-8", errors="ignore")
+                        except Exception:
+                            pass
+
             if is_connected:
                 connected_count += 1
             results.append(
@@ -727,7 +835,10 @@ class OrbitEngine:
                     "label": t["name"],
                     "icon": t["icon"],
                     "config_path": str(cpath).replace("\\", "/"),
-                    "installed_dir": parent_exists or cpath.is_file(),
+                    "config_format": fmt,
+                    "hooks_supported": bool(t.get("hooks_supported", False)),
+                    "hooks_connected": hooks_connected,
+                    "installed_dir": parent_exists,
                     "connected": is_connected,
                 }
             )
@@ -735,13 +846,15 @@ class OrbitEngine:
         snippet = {
             "mcpServers": {
                 "antigravity-brain": {
-                    "command": "python",
+                    "command": python_cmd,
                     "args": ["-u", server_py],
                 }
             }
         }
         return {
             "ok": True,
+            "os_platform": os_info["os_platform"],
+            "python_cmd": python_cmd,
             "server_script": server_py,
             "connected_count": connected_count,
             "total_targets": len(results),
@@ -752,30 +865,132 @@ class OrbitEngine:
     def connect_all_ai_tools(self, target_id: str = "all", target_ids: Optional[List[str]] = None) -> Dict[str, Any]:
         status = self.get_mcp_bridge_status()
         server_py = status["server_script"]
+        python_cmd = status.get("python_cmd", "python" if os.name == "nt" else "python3")
+        repo_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        inject_py = str((repo_dir / "brain_inject.py").resolve()).replace("\\", "/")
+        harvest_py = str((repo_dir / "brain_harvest.py").resolve()).replace("\\", "/")
+
         updated: List[str] = []
         allowed_set = set(target_ids) if isinstance(target_ids, list) and target_ids else None
 
         for t in status["targets"]:
-            if allowed_set is not None and t["id"] not in allowed_set:
+            tid = t["id"]
+            if allowed_set is not None and tid not in allowed_set:
                 continue
-            if allowed_set is None and target_id != "all" and t["id"] != target_id:
+            if allowed_set is None and target_id != "all" and tid != target_id:
                 continue
+            # Never auto-mutate ~/.claude/settings.json or ~/.codex/config.toml unless explicitly requested
+            if allowed_set is None and target_id == "all":
+                if tid in ("claude_code", "codex_cli"):
+                    continue
+                if not t["installed_dir"] and tid not in ("antigravity", "cursor"):
+                    continue
+
             cpath = Path(t["config_path"])
-            if allowed_set is None and target_id == "all" and not t["installed_dir"] and t["id"] not in ("antigravity", "cursor"):
-                continue
+            fmt = t.get("config_format", "json_mcpServers")
             try:
                 cpath.parent.mkdir(parents=True, exist_ok=True)
-                cfg: Dict[str, Any] = {"mcpServers": {}}
+                if fmt == "toml_codex":
+                    existing_toml = cpath.read_text(encoding="utf-8", errors="ignore") if cpath.is_file() else ""
+                    if "[mcp_servers.antigravity-brain]" not in existing_toml:
+                        prefix = "" if (not existing_toml or existing_toml.endswith("\n")) else "\n"
+                        if existing_toml.strip():
+                            prefix += "\n"
+                        toml_block = (
+                            f"{prefix}[mcp_servers.antigravity-brain]\n"
+                            f'command = "{python_cmd}"\n'
+                            f'args = ["-u", "{server_py}"]\n'
+                        )
+                        cpath.write_text(existing_toml + toml_block, encoding="utf-8")
+                    updated.append(t["name"])
+                    continue
+
+                if fmt == "json_opencode_mcp":
+                    cfg: Dict[str, Any] = {}
+                    if cpath.is_file():
+                        try:
+                            loaded = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
+                            if isinstance(loaded, dict):
+                                cfg = loaded
+                        except Exception:
+                            cfg = {}
+                    mcp_map = cfg.setdefault("mcp", {})
+                    if not isinstance(mcp_map, dict):
+                        mcp_map = {}
+                        cfg["mcp"] = mcp_map
+                    mcp_map["antigravity-brain"] = {
+                        "type": "local",
+                        "command": [python_cmd, "-u", server_py],
+                        "enabled": True,
+                    }
+                    cpath.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+                    updated.append(t["name"])
+                    continue
+
+                if fmt == "claude_code_settings":
+                    cfg = {}
+                    if cpath.is_file():
+                        try:
+                            loaded = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
+                            if isinstance(loaded, dict):
+                                cfg = loaded
+                        except Exception:
+                            cfg = {}
+                    srvs = cfg.setdefault("mcpServers", {})
+                    if not isinstance(srvs, dict):
+                        srvs = {}
+                        cfg["mcpServers"] = srvs
+                    srvs["antigravity-brain"] = {
+                        "command": python_cmd,
+                        "args": ["-u", server_py],
+                    }
+
+                    hooks_cfg = cfg.setdefault("hooks", {})
+                    if not isinstance(hooks_cfg, dict):
+                        hooks_cfg = {}
+                        cfg["hooks"] = hooks_cfg
+
+                    hook_specs = (
+                        ("UserPromptSubmit", f'{python_cmd} "{inject_py}" --host claude', "brain_inject.py", 5000),
+                        ("Stop", f'{python_cmd} "{harvest_py}" --host claude', "brain_harvest.py", 8000),
+                    )
+                    for event_name, hook_cmd, marker, timeout_ms in hook_specs:
+                        event_list = hooks_cfg.get(event_name)
+                        if not isinstance(event_list, list):
+                            event_list = []
+                            hooks_cfg[event_name] = event_list
+                        if marker not in json.dumps(event_list, ensure_ascii=False):
+                            event_list.append(
+                                {
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": hook_cmd,
+                                            "timeout": timeout_ms,
+                                        }
+                                    ]
+                                }
+                            )
+
+                    cpath.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+                    updated.append(t["name"])
+                    continue
+
+                # Standard JSON mcpServers targets (antigravity, cursor, windsurf, claude_desktop)
+                cfg = {}
                 if cpath.is_file():
                     try:
-                        cfg = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
-                        if not isinstance(cfg, dict):
-                            cfg = {"mcpServers": {}}
+                        loaded = json.loads(cpath.read_text(encoding="utf-8", errors="ignore"))
+                        if isinstance(loaded, dict):
+                            cfg = loaded
                     except Exception:
-                        cfg = {"mcpServers": {}}
+                        cfg = {}
                 srvs = cfg.setdefault("mcpServers", {})
+                if not isinstance(srvs, dict):
+                    srvs = {}
+                    cfg["mcpServers"] = srvs
                 srvs["antigravity-brain"] = {
-                    "command": "python",
+                    "command": python_cmd,
                     "args": ["-u", server_py],
                 }
                 cpath.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")

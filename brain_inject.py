@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -7,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from db_engine import BrainDB, ensure_dashboard_running
 from orbit_engine import OrbitEngine
+from runtime_detector import detect_runtime_profile, record_runtime_session
 from swarm_engine import SwarmEngine
 from voice_brain_engine import analyze_voice_input, process_voice_turn, resolve_spoken_code_targets
 
@@ -14,10 +16,10 @@ MAX_EPHEMERAL_CHARS = 1350  # ~320 tokens max budget (inclui Scout Shared Map)
 
 
 def resolve_transcript_path(payload: Dict[str, Any]) -> Optional[str]:
-    """Localiza o ficheiro transcript.jsonl da conversa atual."""
+    """Localiza o ficheiro transcript.jsonl da conversa atual (Antigravity ou Claude Code)."""
     candidates: List[str] = []
 
-    t_path = payload.get("transcriptPath")
+    t_path = payload.get("transcriptPath") or payload.get("transcript_path")
     if t_path:
         candidates.append(t_path)
 
@@ -126,6 +128,25 @@ def extract_latest_user_request_with_media(
                 if not clean_sub and has_audio_media:
                     return "[AUDIO_VOICE_TURN]", False, True
                 return clean_sub, bool(clean_sub), has_audio_media
+
+            if step.get("type") == "user":
+                # Claude Code JSONL transcript line: {"type": "user", "message": {"role": "user", "content": ...}}
+                msg_obj = step.get("message") if isinstance(step.get("message"), dict) else step
+                raw_content = msg_obj.get("content")
+                extracted_text = ""
+                if isinstance(raw_content, str):
+                    extracted_text = raw_content.strip()
+                elif isinstance(raw_content, list):
+                    text_parts = [
+                        str(blk.get("text") or "").strip()
+                        for blk in raw_content
+                        if isinstance(blk, dict) and blk.get("type") == "text" and blk.get("text")
+                    ]
+                    extracted_text = " ".join(text_parts).strip()
+                if extracted_text:
+                    cleaned_cc = clean_system_envelope(extracted_text)[:1000]
+                    if cleaned_cc:
+                        return cleaned_cc, False, False
 
             if step.get("type") == "SYSTEM_MESSAGE":
                 content = step.get("content", "")
@@ -451,15 +472,41 @@ def select_relevant_scout_map(
     return slice_scout_map_ast_safe(routed_raw, max_len=max_len)
 
 
-def compute_adaptive_budget(user_query: str) -> int:
-    """Ajusta dinamicamente o orçamento de caracteres conforme a complexidade do pedido."""
+def compute_adaptive_budget(
+    user_query: str,
+    runtime_profile: Optional[Dict[str, Any]] = None,
+) -> int:
+    """Ajusta dinamicamente o orçamento de caracteres conforme a complexidade do pedido e o tier do modelo."""
     q = (user_query or "").strip().lower()
     if is_micro_confirmation_prompt(q):
         return 360  # ~85 tokens (Modo Micro-Prompt para confirmações rápidas)
+
     deep_keywords = ("analise", "arquitetura", "bug", "erro", "refactor", "todos", "melhoria", "ultraplan", "implement")
-    if len(q) > 85 or any(k in q for k in deep_keywords):
+    is_deep = len(q) > 85 or any(k in q for k in deep_keywords)
+    is_short = len(q) < 22
+
+    if runtime_profile:
+        tier = str(runtime_profile.get("model_tier") or "balanced")
+        rec = int(runtime_profile.get("recommended_ephemeral_chars") or MAX_EPHEMERAL_CHARS)
+        if tier == "local_compact":
+            base = min(650, max(450, rec))
+            return min(650, base) if is_deep else (min(520, base) if is_short else base)
+        if tier == "fast_small":
+            base = min(1050, max(700, rec))
+            return min(1100, base + 120) if is_deep else (min(760, base) if is_short else base)
+        if tier == "frontier_high":
+            base = min(1500, max(1100, rec))
+            return min(1500, base) if is_deep else (min(1000, base) if is_short else min(1500, base))
+        # balanced (cloud or >=24B local)
+        if is_deep:
+            return min(1500, max(rec, 1350))
+        if is_short:
+            return min(880, rec)
+        return min(1350, rec)
+
+    if is_deep:
         return 1680  # ~420 tokens para tarefas complexas
-    if len(q) < 22:
+    if is_short:
         return 880  # ~220 tokens para pedidos curtos técnicos
     return MAX_EPHEMERAL_CHARS
 
@@ -549,6 +596,7 @@ def build_ephemeral_context(
     db: Optional[BrainDB] = None,
     voice_context: Optional[Dict[str, Any]] = None,
     skill_context: Optional[Dict[str, Any]] = None,
+    runtime_profile: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Formata um bloco ultra-compacto TOON/Telegráfico com KV-Cache Prefix-Stable Canonical Layout.
@@ -566,9 +614,13 @@ def build_ephemeral_context(
     """
     is_micro = bool(micro_mode or max_chars <= 380)
     mode_tag = "MICRO_TICK" if is_micro else ("DELTA" if (delta_info and delta_info.get("is_delta_turn")) else "TOON_V2")
-    parts: List[str] = [
-        f"[BRAIN_MEMORY|ws={workspace}|mode={mode_tag}]"
-    ]
+    if runtime_profile:
+        plat = str(runtime_profile.get("platform_id") or "antigravity")
+        model_short = str(runtime_profile.get("model_short") or "Auto")
+        header_line = f"[BRAIN_MEMORY|ws={workspace}|host={plat}|model={model_short}|mode={mode_tag}]"
+    else:
+        header_line = f"[BRAIN_MEMORY|ws={workspace}|mode={mode_tag}]"
+    parts: List[str] = [header_line]
 
     active_db = db or BrainDB()
     d_line = ""
@@ -819,8 +871,13 @@ def generate_inspector_preview(
     raw_q = (query or "").strip()
     micro_active = is_micro_confirmation_prompt(raw_q) if raw_q else False
     effective_query = raw_q or f"workspace {ws} architecture environment"
-    budget_chars = compute_adaptive_budget(raw_q) if raw_q else MAX_EPHEMERAL_CHARS
-    jev_route = db.jev_system1_route(effective_query, ws)
+    runtime_profile = detect_runtime_profile(db=db, probe_local=False)
+    budget_chars = (
+        compute_adaptive_budget(raw_q, runtime_profile=runtime_profile)
+        if raw_q
+        else min(MAX_EPHEMERAL_CHARS, int(runtime_profile.get("recommended_ephemeral_chars") or MAX_EPHEMERAL_CHARS))
+    )
+    jev_route = db.jev_system1_route(effective_query, ws, runtime_profile=runtime_profile)
     axes = db.resolve_salience_and_recency_axes(effective_query)
 
     skill_res: Dict[str, Any] = {}
@@ -907,6 +964,7 @@ def generate_inspector_preview(
         db=db,
         voice_context=voice_ctx,
         skill_context=skill_res,
+        runtime_profile=runtime_profile,
     )
     est_tokens = max(1, len(ephemeral_text) // 4)
     saved_vs_raw = max(0, raw_tokens_est - est_tokens)
@@ -997,12 +1055,28 @@ def generate_inspector_preview(
         "jev_router": jev_route,
         "gbrain_axes": axes,
         "skill_resolver": skill_res,
+        "runtime_profile": runtime_profile,
         "ephemeral_block": ephemeral_text,
         "pinned_memories": [
             {"id": p["id"], "topic": p["topic"], "fact": p["fact"], "workspace": p["workspace"]}
             for p in pinned_rows
         ],
     }
+
+
+_IGNORED_GENERIC_WORKSPACES = (
+    "global",
+    "global_self_learn",
+    "",
+    "app",
+    "src",
+    "lib",
+    "tests",
+    "scratch",
+    "tmp",
+    "vault_test_ws",
+    "pagoda_test_ws",
+)
 
 
 def resolve_smart_active_workspace(
@@ -1031,25 +1105,26 @@ def resolve_smart_active_workspace(
     if any(k in q_low for k in brain_keywords):
         return "brain_mcp"
 
+    ignored_sql = ",".join(f"'{w}'" for w in _IGNORED_GENERIC_WORKSPACES)
     try:
         with db._connect() as conn:
             ws_rows = conn.execute(
-                """
+                f"""
                 SELECT DISTINCT workspace FROM memories
-                WHERE workspace NOT IN ('global', 'global_self_learn', '')
+                WHERE LOWER(workspace) NOT IN ({ignored_sql})
                 """
             ).fetchall()
             for r in ws_rows:
                 cand = str(r["workspace"] or "").strip()
-                if len(cand) >= 3 and cand.lower() in q_low:
+                if len(cand) >= 3 and cand.lower() not in _IGNORED_GENERIC_WORKSPACES and cand.lower() in q_low:
                     return cand
 
             if conv_id and conv_id != "default":
                 row_conv = conn.execute(
-                    """
+                    f"""
                     SELECT workspace FROM telemetry
                     WHERE conversation_id = ?
-                      AND workspace NOT IN ('global', 'global_self_learn', '')
+                      AND LOWER(workspace) NOT IN ({ignored_sql})
                     ORDER BY id DESC LIMIT 1
                     """,
                     (conv_id,),
@@ -1058,9 +1133,9 @@ def resolve_smart_active_workspace(
                     return str(row_conv["workspace"])
 
             row_cp = conn.execute(
-                """
+                f"""
                 SELECT workspace FROM checkpoints
-                WHERE workspace NOT IN ('global', 'global_self_learn', '')
+                WHERE LOWER(workspace) NOT IN ({ignored_sql})
                 ORDER BY updated_at DESC, rowid DESC LIMIT 1
                 """
             ).fetchone()
@@ -1071,29 +1146,65 @@ def resolve_smart_active_workspace(
     return "brain_mcp"
 
 
-def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
+def _format_hook_output(ephemeral_msg: str, is_claude_hook: bool) -> Dict[str, Any]:
+    """Formata a saída no contrato nativo do host (Claude Code UserPromptSubmit vs Antigravity)."""
+    if is_claude_hook:
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": ephemeral_msg,
+            }
+        }
+    return {"injectSteps": [{"ephemeralMessage": ephemeral_msg}]}
+
+
+def handle_pre_invocation(raw_stdin: str, host_hint: str = "auto") -> Dict[str, Any]:
     t0 = time.perf_counter()
     ensure_dashboard_running()
     if not raw_stdin.strip():
         return {}
 
     payload = json.loads(raw_stdin)
-    conv_id = str(payload.get("conversationId", "default"))
-    workspaces = payload.get("workspacePaths") or []
-    raw_ws = workspaces[0] if workspaces else "global"
+    norm_host = (host_hint or "auto").strip().lower()
+    is_claude_hook = bool(
+        norm_host in ("claude", "claude_code")
+        or payload.get("hook_event_name") == "UserPromptSubmit"
+        or ("prompt" in payload and "conversationId" not in payload)
+    )
+
+    if is_claude_hook:
+        conv_id = str(payload.get("session_id") or payload.get("conversationId") or "claude_default")
+        raw_ws = str(payload.get("cwd") or "global")
+        workspaces = [raw_ws] if raw_ws != "global" else []
+    else:
+        conv_id = str(payload.get("conversationId", "default"))
+        workspaces = payload.get("workspacePaths") or []
+        raw_ws = workspaces[0] if workspaces else "global"
 
     db = BrainDB()
     ws = db.normalize_workspace(raw_ws)
 
     transcript_path = resolve_transcript_path(payload)
     user_query, is_subagent, has_audio_media = extract_latest_user_request_with_media(transcript_path)
+    if is_claude_hook and payload.get("prompt"):
+        user_query = str(payload.get("prompt") or "").strip() or user_query
+        is_subagent = False
 
     if ws == "global":
-        resolved_ws = resolve_smart_active_workspace(db, user_query, conv_id)
+        resolved_ws = resolve_smart_active_workspace(db, user_query or "", conv_id)
         if resolved_ws and resolved_ws != "global":
             ws = resolved_ws
             if raw_ws == "global":
                 raw_ws = resolved_ws
+
+    runtime_profile = detect_runtime_profile(
+        payload=payload,
+        transcript_path=transcript_path,
+        host_hint=host_hint,
+        db=db,
+        probe_local=False,
+    )
+    record_runtime_session(db, runtime_profile, conversation_id=conv_id, workspace=ws)
 
     inv_num = int(payload.get("invocationNum", 1))
     if not user_query:
@@ -1114,23 +1225,14 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
                     if fixes
                     else " | Usa swarm_symbol_lookup (:Lstart-end) antes de repetir a edição."
                 )
-                return {
-                    "injectSteps": [
-                        {
-                            "ephemeralMessage": f"[TOOL_REFLEXION_GUARD | Erro anterior: {err_sig[:100]}{fix_hint}]"
-                        }
-                    ]
-                }
+                return _format_hook_output(
+                    f"[TOOL_REFLEXION_GUARD | Erro anterior: {err_sig[:100]}{fix_hint}]",
+                    is_claude_hook,
+                )
             if recent_actions:
                 lookahead_mid = get_notice_lookahead_alerts(db, ws, recent_actions, "")
                 if lookahead_mid and db.mark_turn_injected(conv_id, f"__lookahead__:{lookahead_mid[0][:75]}"):
-                    return {
-                        "injectSteps": [
-                            {
-                                "ephemeralMessage": " | ".join(lookahead_mid)
-                            }
-                        ]
-                    }
+                    return _format_hook_output(" | ".join(lookahead_mid), is_claude_hook)
         except Exception:
             pass
         return {}
@@ -1155,8 +1257,8 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
     if voice_ctx.get("is_voice_likely") or voice_ctx.get("ephemeral_lines"):
         micro_mode = False
 
-    budget_chars = compute_adaptive_budget(user_query)
-    jev_route = db.jev_system1_route(user_query, ws)
+    budget_chars = compute_adaptive_budget(user_query, runtime_profile=runtime_profile)
+    jev_route = db.jev_system1_route(user_query, ws, runtime_profile=runtime_profile)
     checkpoint = db.get_checkpoint(ws)
 
     if micro_mode:
@@ -1170,6 +1272,7 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
             micro_mode=True,
             db=db,
             voice_context=voice_ctx,
+            runtime_profile=runtime_profile,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         injected_tokens = max(1, len(ephemeral_msg) // 4)
@@ -1180,9 +1283,9 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
             latency_ms=elapsed_ms,
             injected_tokens=injected_tokens,
             estimated_saved_tokens=3200,
-            details=f"mode=MICRO_TICK query={user_query[:40]}",
+            details=f"mode=MICRO_TICK host={runtime_profile.get('platform_id')} query={user_query[:40]}",
         )
-        return {"injectSteps": [{"ephemeralMessage": ephemeral_msg}]}
+        return _format_hook_output(ephemeral_msg, is_claude_hook)
 
     with db._connect() as conn:
         pinned_rows = [
@@ -1212,7 +1315,14 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
     lookahead_notices = get_notice_lookahead_alerts(db, ws, recent_actions, user_query)
 
     has_voice_pending = bool(voice_ctx and voice_ctx.get("ephemeral_lines"))
-    if not memories and not checkpoint and not scout_map and not lookahead_notices and not has_voice_pending:
+    if (
+        not is_claude_hook
+        and not memories
+        and not checkpoint
+        and not scout_map
+        and not lookahead_notices
+        and not has_voice_pending
+    ):
         return {}
 
     delta_info = db.compute_session_delta(
@@ -1235,6 +1345,7 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
         lookahead_notices=lookahead_notices,
         db=db,
         voice_context=voice_ctx,
+        runtime_profile=runtime_profile,
     )
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
     injected_tokens = max(1, len(ephemeral_msg) // 4)
@@ -1251,26 +1362,27 @@ def handle_pre_invocation(raw_stdin: str) -> Dict[str, Any]:
         latency_ms=elapsed_ms,
         injected_tokens=injected_tokens,
         estimated_saved_tokens=estimated_saved,
-        details=f"matched={len(memories)} delta_turn={delta_info.get('turn_number')} query={user_query[:50]}",
+        details=f"matched={len(memories)} delta_turn={delta_info.get('turn_number')} host={runtime_profile.get('platform_id')} query={user_query[:50]}",
     )
 
-    return {
-        "injectSteps": [
-            {
-                "ephemeralMessage": ephemeral_msg
-            }
-        ]
-    }
+    return _format_hook_output(ephemeral_msg, is_claude_hook)
 
 
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     try:
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument(
+            "--host",
+            default="auto",
+            choices=["auto", "antigravity", "claude", "codex", "generic"],
+        )
+        args, _ = parser.parse_known_args()
         raw_in = sys.stdin.read()
-        result = handle_pre_invocation(raw_in)
+        result = handle_pre_invocation(raw_in, host_hint=args.host)
         print(json.dumps(result, ensure_ascii=False))
     except Exception:
-        # Fail-open: nunca bloquear o loop do Antigravity
+        # Fail-open: nunca bloquear o loop do IDE/CLI
         print("{}")
 
 

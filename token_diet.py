@@ -250,38 +250,39 @@ ALL_BRAIN_MCP_TOOLS = [
     "swarm_archify_delta",
     "brain_resolve_skill",
     "brain_explain_ranking",
+    "brain_runtime_info",
 ]
 
 INTENT_TOOL_ROUTING: Dict[str, Dict[str, Any]] = {
     "bugfix_diagnosis": {
         "active_tools": ["swarm_symbol_lookup", "swarm_impact_graph", "swarm_graph_path", "search_brain", "store_fact"],
         "active_mcps": ["antigravity-brain", "codebase-memory"],
-        "subagent_topology": "SCOUT (flash_lite) -> DEBUG-WORKER (Gemini 4 Argon) -> QA-VERIFY (flash)",
+        "subagent_topology": "SCOUT (fast-tier) -> DEBUG-WORKER (Active Architect) -> QA-VERIFY (fast-tier)",
     },
     "ui_3d_interactive": {
         "active_tools": ["swarm_symbol_lookup", "swarm_status", "swarm_update_task", "store_fact"],
         "active_mcps": ["antigravity-brain"],
-        "subagent_topology": "UI-01 (Gemini 4 Argon) + QA-BROWSER (flash)",
+        "subagent_topology": "UI-01 (Active Architect) + QA-BROWSER (fast-tier)",
     },
     "architecture_synthesis": {
         "active_tools": ["swarm_scout", "swarm_archify_delta", "swarm_graph_path", "swarm_architecture_report", "save_checkpoint"],
         "active_mcps": ["antigravity-brain", "context7"],
-        "subagent_topology": "ARCH-01 (Gemini 4 Argon) -> 4 Parallel Lanes (UI, API, TESTS, DOCS)",
+        "subagent_topology": "ARCH-01 (Active Architect) -> 4 Parallel Lanes (UI, API, TESTS, DOCS)",
     },
     "quota_performance": {
         "active_tools": ["brain_prune_tools", "brain_stats", "swarm_scout", "save_checkpoint"],
         "active_mcps": ["antigravity-brain"],
-        "subagent_topology": "SCOUT (flash_lite · Single-Pass)",
+        "subagent_topology": "SCOUT (fast-tier · Single-Pass)",
     },
     "security_privacy_gate": {
         "active_tools": ["swarm_impact_graph", "swarm_sandbox", "search_brain", "store_fact"],
         "active_mcps": ["antigravity-brain"],
-        "subagent_topology": "SECURITY-GATE (Gemini 4 Argon) + AI-Defence Redactor",
+        "subagent_topology": "SECURITY-GATE (Active Architect) + AI-Defence Redactor",
     },
     "general_engineering": {
         "active_tools": ["swarm_symbol_lookup", "search_brain", "store_fact", "save_checkpoint"],
         "active_mcps": ["antigravity-brain", "codebase-memory"],
-        "subagent_topology": "Gemini 4 Argon (inherit) + Scout Shared Map",
+        "subagent_topology": "Active Architect (inherit) + Scout Shared Map",
     },
 }
 
@@ -307,6 +308,30 @@ def prune_tools_for_intent(user_query: str, workspace: str = "global") -> Dict[s
     saved_per_step = max(120, total_static_tokens - active_tokens)
     reduction_pct = round((saved_per_step / max(1, total_static_tokens)) * 100.0, 1)
 
+    dynamic_topology = spec["subagent_topology"]
+    runtime_platform = "antigravity"
+    active_model = "Active Architect"
+    try:
+        from runtime_detector import build_platform_topology, detect_runtime_profile
+
+        prof = detect_runtime_profile(db=db, probe_local=False)
+        if isinstance(prof, dict):
+            runtime_platform = str(prof.get("platform_id") or "antigravity")
+            active_model = str(prof.get("model_display") or prof.get("model_raw") or "Active Architect")
+            is_local = bool(prof.get("is_local", False))
+            topo = build_platform_topology(
+                platform_id=runtime_platform,
+                model_display=active_model,
+                intent=intent,
+                is_local_model=is_local,
+            )
+            if isinstance(topo, str) and topo.strip():
+                dynamic_topology = topo.strip()
+            elif isinstance(topo, dict) and topo.get("topology"):
+                dynamic_topology = str(topo["topology"])
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "workspace": ws,
@@ -323,7 +348,9 @@ def prune_tools_for_intent(user_query: str, workspace: str = "global") -> Dict[s
         "tokens_saved_per_step": saved_per_step,
         "estimated_tokens_saved": saved_per_step,
         "reduction_pct": reduction_pct,
-        "subagent_topology": spec["subagent_topology"],
+        "subagent_topology": dynamic_topology,
+        "runtime_platform": runtime_platform,
+        "active_model": active_model,
     }
 
 

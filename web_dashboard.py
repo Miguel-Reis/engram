@@ -818,7 +818,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "antigravity-brain-v8.3"})
+            self._send_json({"status": "ok", "service": "antigravity-brain-v8.4"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -877,7 +877,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/manifest.json":
             manifest = {
-                "name": "Antigravity Brain v8.3 — Carbon Studio OS",
+                "name": "Antigravity Brain v8.4 — Carbon Studio OS",
                 "short_name": "Brain OS",
                 "start_url": "/?app=1#graph",
                 "display": "standalone",
@@ -1214,6 +1214,36 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(engine.resolve_skills_for_query(query=q, top_k=top_k))
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc), "query": q, "top_k": top_k}, 500)
+            return
+
+        if parsed.path == "/api/runtime":
+            qs = urllib.parse.parse_qs(parsed.query)
+            probe_flag = qs.get("probe_local", ["1"])[0] != "0"
+            force_flag = qs.get("force", ["0"])[0].lower() in ("1", "true", "yes")
+            try:
+                from runtime_detector import (
+                    detect_local_llm_runtimes,
+                    detect_runtime_profile,
+                    get_runtime_history,
+                )
+
+                db = BrainDB()
+                orbit = _get_fresh_orbit_engine(db)
+                profile = detect_runtime_profile(db=db, probe_local=probe_flag)
+                local_runtimes = detect_local_llm_runtimes(force_refresh=force_flag)
+                history = get_runtime_history(db, limit=10)
+                ide_bridge = orbit.get_mcp_bridge_status()
+                self._send_json(
+                    {
+                        "ok": True,
+                        "profile": profile,
+                        "local_runtimes": local_runtimes,
+                        "history": history,
+                        "ide_bridge": ide_bridge,
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
             return
 
         if parsed.path == "/api/events":
@@ -1809,6 +1839,80 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                     "url": f"http://127.0.0.1:{PORT}/#graph",
                 }
             )
+            return
+
+        if parsed.path == "/api/runtime/connect":
+            orbit = _get_fresh_orbit_engine(db)
+            action = str(body.get("action", "")).strip().lower()
+            try:
+                if action == "report_model":
+                    model_raw = str(body.get("model", "")).strip()
+                    platform_raw = str(body.get("platform", "")).strip()
+                    from runtime_detector import (
+                        classify_model_profile,
+                        detect_runtime_profile,
+                        record_runtime_session,
+                    )
+
+                    prof = detect_runtime_profile(host_hint=platform_raw, db=db, probe_local=False)
+                    if not isinstance(prof, dict):
+                        prof = {}
+                    if model_raw:
+                        cls_info = classify_model_profile(
+                            model_raw, is_local_hint=bool(body.get("is_local", False))
+                        )
+                        if isinstance(cls_info, dict):
+                            prof.update(cls_info)
+                        prof["model_raw"] = model_raw
+                        prof["detection_source"] = "dashboard_report"
+                    if platform_raw:
+                        prof["platform_id"] = platform_raw
+                    record_runtime_session(
+                        db,
+                        prof,
+                        conversation_id=f"ui:{prof.get('platform_id', 'antigravity')}",
+                        workspace=str(body.get("workspace", "brain_mcp")),
+                    )
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "action": "report_model",
+                            "profile": prof,
+                            "ide_bridge": orbit.get_mcp_bridge_status(),
+                        }
+                    )
+                    return
+
+                target_id = str(body.get("target_id", "all")).strip() or "all"
+                raw_targets = body.get("target_ids")
+                if raw_targets is None:
+                    raw_targets = body.get("targets")
+                target_ids = (
+                    [str(x).strip() for x in raw_targets if str(x).strip()]
+                    if isinstance(raw_targets, list)
+                    else None
+                )
+                bridge_res = orbit.connect_all_ai_tools(
+                    target_id=target_id,
+                    target_ids=target_ids,
+                )
+                profile: Dict[str, Any] = {}
+                try:
+                    from runtime_detector import detect_runtime_profile
+
+                    profile = detect_runtime_profile(db=db, probe_local=False)
+                except Exception:
+                    profile = {}
+                self._send_json(
+                    {
+                        "ok": True,
+                        "bridge": bridge_res,
+                        "ide_bridge": bridge_res,
+                        "profile": profile,
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
             return
 
         self._send_json({"error": "Endpoint desconhecido"}, 404)

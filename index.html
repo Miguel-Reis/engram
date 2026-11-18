@@ -4815,6 +4815,9 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       <button type="button" class="metric-pill" id="btnTokenDietHud" onclick="openInspectorModal()" style="cursor:pointer; color:#6ee7b7;" title="5 Otimizações de Poupança de Tokens Ativas: Session Delta (-64%), TOON Telegráfico (-31%), Corte Top-K, Pointers AST :Lstart-end e Modo Micro-Prompt (<90 tok). Clique para inspecionar e simular!">
         ⚡ <strong id="statTokenDietBadge">-64% Tokens</strong> · <span style="font-size:9.5px; color:#a7f3d0;">TOON+Delta</span>
       </button>
+      <button type="button" class="metric-pill" id="topRuntimeModelPill" onclick="openInspectorModal(); setTimeout(() => { document.getElementById('multiPlatformRuntimePanel')?.scrollIntoView({behavior:'smooth'}); }, 200);" style="cursor:pointer; color:#a5b4fc; border-color:rgba(129,140,248,0.38); background:rgba(99,102,241,0.10);" title="Runtime detetado automaticamente (Plataforma · Modelo Cloud/Local · SO). Clique para abrir o painel Multi-Platform &amp; Local LLM Bridge.">
+        🚀 <strong id="topRuntimeModelTxt">Runtime: A detetar...</strong>
+      </button>
       <button type="button" class="metric-pill" id="btnSelfLearnTopBadge" onclick="switchMainView('selflearn')" style="cursor:pointer; color:#e9d5ff;" title="Auto-Aprendizagem Recursiva & Sentinel Proativo por Projeto (Self-Learn v4.9 · '1 task running'). Clique para abrir a página gráfica do Self-Learn!">
         🧬 <strong id="topSelfLearnBadgeTxt">Self-Learn ON · IQ 94.2%</strong>
       </button>
@@ -5194,6 +5197,48 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         <div id="gbrainDiagnosticOutput" style="background:#040907; border:1px solid var(--border-strong); border-radius:6px; padding:8px 10px; font-family:var(--font-mono); font-size:10.5px; max-height:220px; overflow-y:auto;">
           <div style="color:var(--text-muted); font-size:10px; font-style:italic;">
             Selecione uma query e clique em "🎯 Resolver Skills (0 Tokens)" ou "🔬 Explicar Ranking (--explain)" para visualizar a decomposição matemática BM25 × RRF × LSH × PPR × Salience × Recency e as directivas 0-token injetadas.
+          </div>
+        </div>
+      </div>
+
+      <!-- 🌐 Multi-Platform, Active Model & Local LLM Runtime (v8.4) -->
+      <div class="studio-section-card" id="multiPlatformRuntimePanel" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(99,102,241,0.34); background:rgba(8,10,20,0.78); border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; color:#818cf8; font-family:var(--font-mono); letter-spacing:0.02em;">
+              🌐 Multi-Platform, Active Model &amp; Local LLM Runtime (v8.4)
+            </span>
+            <span class="rc-badge" style="font-size:9px; background:rgba(99,102,241,0.14); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); font-family:var(--font-mono);">
+              7-IDE Bridge · VRAM Probe
+            </span>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnRefreshRuntimeProbe" style="padding:4px 10px; font-size:10.5px; background:#4338ca; border-color:#6366f1; color:#fff;" onclick="refreshRuntimeProfileUI(true)">
+            🔄 Sonda Local VRAM / Atualizar
+          </button>
+        </div>
+
+        <!-- Active Runtime Summary Card -->
+        <div id="runtimeActiveSummaryBox" style="background:#070913; border:1px solid rgba(99,102,241,0.25); border-radius:6px; padding:8px 10px; margin-bottom:8px; font-family:var(--font-mono); font-size:10.5px;">
+          <div style="color:var(--text-muted); font-size:10px;">⚡ A detetar plataforma host, modelo ativo e orçamento adaptativo...</div>
+        </div>
+
+        <!-- Local LLM Runtimes Strip -->
+        <div style="margin-bottom:8px;">
+          <div style="font-size:9.5px; font-weight:700; color:#94a3b8; font-family:var(--font-mono); text-transform:uppercase; margin-bottom:5px; letter-spacing:0.04em;">
+            🖥️ Runtimes LLM Locais (Ollama · LM Studio · llama.cpp · vLLM · Jan)
+          </div>
+          <div id="runtimeLocalLlmsBox" style="display:flex; flex-wrap:wrap; gap:6px; font-family:var(--font-mono); font-size:10px;">
+            <div style="color:var(--text-muted); font-size:10px;">A sondar portas locais (:11434, :1234, :8080, :8000, :1337)...</div>
+          </div>
+        </div>
+
+        <!-- 7-IDE Multi-Platform Bridge Grid -->
+        <div>
+          <div style="font-size:9.5px; font-weight:700; color:#94a3b8; font-family:var(--font-mono); text-transform:uppercase; margin-bottom:5px; letter-spacing:0.04em;">
+            🔌 7-IDE Multi-Platform MCP Bridge
+          </div>
+          <div id="runtimeIdeBridgeGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:6px; font-family:var(--font-mono); font-size:10px;">
+            <div style="color:var(--text-muted); font-size:10px;">A carregar estado da ponte MCP das 7 IDEs...</div>
           </div>
         </div>
       </div>
@@ -11043,6 +11088,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       document.getElementById('inspectorModal').classList.add('open');
       loadMemoryRevisionsUI();
       refreshPagodaPanelUI();
+      refreshRuntimeProfileUI(false);
       await refreshInspectorPreview();
     }
 
@@ -14068,6 +14114,290 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         outBox.innerHTML = `<div style="color:#fb7185; font-size:10.5px;">❌ Erro de rede ao explicar ranking: ${escapeHtml(err.message || String(err))}</div>`;
       } finally {
         if (btn) btn.disabled = false;
+      }
+    }
+
+    // =========================================================================
+    // 🌐 MULTI-PLATFORM, ACTIVE MODEL & LOCAL LLM RUNTIME HUD (v8.4)
+    // =========================================================================
+    function _getRuntimePlatformMeta(platformId) {
+      const pid = String(platformId || '').toLowerCase();
+      if (pid.includes('antigravity')) return { icon: '🚀', label: 'Antigravity' };
+      if (pid.includes('claude_code') || pid === 'claude-code') return { icon: '🧠', label: 'Claude Code' };
+      if (pid.includes('codex')) return { icon: '⌨️', label: 'Codex CLI' };
+      if (pid.includes('cursor')) return { icon: '⚡', label: 'Cursor' };
+      if (pid.includes('windsurf')) return { icon: '🌊', label: 'Windsurf' };
+      if (pid.includes('opencode')) return { icon: '🧩', label: 'OpenCode' };
+      if (pid.includes('claude_desktop') || pid === 'claude-desktop') return { icon: '🖥️', label: 'Claude Desktop' };
+      if (pid.includes('local') || pid.includes('ollama') || pid.includes('lmstudio')) return { icon: '🖥️', label: 'Local' };
+      return { icon: '🌐', label: platformId || 'Host' };
+    }
+
+    function _formatRuntimeOsShort(osName) {
+      const s = String(osName || '').trim();
+      if (!s) return 'OS';
+      const low = s.toLowerCase();
+      if (low.startsWith('win')) return 'Win';
+      if (low.includes('darwin') || low.includes('mac')) return 'macOS';
+      if (low.includes('linux')) return 'Linux';
+      return s;
+    }
+
+    function _formatRuntimeCtxWindow(ctxVal) {
+      if (ctxVal == null || ctxVal === '') return 'N/D';
+      if (typeof ctxVal === 'string' && /[a-zA-Z]/.test(ctxVal)) return ctxVal;
+      const num = Number(ctxVal);
+      if (!Number.isFinite(num) || num <= 0) return String(ctxVal);
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M tok`;
+      if (num >= 1000) return `${Math.round(num / 1000)}k tok`;
+      return `${num} tok`;
+    }
+
+    async function refreshRuntimeProfileUI(forceProbe = false) {
+      const btn = document.getElementById('btnRefreshRuntimeProbe');
+      const pill = document.getElementById('topRuntimeModelPill');
+      const pillTxt = document.getElementById('topRuntimeModelTxt');
+      const summaryBox = document.getElementById('runtimeActiveSummaryBox');
+      const localBox = document.getElementById('runtimeLocalLlmsBox');
+      const bridgeGrid = document.getElementById('runtimeIdeBridgeGrid');
+
+      if (btn && forceProbe) {
+        btn.disabled = true;
+        btn.textContent = '⏳ A sondar VRAM...';
+      }
+
+      try {
+        const url = `/api/runtime?probe_local=1&force=${forceProbe ? '1' : '0'}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data || data.ok === false) {
+          if (summaryBox) {
+            summaryBox.innerHTML = `<div style="color:#fb7185; font-size:10px;">❌ Erro ao obter perfil runtime: ${escapeHtml(data?.error || 'Falha em /api/runtime')}</div>`;
+          }
+          return;
+        }
+
+        const profile = data.profile || data.runtime_profile || data;
+        const platformId = profile.platform_id || 'antigravity';
+        const platMeta = _getRuntimePlatformMeta(platformId);
+        const osFull = profile.os_platform || 'Windows';
+        const osShort = _formatRuntimeOsShort(osFull);
+        const modelDisplay = profile.model_display || profile.model_raw || 'Auto';
+        const modelRaw = profile.model_raw || '';
+        const modelTier = profile.model_tier || 'standard';
+        const isLocal = Boolean(
+          profile.is_local_model ||
+          profile.is_local ||
+          profile.local_active ||
+          String(platformId).toLowerCase() === 'local' ||
+          String(modelTier).toLowerCase().includes('local')
+        );
+        const ephChars = profile.recommended_ephemeral_chars != null ? Number(profile.recommended_ephemeral_chars).toLocaleString() : 'N/D';
+        const ctxWindow = _formatRuntimeCtxWindow(profile.context_window_est);
+        const detSource = profile.detection_source || 'auto';
+
+        // 1. Update topbar pill
+        if (pill && pillTxt) {
+          const badgeIcon = isLocal ? '🖥️' : platMeta.icon;
+          const leadName = isLocal ? 'Local' : platMeta.label;
+          const tailTag = isLocal ? 'VRAM' : osShort;
+          pill.innerHTML = `${badgeIcon} <strong id="topRuntimeModelTxt">${escapeHtml(leadName)} · ${escapeHtml(modelDisplay)} · ${escapeHtml(tailTag)}</strong>`;
+          if (isLocal) {
+            pill.style.borderColor = 'rgba(16,185,129,0.5)';
+            pill.style.background = 'rgba(16,185,129,0.12)';
+            pill.style.color = '#6ee7b7';
+          } else {
+            pill.style.borderColor = 'rgba(129,140,248,0.42)';
+            pill.style.background = 'rgba(99,102,241,0.12)';
+            pill.style.color = '#c7d2fe';
+          }
+        }
+
+        // 2. Update Active Runtime Summary Card
+        if (summaryBox) {
+          const modeBadge = isLocal
+            ? `<span class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.16); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4);">🖥️ Local ($0.00)</span>`
+            : `<span class="rc-badge" style="font-size:9px; background:rgba(56,189,248,0.15); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4);">☁️ Cloud</span>`;
+          summaryBox.innerHTML = `
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:8px; align-items:start;">
+              <div>
+                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">Plataforma / Host &amp; SO</div>
+                <div style="color:#f8fafc; font-weight:700; margin-top:2px;">
+                  ${platMeta.icon} ${escapeHtml(String(platformId))} <span style="color:#94a3b8; font-weight:500;">· ${escapeHtml(String(osFull))}</span>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">Modelo Detetado</div>
+                <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-top:2px;">
+                  <strong style="color:#e0e7ff;">${escapeHtml(String(modelDisplay))}</strong>
+                  ${modeBadge}
+                </div>
+                ${modelRaw ? `<div style="font-size:9px; color:#64748b; margin-top:1px;">raw: <code>${escapeHtml(String(modelRaw))}</code></div>` : ''}
+              </div>
+              <div>
+                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">Tier &amp; Orçamento Adaptativo</div>
+                <div style="color:#cbd5e1; margin-top:2px;">
+                  <strong style="color:#fbbf24;">${escapeHtml(String(modelTier))}</strong>
+                  <span style="color:#64748b;">·</span> ${escapeHtml(String(ephChars))} chars
+                  <span style="color:#64748b;">·</span> <span style="color:#38bdf8;">${escapeHtml(String(ctxWindow))}</span>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase;">Fonte da Deteção</div>
+                <div style="color:#a7f3d0; margin-top:2px; word-break:break-word;">
+                  <code>${escapeHtml(String(detSource))}</code>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // 3. Update Local LLM Runtimes Strip
+        if (localBox) {
+          const defaultRuntimes = [
+            { id: 'ollama', name: 'Ollama', port: 11434, hint: '/api/ps' },
+            { id: 'lmstudio', name: 'LM Studio', port: 1234 },
+            { id: 'llamacpp', name: 'llama.cpp', port: 8080 },
+            { id: 'vllm', name: 'vLLM', port: 8000 },
+            { id: 'jan', name: 'Jan', port: 1337 }
+          ];
+          const rawLocal = data.local_llms || data.local_runtimes || data.local_llm || [];
+          let runtimeList = [];
+          if (Array.isArray(rawLocal)) {
+            runtimeList = rawLocal;
+          } else if (rawLocal && typeof rawLocal === 'object') {
+            if (Array.isArray(rawLocal.runtimes)) {
+              runtimeList = rawLocal.runtimes;
+            } else {
+              runtimeList = Object.entries(rawLocal).map(([k, v]) => (
+                v && typeof v === 'object' ? { id: k, ...v } : { id: k, online: Boolean(v) }
+              ));
+            }
+          }
+
+          const mergedRuntimes = defaultRuntimes.map(def => {
+            const found = runtimeList.find(r => {
+              const rid = String(r.id || r.runtime || r.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              return rid === def.id || rid.includes(def.id) || (r.port && Number(r.port) === def.port);
+            });
+            return found ? { ...def, ...found } : { ...def, online: false, models: [] };
+          });
+
+          localBox.innerHTML = mergedRuntimes.map(rt => {
+            const isOnline = Boolean(rt.online || rt.active || rt.running || rt.status === 'online');
+            const portTxt = rt.port ? `:${rt.port}` : '';
+            const hintTxt = rt.hint ? ` ${rt.hint}` : '';
+            const modelsArr = Array.isArray(rt.models) ? rt.models : (Array.isArray(rt.loaded_models) ? rt.loaded_models : (Array.isArray(rt.vram_models) ? rt.vram_models : []));
+            if (!isOnline) {
+              return `
+                <div style="display:flex; align-items:center; gap:5px; padding:4px 8px; border-radius:6px; background:#0b0d14; border:1px solid rgba(255,255,255,0.08); color:#94a3b8;">
+                  <span style="font-weight:700; color:#cbd5e1;">${escapeHtml(String(rt.name))}</span>
+                  <span style="color:#64748b; font-size:9px;">(${escapeHtml(portTxt + hintTxt)})</span>
+                  <span class="rc-badge" style="font-size:8.5px; background:rgba(148,163,184,0.1); color:#94a3b8; border-color:rgba(148,163,184,0.22);">⚪ Standby</span>
+                </div>
+              `;
+            }
+            const modelsHtml = modelsArr.length
+              ? modelsArr.map(m => {
+                  if (typeof m === 'string') return `<span class="tk-chip" style="font-size:8.5px; color:#a7f3d0;">${escapeHtml(m)}</span>`;
+                  const mName = m.name || m.model || m.id || 'modelo';
+                  const vram = m.size_vram_gb != null ? `${Number(m.size_vram_gb).toFixed(1).replace(/\.0$/, '')}GB VRAM` : '';
+                  const ctx = m.context_length != null ? `ctx ${_formatRuntimeCtxWindow(m.context_length)}` : '';
+                  const metaParts = [vram, ctx].filter(Boolean).join(' · ');
+                  return `<span class="tk-chip" style="font-size:8.5px; color:#6ee7b7; border-color:rgba(16,185,129,0.35);">${escapeHtml(String(mName))}${metaParts ? ` (${escapeHtml(metaParts)})` : ''}</span>`;
+                }).join(' ')
+              : `<span style="color:#6ee7b7; font-size:9px;">Pronto</span>`;
+            return `
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 9px; border-radius:6px; background:rgba(6,24,18,0.85); border:1px solid rgba(16,185,129,0.4);">
+                <span style="font-weight:800; color:#f8fafc;">${escapeHtml(String(rt.name))}</span>
+                <span style="color:#6ee7b7; font-size:9px;">(${escapeHtml(portTxt + hintTxt)})</span>
+                <span class="rc-badge" style="font-size:8.5px; background:rgba(16,185,129,0.18); color:#34d399; border-color:rgba(16,185,129,0.45);">🟢 ONLINE</span>
+                ${modelsHtml}
+              </div>
+            `;
+          }).join('');
+        }
+
+        // 4. Update 7-IDE Multi-Platform Bridge Grid
+        if (bridgeGrid) {
+          const targets = (data.ide_bridge && Array.isArray(data.ide_bridge.targets))
+            ? data.ide_bridge.targets
+            : (Array.isArray(data.ide_targets) ? data.ide_targets : []);
+          if (!targets.length) {
+            bridgeGrid.innerHTML = `<div style="color:var(--text-muted); font-size:10px;">Nenhuma IDE registada na resposta do servidor.</div>`;
+          } else {
+            bridgeGrid.innerHTML = targets.map(target => {
+              const safeId = String(target.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+              const tMeta = _getRuntimePlatformMeta(target.id || target.name);
+              const icon = target.icon || tMeta.icon;
+              const name = target.name || tMeta.label;
+              const isConnected = Boolean(target.connected || target.is_connected || target.configured || target.status === 'connected');
+              const isDetected = Boolean(target.installed || target.detected || target.status === 'detected');
+              const cfgPath = target.config_path || target.path || '';
+
+              let statusPill = `<span class="rc-badge" style="font-size:8.5px; background:rgba(100,116,139,0.12); color:#64748b; border-color:rgba(100,116,139,0.25);">Não instalado</span>`;
+              let borderCol = 'rgba(255,255,255,0.08)';
+              if (isConnected) {
+                statusPill = `<span class="rc-badge" style="font-size:8.5px; background:rgba(16,185,129,0.16); color:#34d399; border-color:rgba(16,185,129,0.4);">✅ Ligado</span>`;
+                borderCol = 'rgba(16,185,129,0.32)';
+              } else if (isDetected) {
+                statusPill = `<span class="rc-badge" style="font-size:8.5px; background:rgba(56,189,248,0.12); color:#7dd3fc; border-color:rgba(56,189,248,0.32);">⚪ Detetado</span>`;
+                borderCol = 'rgba(56,189,248,0.26)';
+              }
+
+              return `
+                <div title="${cfgPath ? `Config: ${escapeHtml(cfgPath)}` : escapeHtml(name)}" style="display:flex; justify-content:space-between; align-items:center; gap:6px; padding:6px 8px; border-radius:6px; background:#090c16; border:1px solid ${borderCol};">
+                  <div style="min-width:0; flex:1;">
+                    <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                      <span>${escapeHtml(icon)}</span>
+                      <strong style="color:#f1f5f9; font-size:10.5px;">${escapeHtml(name)}</strong>
+                      ${statusPill}
+                    </div>
+                    ${cfgPath ? `<div style="font-size:8.5px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${escapeHtml(cfgPath)}</div>` : ''}
+                  </div>
+                  <button type="button" class="btn" style="padding:3px 7px; font-size:9.5px; white-space:nowrap; background:#111827; border-color:rgba(99,102,241,0.35); color:#c7d2fe;" onclick="connectIdeBridgeTargetUI('${safeId}')">
+                    🔌 Conectar
+                  </button>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        if (forceProbe) {
+          showToast(`🔄 Sonda Runtime concluída: ${platMeta.label} · ${modelDisplay}`);
+        }
+      } catch (err) {
+        console.warn('Erro ao atualizar perfil runtime:', err);
+        if (summaryBox) {
+          summaryBox.innerHTML = `<div style="color:#fb7185; font-size:10px;">⚠️ Erro de rede em /api/runtime: ${escapeHtml(err.message || String(err))}</div>`;
+        }
+      } finally {
+        if (btn && forceProbe) {
+          btn.disabled = false;
+          btn.textContent = '🔄 Sonda Local VRAM / Atualizar';
+        }
+      }
+    }
+
+    async function connectIdeBridgeTargetUI(targetId) {
+      if (!targetId) return;
+      try {
+        const res = await fetch('/api/runtime/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_id: targetId })
+        });
+        const out = await res.json();
+        if (out && out.ok !== false) {
+          const msg = out.message || out.status_msg || `Bridge MCP ligada para ${out.target_name || targetId}!`;
+          showToast(`🔌 ${msg}`);
+          await refreshRuntimeProfileUI(false);
+        } else {
+          showToast(`⚠️ Falha ao ligar ${targetId}: ${(out && out.error) || 'erro desconhecido'}`);
+        }
+      } catch (err) {
+        showToast(`⚠️ Erro ao ligar ${targetId}: ${err.message || String(err)}`);
       }
     }
 
@@ -17637,6 +17967,7 @@ ${rulesSection}`;
 
     setTimeout(() => {
       refreshQuota5hRadarUI(false);
+      refreshRuntimeProfileUI(false);
       fetchTasksStudioPage(false);
       setInterval(() => { if (!document.hidden) refreshQuota5hRadarUI(false); }, 45000);
     }, 1200);

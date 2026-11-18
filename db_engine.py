@@ -489,6 +489,32 @@ class BrainDB:
                 """
             )
 
+            # 5D. Tabela de Sessões de Runtime (Multi-Model / Multi-Host / Local LLM)
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS runtime_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id TEXT NOT NULL,
+                    workspace TEXT NOT NULL DEFAULT 'brain_mcp',
+                    platform_id TEXT NOT NULL DEFAULT 'antigravity',
+                    client_version TEXT NOT NULL DEFAULT '',
+                    os_platform TEXT NOT NULL DEFAULT 'windows',
+                    model_raw TEXT NOT NULL DEFAULT '',
+                    model_display TEXT NOT NULL DEFAULT '',
+                    model_family TEXT NOT NULL DEFAULT 'unknown',
+                    model_tier TEXT NOT NULL DEFAULT 'balanced',
+                    is_local_model INTEGER NOT NULL DEFAULT 0,
+                    context_window_est INTEGER NOT NULL DEFAULT 128000,
+                    recommended_ephemeral_chars INTEGER NOT NULL DEFAULT 1250,
+                    detection_source TEXT NOT NULL DEFAULT 'fallback',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runtime_conv ON runtime_sessions(conversation_id, updated_at);"
+            )
+
             user_ver_row = conn.execute("PRAGMA user_version;").fetchone()
             user_ver = int(user_ver_row[0]) if user_ver_row else 0
             if user_ver < 72:
@@ -725,48 +751,79 @@ class BrainDB:
             return "episodic"
         return "semantic"
 
-    @staticmethod
-    def jev_system1_route(query: str, workspace: str = "brain_mcp") -> Dict[str, Any]:
+    def jev_system1_route(
+        self,
+        user_query: str,
+        workspace: str = "global",
+        runtime_profile: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Jev System-1 Cognitive Control Plane (< 0.8ms non-autoregressive decision model):
         Executa as 3 primitivas tipadas do Jev-Mem:
         1. Choice(intent): Classifica a intenção estrutural do pedido.
-        2. Choice(model_route): Seleciona o tier ótimo de subagentes (flash_lite / flash / Argon pro).
-        3. Score(tier_weights) + Adaptive Stopping threshold.
+        2. Choice(model_route): Seleciona o tier ótimo de subagentes adaptado ao runtime ativo.
+        3. Score(tier_weights) + Adaptive Stopping threshold ajustado ao tier do modelo.
         """
         t0 = time.perf_counter()
-        q = (query or "").strip().lower()
+        q = (user_query or "").strip().lower()
 
         if any(k in q for k in ("bug", "erro", "fix", "corrigir", "nao funciona", "não funciona", "encravado", "problema")):
             intent = "bugfix_diagnosis"
-            model_route = "SCOUT (flash_lite) ➔ DEBUGGER (Gemini 4 Argon) ➔ VERIFY (flash)"
             tier_weights = {"working": 1.45, "episodic": 1.35, "semantic": 1.15}
             stop_threshold = 0.28
         elif any(k in q for k in ("3d", "office", "escritorio", "escritório", "canvas", "ui", "design", "grafo", "swarm", "aba", "opções", "opcoes")):
             intent = "ui_3d_interactive"
-            model_route = "SCOUT (flash_lite) ➔ UI-01 (Gemini 4 Argon) + API-01 (flash)"
             tier_weights = {"working": 1.40, "semantic": 1.30, "episodic": 1.15}
             stop_threshold = 0.30
         elif any(k in q for k in ("ruflo", "jev", "arquitetura", "architecture", "ultraplan", "analise", "análise", "melhoria", "sistema")):
             intent = "architecture_synthesis"
-            model_route = "ARCH-01 (Gemini 4 Argon) ➔ 4 Lanes Paralelas (flash / flash_lite)"
             tier_weights = {"semantic": 1.50, "episodic": 1.25, "working": 1.20}
             stop_threshold = 0.24
         elif any(k in q for k in ("quota", "token", "lean", "performance", "rapido", "rápido", "otimizar", "mcp")):
             intent = "quota_performance"
-            model_route = "SCOUT (flash_lite · Read 1x) ➔ Lean Profile"
             tier_weights = {"semantic": 1.40, "working": 1.30, "episodic": 1.10}
             stop_threshold = 0.34
         elif any(k in q for k in ("seguranca", "segurança", "github", "privacidade", "secret", "audit", "strix")):
             intent = "security_privacy_gate"
-            model_route = "SECURITY-AUDITOR (pro) + AI-Defence Scan"
             tier_weights = {"semantic": 1.45, "working": 1.35, "episodic": 1.20}
             stop_threshold = 0.26
         else:
             intent = "general_engineering"
-            model_route = "Gemini 4 Argon (inherit) + Scout Shared Map"
             tier_weights = {"working": 1.35, "semantic": 1.25, "episodic": 1.15}
             stop_threshold = 0.32
+
+        active_prof = runtime_profile
+        try:
+            from runtime_detector import build_platform_topology, get_latest_runtime_session
+
+            if active_prof is None:
+                active_prof = get_latest_runtime_session(self)
+
+            plat_id = str((active_prof or {}).get("platform_id") or "antigravity")
+            model_disp = str((active_prof or {}).get("model_display") or "").strip()
+            if not model_disp or model_disp == "Auto-Detected Model":
+                model_disp = "Active Model"
+            is_local = bool((active_prof or {}).get("is_local_model"))
+            model_tier = str((active_prof or {}).get("model_tier") or "balanced")
+
+            tier_deltas = {
+                "local_compact": 0.08,
+                "fast_small": 0.04,
+                "balanced": 0.0,
+                "frontier_high": -0.02,
+            }
+            delta = (active_prof or {}).get("stop_threshold_delta")
+            if delta is None:
+                delta = tier_deltas.get(model_tier, 0.0)
+            stop_threshold = round(max(0.15, min(0.55, stop_threshold + float(delta))), 3)
+            model_route = build_platform_topology(
+                platform_id=plat_id,
+                model_display=model_disp,
+                intent=intent,
+                is_local_model=is_local,
+            )
+        except Exception:
+            model_route = "ARCH (Active Model) ➔ Parallel Lanes (flash / flash_lite)"
 
         elapsed_us = round((time.perf_counter() - t0) * 1000.0, 3)
         dots_traj = BrainDB.compute_dots_trajectory(q, intent)

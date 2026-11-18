@@ -1,9 +1,10 @@
+import argparse
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 REPO_DIR = Path(__file__).resolve().parent
 HOME_DIR = Path.home()
@@ -13,12 +14,12 @@ PLUGINS_DIR = CONFIG_DIR / "plugins" / "antigravity-brain"
 RULES_DIR = PLUGINS_DIR / "rules"
 
 
-def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
+def configure_hooks_and_plugin(silent: bool = False, targets: str = "antigravity") -> Dict[str, Any]:
     """Configura automaticamente os hooks globais, plugin e MCP para qualquer utilizador."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     RULES_DIR.mkdir(parents=True, exist_ok=True)
 
-    python_cmd = "python"
+    python_cmd = "python" if os.name == "nt" else "python3"
     inject_script = (REPO_DIR / "brain_inject.py").as_posix()
     harvest_script = (REPO_DIR / "brain_harvest.py").as_posix()
     server_script = (REPO_DIR / "server.py").as_posix()
@@ -61,8 +62,8 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
     plugin_json_path = PLUGINS_DIR / "plugin.json"
     plugin_manifest = {
         "name": "antigravity-brain",
-        "version": "8.3.0",
-        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Pagoda LSM Multi-Tier Reversible Folds, Archify Zero-Token Delta, GBrain Dossiers & Local Skill Resolver",
+        "version": "8.4.0",
+        "description": "Zero-Round-Trip SQLite FTS5 + 128-D LSH Memory Engine, Multi-Model & Multi-Platform Runtime Intelligence, 7-IDE Cross-OS Bridge, Pagoda LSM Folds, Archify Delta, GBrain Dossiers & Local Skill Resolver",
         "hooks": "./hooks.json",
         "rules": ["./rules/AGENTS.md"],
     }
@@ -93,6 +94,9 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
    - **Orthogonal Salience × Recency Ranking**: Memory retrieval separates importance (pinned/canonical truth) from time decay (Ebbinghaus recency). Debug ranking math and Autocut decisions via `brain_explain_ranking`.
    - **Local Skill Resolver (`brain_resolve_skill`)**: When complex agent skills are omitted due to context-budget limits, resolve authoritative `SKILL.md` rules and trigger definitions locally at zero LLM token cost.
    - **Compiled Truth & Dossiers (`.brain_vault/<ws>/*.md`)**: Maintain two-zone dossiers (`## 💎 Compiled Truth` + `## 📅 Chronological Timeline`) with bidirectional back-links (`## 🔗 Bidirectional Back-Links`) to guarantee single source of truth across agent sessions.
+8. **Multi-Model & Multi-Platform Runtime Intelligence (`brain_runtime_info` & `brain://runtime/profile`)**:
+   - **Automatic Cloud & Local Model Detection**: `runtime_detector.py` detects the active host IDE/CLI (`antigravity`, `claude_code`, `codex_cli`, `cursor`, `windsurf`, `opencode`, `claude_desktop`), OS, active cloud model (Claude, GPT/Codex, Gemini, DeepSeek, Llama, Qwen), and local LLM runtimes (`Ollama`, `LM Studio`, `vLLM`, `llama.cpp`), scaling context budgets dynamically.
+   - **Model-Agnostic Swarm Routing & 7-IDE Bridge**: Inspect active runtime telemetry via `brain_runtime_info` or `GET /api/runtime`, report custom models via `brain_runtime_info(report_model=...)`, and safely connect any of the 7 supported IDEs/CLIs across Windows, macOS, and Linux via `POST /api/runtime/connect` or `install.py --targets ...`.
 """
     (RULES_DIR / "AGENTS.md").write_text(agents_md_content, encoding="utf-8")
 
@@ -105,6 +109,7 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
             for fname in (
                 "server.py",
                 "db_engine.py",
+                "runtime_detector.py",
                 "skill_resolver_engine.py",
                 "pagoda_fold_engine.py",
                 "archify_engine.py",
@@ -141,7 +146,7 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
 
     servers = mcp_cfg.setdefault("mcpServers", {})
     servers["antigravity-brain"] = {
-        "command": "python",
+        "command": python_cmd,
         "args": ["-u", server_script],
     }
     mcp_cfg_path.write_text(
@@ -181,16 +186,45 @@ def configure_hooks_and_plugin(silent: bool = False) -> Dict[str, Any]:
                         except Exception:
                             pass
 
+    bridge_result: Dict[str, Any] = {}
+    targets_clean = str(targets or "antigravity").strip() or "antigravity"
+    if targets_clean.lower() != "antigravity":
+        try:
+            if str(REPO_DIR) not in sys.path:
+                sys.path.insert(0, str(REPO_DIR))
+            from orbit_engine import OrbitEngine
+
+            if targets_clean.lower() == "all":
+                target_list: List[str] = [
+                    "antigravity",
+                    "claude_code",
+                    "codex_cli",
+                    "cursor",
+                    "windsurf",
+                    "opencode",
+                    "claude_desktop",
+                ]
+            else:
+                target_list = [t.strip() for t in targets_clean.split(",") if t.strip()]
+            if target_list:
+                bridge_result = OrbitEngine().connect_all_ai_tools(target_ids=target_list)
+        except Exception:
+            bridge_result = {}
+
     if not silent:
         print("✅ Hooks globais configurados em:", global_hooks_path)
-        print("✅ Plugin Antigravity Brain v8.2 instalado em:", PLUGINS_DIR)
+        print("✅ Plugin Antigravity Brain v8.4 instalado em:", PLUGINS_DIR)
         print("✅ Servidor MCP registado em:", mcp_cfg_path)
+        if bridge_result.get("updated_tools"):
+            print("✅ Ponte Multi-IDE conectada para:", ", ".join(bridge_result["updated_tools"]))
 
     return {
         "hooks_path": str(global_hooks_path),
         "plugin_dir": str(PLUGINS_DIR),
         "mcp_config": str(mcp_cfg_path),
         "startup_registered": False,
+        "targets": targets_clean,
+        "bridge_result": bridge_result,
     }
 
 
@@ -201,14 +235,24 @@ def main() -> None:
         except Exception:
             pass
 
-    silent = "--silent" in sys.argv
-    no_restart = "--no-restart" in sys.argv or os.environ.get("BRAIN_NO_RESTART") == "1"
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--silent", action="store_true")
+    parser.add_argument("--no-restart", action="store_true")
+    parser.add_argument(
+        "--targets",
+        default="antigravity",
+        help="Comma-separated targets: antigravity|all|claude_code,codex_cli,cursor,windsurf,opencode,claude_desktop",
+    )
+    args, _unknown = parser.parse_known_args()
+
+    silent = bool(args.silent)
+    no_restart = bool(args.no_restart) or os.environ.get("BRAIN_NO_RESTART") == "1"
     if not silent:
         print("=" * 68)
-        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.2")
+        print(" 🧠 INSTALADOR & AUTO-CONFIGURADOR — ANTIGRAVITY BRAIN v8.4")
         print("=" * 68)
 
-    configure_hooks_and_plugin(silent=silent)
+    configure_hooks_and_plugin(silent=silent, targets=args.targets)
 
     # Inicializar base de dados + Scout + Servidor Web (c/ hot-restart após git pull / update.bat)
     if str(REPO_DIR) not in sys.path:

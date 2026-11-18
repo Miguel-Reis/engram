@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -8,6 +9,7 @@ from typing import Any, Dict, List
 from brain_inject import resolve_smart_active_workspace, resolve_transcript_path
 from db_engine import BrainDB
 from orbit_engine import OrbitEngine
+from runtime_detector import detect_runtime_profile, record_runtime_session
 from swarm_engine import SwarmEngine
 
 
@@ -64,7 +66,7 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
     if not steps:
         return 0
 
-    # Isola apenas os passos após o último USER_INPUT (ou SYSTEM_MESSAGE inicial em subagentes)
+    # Isola apenas os passos após o último USER_INPUT (Antigravity) ou type == "user" (Claude Code)
     last_user_idx = 0
     turn_user_goal = ""
     is_subagent = False
@@ -82,6 +84,22 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
             else:
                 turn_user_goal = clean_system_envelope(raw_u)[:110]
             break
+        if st_type == "user":
+            msg_obj = steps[idx].get("message") if isinstance(steps[idx].get("message"), dict) else steps[idx]
+            raw_c = msg_obj.get("content")
+            u_text = ""
+            if isinstance(raw_c, str):
+                u_text = raw_c.strip()
+            elif isinstance(raw_c, list):
+                u_text = " ".join(
+                    str(b.get("text") or "").strip()
+                    for b in raw_c
+                    if isinstance(b, dict) and b.get("type") == "text" and b.get("text")
+                ).strip()
+            if u_text:
+                last_user_idx = idx
+                turn_user_goal = clean_system_envelope(u_text)[:110]
+                break
         if st_type == "SYSTEM_MESSAGE" and last_user_idx == 0:
             raw_sys = str(steps[idx].get("content") or "")
             if "sender=" in raw_sys and "sender=system" not in raw_sys:
@@ -112,15 +130,44 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                     detected_errors.append(err_txt)
             continue
 
-        if step.get("type") != "PLANNER_RESPONSE":
+        st_type = step.get("type")
+        if st_type not in ("PLANNER_RESPONSE", "assistant"):
             continue
 
-        turn_input_tokens += int(step.get("input_tokens", 0) or 0)
-        turn_cached_tokens += int(step.get("cache_read_tokens", 0) or 0)
-        turn_output_tokens += int(step.get("output_tokens", 0) or 0)
+        if st_type == "assistant":
+            msg_obj = step.get("message") if isinstance(step.get("message"), dict) else step
+            usage = msg_obj.get("usage") if isinstance(msg_obj.get("usage"), dict) else {}
+            turn_input_tokens += int(usage.get("input_tokens", 0) or 0)
+            turn_cached_tokens += int(usage.get("cache_read_input_tokens", 0) or 0)
+            turn_output_tokens += int(usage.get("output_tokens", 0) or 0)
+            raw_c = msg_obj.get("content")
+            content = ""
+            tool_calls = []
+            if isinstance(raw_c, str):
+                content = raw_c
+            elif isinstance(raw_c, list):
+                text_chunks: List[str] = []
+                for blk in raw_c:
+                    if not isinstance(blk, dict):
+                        continue
+                    if blk.get("type") == "text" and blk.get("text"):
+                        text_chunks.append(str(blk.get("text")))
+                    elif blk.get("type") == "tool_use":
+                        tool_calls.append(
+                            {
+                                "name": str(blk.get("name") or ""),
+                                "args": blk.get("input") if isinstance(blk.get("input"), dict) else {},
+                            }
+                        )
+                content = "\n".join(text_chunks)
+        else:
+            turn_input_tokens += int(step.get("input_tokens", 0) or 0)
+            turn_cached_tokens += int(step.get("cache_read_tokens", 0) or 0)
+            turn_output_tokens += int(step.get("output_tokens", 0) or 0)
+            content = step.get("content", "") or ""
+            tool_calls = step.get("tool_calls") or []
 
         # 1. Extrai marcadores explícitos <!-- brain: Topico | Facto --> (suporta setas ->, =>, <, >)
-        content = step.get("content", "") or ""
         explicit_matches = re.findall(
             r"<!--\s*brain:\s*([^|\n`{}]{3,85}?)\s*\|\s*(.{6,450}?)\s*-->",
             content,
@@ -142,11 +189,19 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 harvested_count += 1
 
         # 2. Extrai edições de ficheiros (1 memória consolidada por ficheiro para não poluir o grafo)
-        tool_calls = step.get("tool_calls") or []
         for tc in tool_calls:
             t_name = tc.get("name", "")
             args = tc.get("args") or {}
-            if t_name in ("write_to_file", "replace_file_content", "multi_replace_file_content", "write_file", "edit_file"):
+            if t_name in (
+                "write_to_file",
+                "replace_file_content",
+                "multi_replace_file_content",
+                "write_file",
+                "edit_file",
+                "Write",
+                "Edit",
+                "MultiEdit",
+            ):
                 target_file = str(
                     args.get("TargetFile")
                     or args.get("Path")
@@ -310,13 +365,23 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
     return harvested_count
 
 
-def handle_stop(raw_stdin: str) -> Dict[str, Any]:
+def handle_stop(raw_stdin: str, host_hint: str = "auto") -> Dict[str, Any]:
     t0 = time.perf_counter()
     if raw_stdin.strip():
         payload = json.loads(raw_stdin)
-        conv_id = str(payload.get("conversationId", "default"))
-        workspaces = payload.get("workspacePaths") or []
-        raw_ws = workspaces[0] if workspaces else "global"
+        norm_host = (host_hint or "auto").strip().lower()
+        is_claude_hook = bool(
+            norm_host in ("claude", "claude_code")
+            or payload.get("hook_event_name") == "Stop"
+            or ("session_id" in payload and "conversationId" not in payload)
+        )
+        if is_claude_hook:
+            conv_id = str(payload.get("session_id") or payload.get("conversationId") or "claude_default")
+            raw_ws = str(payload.get("cwd") or "global")
+        else:
+            conv_id = str(payload.get("conversationId", "default"))
+            workspaces = payload.get("workspacePaths") or []
+            raw_ws = workspaces[0] if workspaces else "global"
 
         db = BrainDB()
         ws = db.normalize_workspace(raw_ws)
@@ -325,6 +390,18 @@ def handle_stop(raw_stdin: str) -> Dict[str, Any]:
             if resolved_ws and resolved_ws != "global":
                 ws = resolved_ws
         transcript_path = resolve_transcript_path(payload)
+        try:
+            runtime_profile = detect_runtime_profile(
+                payload=payload,
+                transcript_path=transcript_path,
+                host_hint=host_hint,
+                db=db,
+                probe_local=False,
+            )
+            record_runtime_session(db, runtime_profile, conversation_id=conv_id, workspace=ws)
+        except Exception:
+            pass
+
         if transcript_path:
             harvest_latest_turn(transcript_path, ws, conv_id, db)
         else:
@@ -340,8 +417,15 @@ def handle_stop(raw_stdin: str) -> Dict[str, Any]:
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     try:
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument(
+            "--host",
+            default="auto",
+            choices=["auto", "antigravity", "claude", "codex"],
+        )
+        args, _ = parser.parse_known_args()
         raw_in = sys.stdin.read()
-        result = handle_stop(raw_in)
+        result = handle_stop(raw_in, host_hint=args.host)
         print(json.dumps(result, ensure_ascii=False))
     except Exception:
         print('{"decision": "allow"}')

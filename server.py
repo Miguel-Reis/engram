@@ -28,10 +28,11 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str, version: str = "8.3.0") -> None:
+    def __init__(self, name: str, version: str = "8.4.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
+        self.connected_client: Dict[str, Any] = {}
         self._tools: Dict[str, Dict[str, Any]] = {}
 
     READ_ONLY_TOOLS = {
@@ -48,6 +49,7 @@ class StdioMCPServer:
         "swarm_archify_delta",
         "brain_resolve_skill",
         "brain_explain_ranking",
+        "brain_runtime_info",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -178,6 +180,51 @@ class StdioMCPServer:
         if method == "initialize":
             client_proto = params.get("protocolVersion") if isinstance(params, dict) else None
             proto_ver = client_proto if isinstance(client_proto, str) and client_proto else "2024-11-05"
+            client_info = (params.get("clientInfo") or {}) if isinstance(params, dict) else {}
+            if not isinstance(client_info, dict):
+                client_info = {}
+            c_name = str(client_info.get("name") or "")
+            c_ver = str(client_info.get("version") or "")
+            c_lower = c_name.lower()
+            if "antigravity" in c_lower:
+                plat = "antigravity"
+            elif "claude-code" in c_lower or "claude_code" in c_lower:
+                plat = "claude_code"
+            elif "claude" in c_lower:
+                plat = "claude_desktop"
+            elif "cursor" in c_lower:
+                plat = "cursor"
+            elif "codex" in c_lower:
+                plat = "codex_cli"
+            elif "windsurf" in c_lower or "codeium" in c_lower:
+                plat = "windsurf"
+            elif "opencode" in c_lower:
+                plat = "opencode"
+            else:
+                plat = "generic_mcp"
+
+            self.connected_client = {
+                "name": c_name,
+                "version": c_ver,
+                "platform_id": plat,
+            }
+            try:
+                from runtime_detector import detect_runtime_profile, record_runtime_session
+
+                target_db = self.db or db
+                prof = detect_runtime_profile(host_hint=plat, db=target_db, probe_local=False)
+                if isinstance(prof, dict):
+                    prof.setdefault("client_name", c_name)
+                    prof.setdefault("client_version", c_ver)
+                record_runtime_session(
+                    target_db,
+                    prof,
+                    conversation_id=f"mcp:{plat}",
+                    workspace="brain_mcp",
+                )
+            except Exception:
+                pass
+
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -289,6 +336,12 @@ class StdioMCPServer:
                             "uri": "brain://skills/catalog",
                             "name": "Installed Skills & Resolution Catalog",
                             "description": "Catalog of all installed Antigravity agent skills across plugins, resolving budget-excluded skills locally",
+                            "mimeType": "text/markdown",
+                        },
+                        {
+                            "uri": "brain://runtime/profile",
+                            "name": "Active Multi-Platform Runtime & Model Profile",
+                            "description": "Active IDE/CLI platform, OS, detected cloud or local LLM model, context budget, local runtimes, and connected IDEs",
                             "mimeType": "text/markdown",
                         },
                     ]
@@ -460,6 +513,35 @@ class StdioMCPServer:
                     return str(cat_res.get("markdown") or f"# Skills Catalog\n\nTotal skills: {cat_res.get('total_skills', 0)}")
                 except Exception as exc:
                     return f"# 🧠 Skills Catalog\n\nSkill Resolver Engine status: {exc}\n\nResolução local de skills ativa para recuperar skills excluídas do context budget."
+            if uri == "brain://runtime/profile":
+                host_plat = str(self.connected_client.get("platform_id") or "")
+                target_db = self.db or db
+                prof: Dict[str, Any] = {}
+                local_rts: Any = {}
+                try:
+                    from runtime_detector import detect_local_llm_runtimes, detect_runtime_profile
+
+                    prof = detect_runtime_profile(host_hint=host_plat, db=target_db, probe_local=True) or {}
+                    local_rts = detect_local_llm_runtimes(force_refresh=False)
+                except Exception as exc:
+                    prof = {"error": str(exc), "platform_id": host_plat or "antigravity", "os_platform": sys.platform}
+                bridge = orbit.get_mcp_bridge_status()
+                lines = [
+                    "# 🌐 Active Multi-Platform Runtime & Model Profile\n",
+                    f"- **Active Platform**: `{prof.get('platform_id', host_plat or 'antigravity')}` ({prof.get('platform_name', 'MCP Host')})",
+                    f"- **OS Platform**: `{prof.get('os_platform', sys.platform)}` (`python_cmd`: `{bridge.get('python_cmd', 'python')}`)",
+                    f"- **Connected MCP Client**: `{self.connected_client.get('name', 'N/A')}` v`{self.connected_client.get('version', 'N/A')}`",
+                    f"- **Detected Model**: `{prof.get('model_display', prof.get('model_raw', 'Unknown'))}` (Provider: `{prof.get('provider', 'unknown')}`, Tier: `{prof.get('tier', 'unknown')}`, Local: `{bool(prof.get('is_local', False))}`)",
+                    f"- **Context Budget**: `{prof.get('context_budget', 'auto')}` tokens",
+                    f"- **Connected IDEs**: {bridge.get('connected_count', 0)}/{bridge.get('total_targets', 7)}\n",
+                    "## 🤖 Local LLM Runtimes",
+                    f"```json\n{json.dumps(local_rts, indent=2, ensure_ascii=False)}\n```\n",
+                    "## 🔌 7-Platform Cross-OS IDE Bridge",
+                ]
+                for t in bridge.get("targets", []):
+                    state = "CONNECTED" if t.get("connected") else ("INSTALLED" if t.get("installed_dir") else "NOT_FOUND")
+                    lines.append(f"- {t.get('icon', '')} **{t.get('name')}** (`{t.get('id')}`): `{state}` — `{t.get('config_path')}`")
+                return "\n".join(lines)
             if uri.startswith("brain://workspace/") and uri.endswith("/checkpoint"):
                 ws_part = uri[len("brain://workspace/") : -len("/checkpoint")].strip("/") or "brain_mcp"
                 chk = db.get_checkpoint(ws_part) or {}
@@ -653,7 +735,7 @@ except Exception:
     pass
 
 # Create the MCP server
-mcp = MCPServer("antigravity-brain", version="8.3.0")
+mcp = MCPServer("antigravity-brain", version="8.4.0")
 mcp.db = db
 
 
@@ -1111,6 +1193,78 @@ def brain_explain_ranking(
             }
     except Exception as exc:
         res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_runtime_info(
+    report_model: str = "",
+    report_platform: str = "",
+    probe_local: bool = True,
+) -> str:
+    """Detects or reports the active host IDE/CLI, OS, cloud/local LLM model, local runtimes, and 7-IDE MCP bridge status.
+
+    Args:
+        report_model: Optional explicit model identifier to declare for the active MCP session (e.g. 'claude-sonnet-4-5', 'gpt-4o', 'qwen2.5-coder:32b')
+        report_platform: Optional explicit host platform ID (e.g. 'claude_code', 'codex_cli', 'cursor', 'windsurf', 'opencode', 'claude_desktop', 'antigravity')
+        probe_local: Whether to probe local LLM runtimes such as Ollama, LM Studio, vLLM, or llama.cpp (default True)
+    """
+    target_db = mcp.db or db
+    host_plat = report_platform.strip() or str(mcp.connected_client.get("platform_id") or "")
+    try:
+        from runtime_detector import (
+            classify_model_profile,
+            detect_local_llm_runtimes,
+            detect_runtime_profile,
+            record_runtime_session,
+        )
+
+        if report_model.strip() or report_platform.strip():
+            prof = detect_runtime_profile(host_hint=host_plat, db=target_db, probe_local=probe_local)
+            if not isinstance(prof, dict):
+                prof = {}
+            if report_model.strip():
+                cls_info = classify_model_profile(report_model.strip())
+                if isinstance(cls_info, dict):
+                    prof.update(cls_info)
+                prof["model_raw"] = report_model.strip()
+                prof["detection_source"] = "explicit_mcp_report"
+            if report_platform.strip():
+                prof["platform_id"] = report_platform.strip()
+            record_runtime_session(
+                target_db,
+                prof,
+                conversation_id=f"mcp:{prof.get('platform_id', host_plat or 'generic_mcp')}",
+                workspace="brain_mcp",
+            )
+            local_rts = detect_local_llm_runtimes(force_refresh=False) if probe_local else {}
+            res = {
+                "ok": True,
+                "reported": True,
+                "connected_client": mcp.connected_client,
+                "profile": prof,
+                "local_runtimes": local_rts,
+                "ide_bridge": orbit.get_mcp_bridge_status(),
+            }
+        else:
+            prof = detect_runtime_profile(host_hint=host_plat, db=target_db, probe_local=probe_local)
+            local_rts = detect_local_llm_runtimes(force_refresh=False) if probe_local else {}
+            res = {
+                "ok": True,
+                "reported": False,
+                "connected_client": mcp.connected_client,
+                "profile": prof,
+                "local_runtimes": local_rts,
+                "ide_bridge": orbit.get_mcp_bridge_status(),
+            }
+    except Exception as exc:
+        res = {
+            "ok": False,
+            "error": str(exc),
+            "connected_client": mcp.connected_client,
+            "os_platform": sys.platform,
+            "ide_bridge": orbit.get_mcp_bridge_status(),
+        }
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 

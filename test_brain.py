@@ -400,7 +400,7 @@ def run_all_tests() -> None:
         assert overview["ok"] is True
         assert "roi" in overview and overview["roi"]["hours_saved"] >= 0
         assert "trust_hierarchy" in overview
-        assert "mcp_bridge" in overview and len(overview["mcp_bridge"]["targets"]) == 4
+        assert "mcp_bridge" in overview and len(overview["mcp_bridge"]["targets"]) >= 7
 
     for orbit_ui_token in (
         'id="orbitOsModal"',
@@ -1396,6 +1396,63 @@ def run_all_tests() -> None:
         assert "brain://skills/catalog" in res_uris, f"Resource MCP v8.3 ausente: {res_uris}"
         assert "8_gbrain_axes_and_skill_resolver" in insp_prev["token_optimizations"], f"Pilar #8 GBrain ausente no Inspector: {insp_prev}"
 
+        # 33. Antigravity Brain v8.4 (Multi-Model Cloud + Local LLM Detection, Adaptive Budgets, Universal Hook Adapter & 7-IDE Bridge)
+        from runtime_detector import (
+            classify_model_profile,
+            detect_local_llm_runtimes,
+            detect_runtime_profile,
+            record_runtime_session,
+        )
+        from brain_inject import compute_adaptive_budget as _compute_budget
+
+        # 33.1 Cloud & Local LLM Classification + Adaptive Token Budgets
+        p_cloud = classify_model_profile("gemini-4-neon-high")
+        assert p_cloud["is_local_model"] is False and p_cloud["model_tier"] == "frontier_high" and p_cloud["recommended_ephemeral_chars"] == 1500, f"Classificação cloud falhou: {p_cloud}"
+        p_opus = classify_model_profile("opus")
+        assert p_opus["model_family"] == "claude" and p_opus["is_local_model"] is False and p_opus["model_tier"] == "frontier_high", f"Classificação bare opus falhou: {p_opus}"
+        p_local7 = classify_model_profile("qwen2.5-coder:7b")
+        assert p_local7["is_local_model"] is True and p_local7["model_tier"] == "local_compact" and p_local7["pricing_per_1m"]["input"] == 0.0, f"Classificação local 7B falhou: {p_local7}"
+        p_local32 = classify_model_profile("qwen2.5-coder:32b")
+        assert p_local32["is_local_model"] is True and p_local32["model_tier"] == "balanced" and p_local32["recommended_ephemeral_chars"] <= 1000, f"Classificação local 32B falhou: {p_local32}"
+        assert _compute_budget("implementar arquitetura completa do sistema", runtime_profile=p_local7) <= 650, "Budget local_compact devia respeitar <= 650 chars"
+
+        # 33.2 Transcript Model + <USER_SETTINGS_CHANGE> Detection
+        rt_transcript = os.path.join(gb_tmp, "runtime_model_transcript.jsonl")
+        with open(rt_transcript, "w", encoding="utf-8") as rf:
+            rf.write(json.dumps({"type": "PLANNER_RESPONSE", "model": "gemini-4-carbon-high", "content": "ok"}) + "\n")
+            rf.write(json.dumps({"type": "USER_INPUT", "content": "<USER_SETTINGS_CHANGE>\nThe user changed setting `Model Selection` from Gemini 4 Carbon (High) to Gemini 4 Neon (High).\n</USER_SETTINGS_CHANGE>\n<USER_REQUEST>otimizar db_engine.py</USER_REQUEST>"}) + "\n")
+        rt_prof = detect_runtime_profile(
+            payload={"conversationId": "rt_test_conv", "workspacePaths": [repo_root_dir], "invocationNum": 1},
+            transcript_path=rt_transcript,
+            db=gb_db,
+            probe_local=False,
+        )
+        assert rt_prof["platform_id"] == "antigravity" and rt_prof["model_tier"] == "frontier_high" and "neon" in rt_prof["model_raw"].lower(), f"Deteção via transcript falhou: {rt_prof}"
+        record_runtime_session(gb_db, rt_prof, conversation_id="rt_test_conv", workspace="brain_mcp")
+
+        # 33.3 Local LLM Parallel Probe (bounded latency, fail-safe when offline)
+        loc_probe = detect_local_llm_runtimes(timeout_ms=120, force_refresh=True)
+        assert loc_probe["ok"] is True and len(loc_probe["runtimes"]) >= 5, f"Local probe inválido: {loc_probe}"
+
+        # 33.4 Universal Claude Code Hook Adapter (UserPromptSubmit -> hookSpecificOutput.additionalContext)
+        os.environ["BRAIN_TEST_MODE"] = "1"
+        claude_hook_in = json.dumps({
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": f"claude_test_{int(time.time())}",
+            "cwd": repo_root_dir,
+            "prompt": "como funciona o BrainDB em db_engine.py?",
+            "model": "claude-sonnet-4-6",
+        })
+        claude_hook_out = handle_pre_invocation(claude_hook_in, host_hint="claude")
+        assert "hookSpecificOutput" in claude_hook_out and "additionalContext" in claude_hook_out["hookSpecificOutput"], f"Universal Claude Hook Adapter falhou: {claude_hook_out}"
+        assert "host=claude_code" in claude_hook_out["hookSpecificOutput"]["additionalContext"], f"Header multiplataforma ausente em Claude hook: {claude_hook_out}"
+
+        # 33.5 7-IDE Bridge + MCP Tool #24 (brain_runtime_info) + Resource brain://runtime/profile
+        bridge_st = gb_orbit.get_mcp_bridge_status()
+        assert bridge_st["total_targets"] >= 7, f"Bridge devia suportar 7 plataformas: {bridge_st}"
+        assert "brain_runtime_info" in tool_names, f"Tool MCP #24 brain_runtime_info ausente: {tool_names}"
+        assert "brain://runtime/profile" in res_uris, f"Resource MCP brain://runtime/profile ausente: {res_uris}"
+
     assert 'id="tabBtnJarvis"' not in html_content, "tabBtnJarvis ainda existe em index.html!"
     assert 'id="jarvisWorkspace"' not in html_content, "jarvisWorkspace ainda existe em index.html!"
 
@@ -1463,9 +1520,16 @@ def run_all_tests() -> None:
         'id="btnVaultEnforceBacklinks"',
         'id="vaultBacklinksBadge"',
         "function enforceVaultBacklinksUI(",
+        'id="topRuntimeModelPill"',
+        'id="multiPlatformRuntimePanel"',
+        'id="runtimeActiveSummaryBox"',
+        'id="runtimeLocalLlmsBox"',
+        'id="runtimeIdeBridgeGrid"',
+        "function refreshRuntimeProfileUI(",
+        "function connectIdeBridgeTargetUI(",
     ):
-        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.3 em falta em index.html: {gb_ui_token}"
-    print("[PASS] Pack Completo v6.0..v8.3 Studio OS (GBrain Orthogonal Axes, Skill Resolver 379x, Vault Back-Links, Pagoda LSM & Archify) OK")
+        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.4 em falta em index.html: {gb_ui_token}"
+    print("[PASS] Pack Completo v6.0..v8.4 Studio OS (Multi-Model Cloud+Local LLM, Universal Hook Adapter, 7-IDE Cross-OS Bridge, GBrain, Pagoda & Archify) OK")
 
 
 if __name__ == "__main__":

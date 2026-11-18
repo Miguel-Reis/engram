@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ====================================================================
-echo  🧠 Instalando Antigravity Brain v8.3 — Carbon Studio OS (Pagoda + Archify + GBrain)
+echo  🧠 Instalando Antigravity Brain v8.4 — Multi-Model & Multi-Platform Studio OS
 echo ====================================================================
 python "%~dp0install.py"
 echo.
