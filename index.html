@@ -3555,7 +3555,12 @@
               <button type="button" class="tactical-act-btn" onclick="triggerTacticalRuleDistillUI()" title="Distill pending corrections into AGENTS.md / learned rules">⚡ Distill Rules</button>
               <button type="button" class="tactical-act-btn" onclick="exportCrossIdeHandoffUI()" title="Export cross-IDE HANDOFF.md & copy resume prompt">⇄ Handoff.md</button>
               <button type="button" class="tactical-act-btn" onclick="toggleTacticalTelegramPopover()" title="Configure Telegram Voice & Quick Intake Bot">⚙ Telegram</button>
-              <button type="button" class="tactical-act-btn" onclick="resetTacticalCamera()" title="Reset 3D orbital camera">⟳ Reset 3D</button>
+              <button type="button" class="tactical-act-btn" id="btnTacAutoOrbit" onclick="toggleTacticalAutoOrbit()" title="Alternar rotação automática suave">◎ Auto</button>
+              <button type="button" class="tactical-act-btn" onclick="resetTacticalCamera()" title="Voltar à vista panorâmica inicial (Tecla R)">⟳ Reset 3D</button>
+            </div>
+
+            <div id="tacticalNavHint" style="position:absolute; right:10px; bottom:8px; z-index:4; pointer-events:none; font-size:8.5px; color:#a1a1aa; background:rgba(6,7,11,0.72); border:1px solid rgba(255,106,0,0.22); border-radius:5px; padding:3px 8px; letter-spacing:0.03em;">
+              Drag: Look/Orbit · Right/Shift+Drag: Pan · Scroll / WASD+QE: Free-Fly · DblClick: Fly To · R: Reset
             </div>
 
             <div id="tacticalTelegramPopover" class="tactical-telegram-popover">
@@ -19030,7 +19035,15 @@ ${rulesSection}`;
       general: '#ff6a00'
     };
 
-    let tacticalCam = { yaw: 0.42, pitch: 0.24, zoom: 1.0, targetYaw: 0.42, targetPitch: 0.24, targetZoom: 1.0 };
+    // Unrestricted 3D Free-Flight Camera (infinite pan, 360° look/orbit, unlimited fly-through scroll & WASD+QE)
+    let tacticalCam = {
+      x: -1.45, y: -0.78, z: -3.28,
+      targetX: -1.45, targetY: -0.78, targetZ: -3.28,
+      yaw: 0.40, pitch: 0.21,
+      targetYaw: 0.40, targetPitch: 0.21,
+      autoOrbit: true
+    };
+    const tacticalKeysDown = new Set();
     let tacticalNodes3D = [];
     let tacticalEdges3D = [];
     let tacticalClusterHubs = [];
@@ -19041,6 +19054,7 @@ ${rulesSection}`;
     let tacticalAnimRunning = false;
     let tacticalTick = 0;
     let tacticalDragging = false;
+    let tacticalDragMode = 'orbit'; // 'orbit' | 'pan' | 'look'
     let tacticalLastPtr = { x: 0, y: 0 };
     let tacticalDragDist = 0;
     let tacticalOverviewCache = null;
@@ -19212,16 +19226,60 @@ ${rulesSection}`;
       bindTacticalCanvasInteractions();
     }
 
+    function getTacticalBasis(yaw, pitch) {
+      const cosY = Math.cos(yaw);
+      const sinY = Math.sin(yaw);
+      const cosP = Math.cos(pitch);
+      const sinP = Math.sin(pitch);
+      // Matches view transform: vx = dx*cosY - dz*sinY; vz1 = dx*sinY + dz*cosY; vy = dy*cosP - vz1*sinP; vz = dy*sinP + vz1*cosP
+      return {
+        cosY, sinY, cosP, sinP,
+        forward: { x: sinY * cosP, y: sinP, z: cosY * cosP },
+        right:   { x: cosY,        y: 0,    z: -sinY },
+        up:      { x: -sinY * sinP, y: cosP, z: -cosY * sinP }
+      };
+    }
+
+    function toggleTacticalAutoOrbit() {
+      tacticalCam.autoOrbit = !tacticalCam.autoOrbit;
+      const btn = document.getElementById('btnTacAutoOrbit');
+      if (btn) btn.style.opacity = tacticalCam.autoOrbit ? '1' : '0.55';
+    }
+
+    function flyTacticalCameraToNode(node) {
+      if (!node) return;
+      tacticalCam.autoOrbit = false;
+      const b = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+      const dist = 0.85;
+      tacticalCam.targetX = node.x - b.forward.x * dist;
+      tacticalCam.targetY = node.y - b.forward.y * dist;
+      tacticalCam.targetZ = node.z - b.forward.z * dist;
+      tacticalSelectedNodeId = node.id;
+      const match = (activeNodes || []).find(a => a.id === node.id) || node.rawNode;
+      if (match && typeof selectNode === 'function') {
+        selectNode(match, false, false);
+      } else {
+        renderTacticalProvenanceWidget(node);
+      }
+      showToast(`🚀 A voar para: ${String(node.label || 'Memory').slice(0, 32)}`);
+    }
+
     function bindTacticalCanvasInteractions() {
       if (tacticalInteractionsBound) return;
       const tacCanvas = document.getElementById('tacticalGraphCanvas');
       if (!tacCanvas) return;
       tacticalInteractionsBound = true;
 
+      tacCanvas.addEventListener('contextmenu', ev => ev.preventDefault());
+
       tacCanvas.addEventListener('mousedown', ev => {
         tacticalDragging = true;
         tacticalDragDist = 0;
         tacticalLastPtr = { x: ev.clientX, y: ev.clientY };
+        tacticalCam.autoOrbit = false;
+        const isPan = ev.button === 2 || ev.button === 1 || ev.shiftKey;
+        const isFreeLook = ev.altKey;
+        tacticalDragMode = isPan ? 'pan' : (isFreeLook ? 'look' : 'orbit');
         tacCanvas.classList.add('is-dragging');
       });
 
@@ -19241,8 +19299,32 @@ ${rulesSection}`;
           const dy = ev.clientY - tacticalLastPtr.y;
           tacticalDragDist += Math.hypot(dx, dy);
           tacticalLastPtr = { x: ev.clientX, y: ev.clientY };
-          tacticalCam.targetYaw += dx * 0.0075;
-          tacticalCam.targetPitch = Math.max(-1.25, Math.min(1.25, tacticalCam.targetPitch + dy * 0.0065));
+          const b = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+
+          if (tacticalDragMode === 'pan') {
+            // Unrestricted infinite 3D pan along camera right/up axes
+            const distFromOrigin = Math.hypot(tacticalCam.targetX, tacticalCam.targetY, tacticalCam.targetZ);
+            const panSpeed = Math.max(0.0022, Math.min(0.025, distFromOrigin * 0.0018));
+            tacticalCam.targetX -= (b.right.x * dx + b.up.x * dy) * panSpeed;
+            tacticalCam.targetY -= (b.right.y * dx + b.up.y * dy) * panSpeed;
+            tacticalCam.targetZ -= (b.right.z * dx + b.up.z * dy) * panSpeed;
+          } else if (tacticalDragMode === 'look') {
+            // Unrestricted 360° first-person free-look in place
+            tacticalCam.targetYaw += dx * 0.0055;
+            tacticalCam.targetPitch += dy * 0.0055;
+          } else {
+            // Unrestricted 360° orbit around a dynamic forward pivot (never clamped, works anywhere in space!)
+            const pivotDist = Math.max(0.9, Math.min(5.0, Math.hypot(tacticalCam.targetX, tacticalCam.targetY, tacticalCam.targetZ) * 0.85));
+            const px = tacticalCam.targetX + b.forward.x * pivotDist;
+            const py = tacticalCam.targetY + b.forward.y * pivotDist;
+            const pz = tacticalCam.targetZ + b.forward.z * pivotDist;
+            tacticalCam.targetYaw += dx * 0.0062;
+            tacticalCam.targetPitch += dy * 0.0055;
+            const nb = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+            tacticalCam.targetX = px - nb.forward.x * pivotDist;
+            tacticalCam.targetY = py - nb.forward.y * pivotDist;
+            tacticalCam.targetZ = pz - nb.forward.z * pivotDist;
+          }
           return;
         }
 
@@ -19250,6 +19332,7 @@ ${rulesSection}`;
         let bestDist = 17;
         for (let i = 0; i < tacticalNodes3D.length; i++) {
           const n = tacticalNodes3D[i];
+          if (!n.visible) continue;
           const d = Math.hypot(mx - n.sx, my - n.sy);
           if (d < bestDist) {
             bestDist = d;
@@ -19276,18 +19359,61 @@ ${rulesSection}`;
         }
       });
 
+      tacCanvas.addEventListener('dblclick', () => {
+        if (tacticalHoveredNode3D) {
+          flyTacticalCameraToNode(tacticalHoveredNode3D);
+        }
+      });
+
       tacCanvas.addEventListener('wheel', ev => {
         ev.preventDefault();
-        const factor = ev.deltaY > 0 ? 0.91 : 1.09;
-        tacticalCam.targetZoom = Math.max(0.48, Math.min(2.6, tacticalCam.targetZoom * factor));
+        tacticalCam.autoOrbit = false;
+        // Unlimited continuous 3D fly-through along camera forward axis (zero zoom ceiling or floor!)
+        const b = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+        const step = (ev.deltaY > 0 ? -1 : 1) * (ev.shiftKey ? 0.55 : 0.24);
+        tacticalCam.targetX += b.forward.x * step;
+        tacticalCam.targetY += b.forward.y * step;
+        tacticalCam.targetZ += b.forward.z * step;
       }, { passive: false });
+
+      window.addEventListener('keydown', ev => {
+        if (activeMainView !== 'graph' || brainViewStyle !== 'tactical') return;
+        const tag = (ev.target && ev.target.tagName) ? ev.target.tagName.toUpperCase() : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ev.ctrlKey || ev.metaKey) return;
+        const k = ev.key.toLowerCase();
+        if (k === 'r') {
+          resetTacticalCamera();
+          return;
+        }
+        if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) {
+          tacticalKeysDown.add(k);
+          tacticalCam.autoOrbit = false;
+        }
+      });
+
+      window.addEventListener('keyup', ev => {
+        tacticalKeysDown.delete(ev.key.toLowerCase());
+      });
+
+      window.addEventListener('blur', () => {
+        tacticalKeysDown.clear();
+      });
     }
 
     function resetTacticalCamera() {
-      tacticalCam.targetYaw = 0.42;
-      tacticalCam.targetPitch = 0.24;
-      tacticalCam.targetZoom = 1.0;
+      const yaw = 0.40;
+      const pitch = 0.21;
+      const b = getTacticalBasis(yaw, pitch);
+      const dist = 3.7;
+      tacticalCam.targetYaw = yaw;
+      tacticalCam.targetPitch = pitch;
+      tacticalCam.targetX = -b.forward.x * dist;
+      tacticalCam.targetY = -b.forward.y * dist;
+      tacticalCam.targetZ = -b.forward.z * dist;
+      tacticalCam.autoOrbit = true;
       tacticalFilter = null;
+      const btn = document.getElementById('btnTacAutoOrbit');
+      if (btn) btn.style.opacity = '1';
       if (tacticalOverviewCache) renderTacticalLegend(tacticalOverviewCache);
       showToast('⟳ Câmara 3D Tactical recentrada');
     }
@@ -19337,20 +19463,25 @@ ${rulesSection}`;
       tacticalAnimRunning = false;
     }
 
-    function projectTacticalPoint(x, y, z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, zoom) {
-      const x1 = x * cosY - z * sinY;
-      const z1 = x * sinY + z * cosY;
-      const y2 = y * cosP - z1 * sinP;
-      const z2 = y * sinP + z1 * cosP;
-      // Camera fixed at safe normalized distance 3.6 so depth is ALWAYS in [2.0, 5.2] -> zero clipping at any resolution!
-      const camDist = 3.6;
-      const depth = Math.max(1.8, camDist + z2);
-      const persp = (camDist / depth) * zoom;
+    function projectTacticalPoint(x, y, z, cx, cy, camX, camY, camZ, cosY, sinY, cosP, sinP, focal) {
+      const dx = x - camX;
+      const dy = y - camY;
+      const dz = z - camZ;
+      const vx = dx * cosY - dz * sinY;
+      const vz1 = dx * sinY + dz * cosY;
+      const vy = dy * cosP - vz1 * sinP;
+      const vz = dy * sinP + vz1 * cosP;
+      // Strict near-plane culling: nodes behind or within 0.22 units of lens NEVER clip or explode!
+      if (vz <= 0.22) {
+        return { visible: false, sx: -9999, sy: -9999, rz: vz, scale: 0 };
+      }
+      const persp = focal / vz;
       return {
-        sx: cx + x1 * spanX * persp,
-        sy: cy + y2 * spanY * persp,
-        rz: z2,
-        scale: persp
+        visible: true,
+        sx: cx + vx * persp,
+        sy: cy + vy * persp,
+        rz: vz,
+        scale: Math.min(4.2, 3.6 / vz)
       };
     }
 
@@ -19388,12 +19519,56 @@ ${rulesSection}`;
 
       const ecoIdle = typeof isEcoGpuIdle === 'function' && isEcoGpuIdle();
       tacticalTick += ecoIdle ? 0.008 : 0.022;
-      if (!tacticalDragging && !ecoIdle) {
-        tacticalCam.targetYaw += 0.0016;
+
+      // Continuous 60 FPS WASD / Arrow / Q-E free-flight anywhere in 3D space
+      if (tacticalKeysDown.size > 0) {
+        const kb = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+        const spd = tacticalKeysDown.has('shift') ? 0.075 : 0.032;
+        if (tacticalKeysDown.has('w') || tacticalKeysDown.has('arrowup')) {
+          tacticalCam.targetX += kb.forward.x * spd;
+          tacticalCam.targetY += kb.forward.y * spd;
+          tacticalCam.targetZ += kb.forward.z * spd;
+        }
+        if (tacticalKeysDown.has('s') || tacticalKeysDown.has('arrowdown')) {
+          tacticalCam.targetX -= kb.forward.x * spd;
+          tacticalCam.targetY -= kb.forward.y * spd;
+          tacticalCam.targetZ -= kb.forward.z * spd;
+        }
+        if (tacticalKeysDown.has('d') || tacticalKeysDown.has('arrowright')) {
+          tacticalCam.targetX += kb.right.x * spd;
+          tacticalCam.targetY += kb.right.y * spd;
+          tacticalCam.targetZ += kb.right.z * spd;
+        }
+        if (tacticalKeysDown.has('a') || tacticalKeysDown.has('arrowleft')) {
+          tacticalCam.targetX -= kb.right.x * spd;
+          tacticalCam.targetY -= kb.right.y * spd;
+          tacticalCam.targetZ -= kb.right.z * spd;
+        }
+        if (tacticalKeysDown.has('e')) {
+          tacticalCam.targetX -= kb.up.x * spd;
+          tacticalCam.targetY -= kb.up.y * spd;
+          tacticalCam.targetZ -= kb.up.z * spd;
+        }
+        if (tacticalKeysDown.has('q')) {
+          tacticalCam.targetX += kb.up.x * spd;
+          tacticalCam.targetY += kb.up.y * spd;
+          tacticalCam.targetZ += kb.up.z * spd;
+        }
+      } else if (tacticalCam.autoOrbit && !tacticalDragging && !ecoIdle) {
+        // Gentle orbital rotation around origin when idle and autoOrbit is enabled
+        tacticalCam.targetYaw += 0.0014;
+        const ob = getTacticalBasis(tacticalCam.targetYaw, tacticalCam.targetPitch);
+        const orbitR = Math.max(1.2, Math.hypot(tacticalCam.targetX, tacticalCam.targetY, tacticalCam.targetZ));
+        tacticalCam.targetX = -ob.forward.x * orbitR;
+        tacticalCam.targetY = -ob.forward.y * orbitR;
+        tacticalCam.targetZ = -ob.forward.z * orbitR;
       }
-      tacticalCam.yaw += (tacticalCam.targetYaw - tacticalCam.yaw) * 0.14;
-      tacticalCam.pitch += (tacticalCam.targetPitch - tacticalCam.pitch) * 0.14;
-      tacticalCam.zoom += (tacticalCam.targetZoom - tacticalCam.zoom) * 0.14;
+
+      tacticalCam.x += (tacticalCam.targetX - tacticalCam.x) * 0.14;
+      tacticalCam.y += (tacticalCam.targetY - tacticalCam.y) * 0.14;
+      tacticalCam.z += (tacticalCam.targetZ - tacticalCam.z) * 0.14;
+      tacticalCam.yaw += (tacticalCam.targetYaw - tacticalCam.yaw) * 0.16;
+      tacticalCam.pitch += (tacticalCam.targetPitch - tacticalCam.pitch) * 0.16;
 
       const cosY = Math.cos(tacticalCam.yaw);
       const sinY = Math.sin(tacticalCam.yaw);
@@ -19401,60 +19576,72 @@ ${rulesSection}`;
       const sinP = Math.sin(tacticalCam.pitch);
       const cx = w * 0.54;
       const cy = h * 0.50;
-      const spanX = Math.min(w * 0.28, h * 0.92);
-      const spanY = h * 0.42;
+      const focal = Math.min(w * 0.62, h * 1.38);
 
       tctx.clearRect(0, 0, w, h);
 
-      // 1. Subtle radial nebula backdrop & perspective orbital rings
-      const bgGrad = tctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(w, h) * 0.52);
+      // Project origin core (0, 0, 0) in true 3D camera space
+      const originP = projectTacticalPoint(0, 0, 0, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+
+      // 1. Subtle radial nebula backdrop centered on projected origin (or screen center if flown past core)
+      const bgCx = originP.visible ? originP.sx : cx;
+      const bgCy = originP.visible ? originP.sy : cy;
+      const bgGrad = tctx.createRadialGradient(bgCx, bgCy, 8, bgCx, bgCy, Math.max(w, h) * 0.52);
       bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.13)');
       bgGrad.addColorStop(0.35, 'rgba(255, 59, 31, 0.04)');
       bgGrad.addColorStop(1, 'rgba(5, 6, 8, 0)');
       tctx.fillStyle = bgGrad;
       tctx.fillRect(0, 0, w, h);
 
-      tctx.save();
-      tctx.strokeStyle = 'rgba(255, 106, 0, 0.09)';
-      tctx.lineWidth = 1;
-      [0.34, 0.58, 0.84].forEach((rf, idx) => {
-        const rrX = spanX * rf * 1.12 * tacticalCam.zoom;
-        const rrY = spanY * rf * (0.45 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.35) * tacticalCam.zoom;
-        tctx.beginPath();
-        tctx.ellipse(cx, cy, Math.max(10, rrX), Math.max(6, rrY), 0, 0, Math.PI * 2);
-        if (idx === 1) tctx.setLineDash([4, 6]);
-        else tctx.setLineDash([]);
-        tctx.stroke();
-      });
-      tctx.restore();
+      if (originP.visible && originP.rz > 0.4) {
+        tctx.save();
+        tctx.strokeStyle = 'rgba(255, 106, 0, 0.09)';
+        tctx.lineWidth = 1;
+        [0.45, 0.85, 1.32].forEach((rf, idx) => {
+          const rrX = (rf * focal) / originP.rz;
+          const rrY = rrX * (0.35 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.42);
+          if (rrX > 6 && rrX < w * 2.5) {
+            tctx.beginPath();
+            tctx.ellipse(originP.sx, originP.sy, rrX, Math.max(4, rrY), 0, 0, Math.PI * 2);
+            if (idx === 1) tctx.setLineDash([4, 6]);
+            else tctx.setLineDash([]);
+            tctx.stroke();
+          }
+        });
+        tctx.restore();
+      }
 
-      // 2. Project nodes in safe normalized 3D space
+      // 2. Project nodes in true 3D camera space with near-plane culling
       for (let i = 0; i < tacticalNodes3D.length; i++) {
         const n = tacticalNodes3D[i];
-        const p = projectTacticalPoint(n.x, n.y, n.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
+        const p = projectTacticalPoint(n.x, n.y, n.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        n.visible = p.visible && p.sx >= -120 && p.sx <= w + 120 && p.sy >= -120 && p.sy <= h + 120;
         n.sx = p.sx;
         n.sy = p.sy;
         n.rz = p.rz;
         n.scale = p.scale;
       }
 
-      // 3. Crisp radial filaments + synapse edges (clean source-over -> NEVER washes into yellow sheet!)
+      // 3. Crisp radial filaments + synapse edges (only between visible in-front nodes!)
       tctx.save();
       tctx.globalCompositeOperation = 'source-over';
 
-      for (let i = 0; i < tacticalClusterHubs.length; i++) {
-        const hub = tacticalClusterHubs[i];
-        const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
-        const filGrad = tctx.createLinearGradient(cx, cy, hp.sx, hp.sy);
-        filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.28)');
-        filGrad.addColorStop(0.65, 'rgba(255, 106, 0, 0.10)');
-        filGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
-        tctx.strokeStyle = filGrad;
-        tctx.lineWidth = 0.9;
-        tctx.beginPath();
-        tctx.moveTo(cx, cy);
-        tctx.lineTo(hp.sx, hp.sy);
-        tctx.stroke();
+      if (originP.visible) {
+        for (let i = 0; i < tacticalClusterHubs.length; i++) {
+          const hub = tacticalClusterHubs[i];
+          const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+          if (!hp.visible) continue;
+          const filGrad = tctx.createLinearGradient(originP.sx, originP.sy, hp.sx, hp.sy);
+          filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.26)');
+          filGrad.addColorStop(0.65, 'rgba(255, 106, 0, 0.09)');
+          filGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+          tctx.strokeStyle = filGrad;
+          tctx.lineWidth = 0.9;
+          tctx.beginPath();
+          tctx.moveTo(originP.sx, originP.sy);
+          tctx.lineTo(hp.sx, hp.sy);
+          tctx.stroke();
+        }
       }
 
       const focusId = tacticalHoveredNode3D ? tacticalHoveredNode3D.id : tacticalSelectedNodeId;
@@ -19462,7 +19649,7 @@ ${rulesSection}`;
         const e = tacticalEdges3D[i];
         const a = tacticalNodes3D[e.s];
         const b = tacticalNodes3D[e.t];
-        if (!a || !b) continue;
+        if (!a || !b || !a.visible || !b.visible) continue;
         const isFocusEdge = focusId && (a.id === focusId || b.id === focusId);
         const matchFilter = matchesTacticalFilter(a) && matchesTacticalFilter(b);
         if (!isFocusEdge && !matchFilter && tacticalFilter) continue;
@@ -19483,55 +19670,58 @@ ${rulesSection}`;
       // Ambient starlight dust
       for (let i = 0; i < tacticalAmbientStars.length; i++) {
         const st = tacticalAmbientStars[i];
-        const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
-        const alpha = Math.max(0.10, Math.min(0.42, 0.28 * sp.scale));
+        const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        if (!sp.visible || sp.sx < -20 || sp.sx > w + 20 || sp.sy < -20 || sp.sy > h + 20) continue;
+        const alpha = Math.max(0.10, Math.min(0.45, 0.28 * sp.scale));
         tctx.fillStyle = st.color;
         tctx.globalAlpha = alpha;
         tctx.beginPath();
-        tctx.arc(sp.sx, sp.sy, Math.max(0.6, Math.min(2.0, st.size * sp.scale)), 0, Math.PI * 2);
+        tctx.arc(sp.sx, sp.sy, Math.max(0.6, Math.min(2.4, st.size * sp.scale)), 0, Math.PI * 2);
         tctx.fill();
       }
       tctx.globalAlpha = 1;
 
-      // 4. Compact incandescent amber core (0, 0, 0) like Slide 3
-      const pulse = 1 + Math.sin(tacticalTick * 1.9) * 0.08;
-      const coreR = Math.max(9, Math.min(18, 12 * tacticalCam.zoom * pulse));
-      const coreGrad = tctx.createRadialGradient(cx, cy, 1, cx, cy, coreR * 2.4);
-      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-      coreGrad.addColorStop(0.22, 'rgba(255, 196, 80, 0.90)');
-      coreGrad.addColorStop(0.52, 'rgba(255, 106, 0, 0.36)');
-      coreGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
-      tctx.fillStyle = coreGrad;
-      tctx.beginPath();
-      tctx.arc(cx, cy, coreR * 2.4, 0, Math.PI * 2);
-      tctx.fill();
+      // 4. Compact incandescent amber core at (0, 0, 0) when in front of camera
+      if (originP.visible) {
+        const pulse = 1 + Math.sin(tacticalTick * 1.9) * 0.08;
+        const coreR = Math.max(7, Math.min(34, 12 * originP.scale * pulse));
+        const coreGrad = tctx.createRadialGradient(originP.sx, originP.sy, 1, originP.sx, originP.sy, coreR * 2.4);
+        coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+        coreGrad.addColorStop(0.22, 'rgba(255, 196, 80, 0.90)');
+        coreGrad.addColorStop(0.52, 'rgba(255, 106, 0, 0.36)');
+        coreGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+        tctx.fillStyle = coreGrad;
+        tctx.beginPath();
+        tctx.arc(originP.sx, originP.sy, coreR * 2.4, 0, Math.PI * 2);
+        tctx.fill();
 
-      tctx.strokeStyle = 'rgba(255, 176, 32, 0.42)';
-      tctx.lineWidth = 1;
-      tctx.beginPath();
-      tctx.arc(cx, cy, coreR * 1.35, 0, Math.PI * 2);
-      tctx.stroke();
+        tctx.strokeStyle = 'rgba(255, 176, 32, 0.42)';
+        tctx.lineWidth = 1;
+        tctx.beginPath();
+        tctx.arc(originP.sx, originP.sy, coreR * 1.35, 0, Math.PI * 2);
+        tctx.stroke();
+      }
 
-      // 5. Depth-sorted razor-sharp starry 3D nodes
-      const sorted = tacticalNodes3D.slice().sort((a, b) => b.rz - a.rz);
-      const godThreshold = Math.max(0, sorted.length - 12);
-      for (let i = 0; i < sorted.length; i++) {
-        const n = sorted[i];
+      // 5. Depth-sorted razor-sharp starry 3D nodes (back-to-front by camera distance rz)
+      const visibleNodes = tacticalNodes3D.filter(n => n.visible).sort((a, b) => b.rz - a.rz);
+      const godThreshold = Math.max(0, visibleNodes.length - 12);
+      for (let i = 0; i < visibleNodes.length; i++) {
+        const n = visibleNodes[i];
         const isMatched = matchesTacticalFilter(n);
         const isHov = tacticalHoveredNode3D && tacticalHoveredNode3D.id === n.id;
         const isSel = tacticalSelectedNodeId && tacticalSelectedNodeId === n.id;
         const isTopGod = i >= godThreshold && n.importance >= 8;
-        const depthAlpha = Math.max(0.28, Math.min(0.96, 0.72 - n.rz * 0.32));
+        const depthAlpha = Math.max(0.24, Math.min(0.98, 1.05 - n.rz * 0.13));
         const alpha = isHov || isSel ? 1 : (tacticalFilter && !isMatched ? 0.12 : depthAlpha);
-        const r = Math.max(1.1, Math.min(4.4, n.radius * n.scale * (isHov ? 1.65 : (isSel ? 1.45 : 1))));
+        const r = Math.max(1.1, Math.min(8.5, n.radius * n.scale * (isHov ? 1.65 : (isSel ? 1.45 : 1))));
 
         // Razor-thin radial filament to core for select top hubs & focused node
-        if ((isTopGod || isHov || isSel) && alpha > 0.25) {
+        if (originP.visible && (isTopGod || isHov || isSel) && alpha > 0.25) {
           tctx.strokeStyle = n.color;
-          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.18;
+          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.16;
           tctx.lineWidth = isHov || isSel ? 1.0 : 0.55;
           tctx.beginPath();
-          tctx.moveTo(cx, cy);
+          tctx.moveTo(originP.sx, originP.sy);
           tctx.lineTo(n.sx, n.sy);
           tctx.stroke();
         }
@@ -19565,14 +19755,14 @@ ${rulesSection}`;
       const calloutCandidates = [];
       const seenIds = new Set();
       const seenTitleKeys = new Set();
-      if (tacticalHoveredNode3D) {
+      if (tacticalHoveredNode3D && tacticalHoveredNode3D.visible) {
         calloutCandidates.push(tacticalHoveredNode3D);
         seenIds.add(tacticalHoveredNode3D.id);
         seenTitleKeys.add(String(tacticalHoveredNode3D.label || '').toLowerCase().slice(0, 18));
       }
-      const godSorted = tacticalNodes3D
-        .filter(n => matchesTacticalFilter(n) && n.sx > 224 && n.sx < w - 186 && n.sy > 46 && n.sy < h - 42 && Math.hypot(n.sx - cx, n.sy - cy) > 48)
-        .sort((a, b) => (b.importance * 8 + b.degree * 3) - (a.importance * 8 + a.degree * 3));
+      const godSorted = visibleNodes
+        .filter(n => matchesTacticalFilter(n) && n.sx > 224 && n.sx < w - 186 && n.sy > 46 && n.sy < h - 42)
+        .sort((a, b) => (b.importance * 8 + b.degree * 3 - b.rz * 2) - (a.importance * 8 + a.degree * 3 - a.rz * 2));
 
       for (let i = 0; i < godSorted.length && calloutCandidates.length < 4; i++) {
         const cand = godSorted[i];
