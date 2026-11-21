@@ -2945,8 +2945,8 @@
 
     .tactical-stage {
       position: relative;
-      flex: 1 1 56%;
-      min-height: 240px;
+      flex: 1 1 0%;
+      min-height: 300px;
       border-bottom: 1px solid rgba(255, 106, 0, 0.22);
       overflow: hidden;
       background: radial-gradient(circle at 50% 50%, rgba(255, 95, 0, 0.10) 0%, rgba(5, 6, 8, 0.98) 70%);
@@ -3083,21 +3083,35 @@
     }
 
     .tactical-widgets-grid {
-      flex: 0 0 188px;
+      flex: 0 0 184px;
+      height: 184px;
+      max-height: 184px;
+      min-height: 0;
+      overflow: hidden;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       grid-template-rows: repeat(2, minmax(0, 1fr));
-      gap: 6px;
-      padding: 5px 8px;
+      gap: 5px;
+      padding: 5px 7px;
       background: rgba(5, 6, 9, 0.96);
+      transition: height 0.2s ease, max-height 0.2s ease, padding 0.2s ease;
+    }
+
+    .tactical-widgets-grid.collapsed {
+      flex: 0 0 0px;
+      height: 0px;
+      max-height: 0px;
+      padding-top: 0;
+      padding-bottom: 0;
     }
 
     @media (max-width: 860px) {
       .tactical-widgets-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-template-rows: auto;
-        flex: 0 0 auto;
-        max-height: 290px;
+        flex: 0 0 210px;
+        height: 210px;
+        max-height: 210px;
         overflow-y: auto;
       }
     }
@@ -3105,8 +3119,8 @@
     .tactical-widget-card {
       background: rgba(11, 12, 17, 0.92);
       border: 1px solid rgba(255, 106, 0, 0.22);
-      border-radius: 7px;
-      padding: 6px 8px;
+      border-radius: 6px;
+      padding: 4px 7px;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -3114,14 +3128,14 @@
     }
 
     .tactical-widget-hdr {
-      font-size: 8.5px;
+      font-size: 8px;
       letter-spacing: 0.08em;
       color: #ff8c1a;
       font-weight: 700;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       text-transform: uppercase;
       flex-shrink: 0;
     }
@@ -3132,18 +3146,19 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 2.5px;
+      gap: 1.5px;
     }
 
     .tactical-bar-row {
       display: grid;
-      grid-template-columns: 72px 1fr 28px;
+      grid-template-columns: 68px 1fr 26px;
       align-items: center;
       gap: 5px;
-      font-size: 8.4px;
+      font-size: 7.8px;
       cursor: pointer;
-      padding: 0.5px 2px;
+      padding: 0 2px;
       border-radius: 3px;
+      line-height: 1.15;
     }
 
     .tactical-bar-row:hover {
@@ -3151,9 +3166,9 @@
     }
 
     .tactical-bar-track {
-      height: 6px;
+      height: 4.5px;
       background: rgba(255, 255, 255, 0.06);
-      border-radius: 3px;
+      border-radius: 2.5px;
       overflow: hidden;
     }
 
@@ -3203,8 +3218,8 @@
       display: flex;
       align-items: flex-end;
       gap: 2px;
-      height: 18px;
-      margin-bottom: 4px;
+      height: 11px;
+      margin-bottom: 2px;
       flex-shrink: 0;
     }
 
@@ -3226,20 +3241,20 @@
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
       grid-template-rows: repeat(4, minmax(0, 1fr));
-      gap: 3px;
+      gap: 2px;
       flex: 1;
       min-height: 0;
     }
 
     .tactical-matrix-cell {
-      border-radius: 3px;
+      border-radius: 2.5px;
       border: 1px solid rgba(255, 106, 0, 0.18);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 7.5px;
+      font-size: 6.8px;
       font-weight: 700;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
       cursor: default;
       transition: transform 0.12s ease, border-color 0.12s ease;
       overflow: hidden;
@@ -3556,6 +3571,7 @@
               <button type="button" class="tactical-act-btn" onclick="exportCrossIdeHandoffUI()" title="Export cross-IDE HANDOFF.md & copy resume prompt">⇄ Handoff.md</button>
               <button type="button" class="tactical-act-btn" onclick="toggleTacticalTelegramPopover()" title="Configure Telegram Voice & Quick Intake Bot">⚙ Telegram</button>
               <button type="button" class="tactical-act-btn" id="btnTacAutoOrbit" onclick="toggleTacticalAutoOrbit()" title="Alternar rotação automática suave">◎ Auto</button>
+              <button type="button" class="tactical-act-btn" id="btnTacToggleDock" onclick="toggleTacticalWidgetsDock()" title="Recolher/Mostrar barra inferior de 6 widgets para ecrã 3D máximo">▾ Widgets</button>
               <button type="button" class="tactical-act-btn" onclick="resetTacticalCamera()" title="Voltar à vista panorâmica inicial (Tecla R)">⟳ Reset 3D</button>
             </div>
 
@@ -19320,6 +19336,15 @@ ${rulesSection}`;
       if (btn) btn.style.opacity = tacticalCam.autoOrbit ? '1' : '0.55';
     }
 
+    function toggleTacticalWidgetsDock() {
+      const grid = document.querySelector('#tacticalCortexShell .tactical-widgets-grid');
+      const btn = document.getElementById('btnTacToggleDock');
+      if (!grid) return;
+      const collapsed = grid.classList.toggle('collapsed');
+      if (btn) btn.textContent = collapsed ? '▴ Widgets' : '▾ Widgets';
+      setTimeout(() => resizeTacticalCanvas(), 220);
+    }
+
     function flyTacticalCameraToNode(node) {
       if (!node) return;
       tacticalCam.autoOrbit = false;
@@ -20345,7 +20370,7 @@ ${rulesSection}`;
         const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
         const areaPath = `${linePath} L${pts[pts.length - 1][0].toFixed(1)},${sh} L${pts[0][0].toFixed(1)},${sh} Z`;
         areaBody.innerHTML = `
-          <svg viewBox="0 0 ${sw} ${sh}" preserveAspectRatio="none" style="width:100%; height:100%; min-height:76px; display:block;">
+          <svg viewBox="0 0 ${sw} ${sh}" preserveAspectRatio="none" style="width:100%; height:100%; min-height:42px; display:block;">
             <defs>
               <linearGradient id="tacAreaGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stop-color="#ff6a00" stop-opacity="0.52" />
