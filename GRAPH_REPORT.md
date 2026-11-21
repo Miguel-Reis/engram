@@ -8,7 +8,7 @@
   - 🟢 **EXTRACTED (1.00)**: `1927` arestas (AST / DDL / Rota literal 100% determinística)
   - 🔵 **INFERRED (0.85)**: `742` arestas (Resolução cruzada de métodos e handlers)
   - 🟡 **AMBIGUOUS (0.55)**: `80` arestas (Despacho polimórfico / múltiplos candidatos)
-- **Compressão de Contexto (Graphify Token Diet)**: `555,485` tokens brutos ➔ `360` tokens de índice (**`1543.0x` menos tokens**)
+- **Compressão de Contexto (Graphify Token Diet)**: `558,246` tokens brutos ➔ `360` tokens de índice (**`1550.7x` menos tokens**)
 
 ## 2. Top God Nodes (Centros de Gravidade Arquitetónica)
 | # | Entidade | Tipo | Ficheiro | Grau (In/Out) | Alcance Ficheiros | Score Centralidade | Comunidade |
@@ -32,9 +32,9 @@
 - **Obsidian 2D Graph & 3D Agent Office UI** (`335` nós) — Exemplos: `office_agents`, `SwarmEngine._ensure_core_office_agents`, `SwarmEngine._sync_live_conversations_to_office`, `SwarmEngine.get_office_state`, `SwarmEngine.assign_office_agent_directive`, `SwarmEngine.spawn_custom_office_agent`
 
 ## 4. Cadeias Causais Full-Stack Verificadas (BFS Shortest Paths)
-- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `3018.9x`):  
+- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `3033.9x`):  
   `triggerAstSaveAuditUI` (JS_FUNCTION) ➔ `/api/ast/watch` (API_ROUTE) ➔ `AstImpactWatcher.get_watcher_status` (FUNCTION) ➔ `ast_save_audits` (SQL_TABLE)
-- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `4208.2x`):  
+- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `4229.1x`):  
   `swarm_watch_audit` (MCP_TOOL) ➔ `server.py` (FILE) ➔ `BrainDB` (CLASS)
-- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `3018.9x`):  
+- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `3033.9x`):  
   `createAndVerifySandboxUI` (JS_FUNCTION) ➔ `/api/swarm/sandbox` (API_ROUTE) ➔ `SwarmEngine.manage_subagent_sandbox` (FUNCTION) ➔ `swarm_sandboxes` (SQL_TABLE)

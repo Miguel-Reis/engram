@@ -3083,12 +3083,12 @@
     }
 
     .tactical-widgets-grid {
-      flex: 0 0 206px;
+      flex: 0 0 188px;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       grid-template-rows: repeat(2, minmax(0, 1fr));
       gap: 6px;
-      padding: 6px 8px;
+      padding: 5px 8px;
       background: rgba(5, 6, 9, 0.96);
     }
 
@@ -19022,30 +19022,32 @@ ${rulesSection}`;
     // =========================================================================
     const TACTICAL_COLORS = ['#ff3b1f', '#ff6a00', '#ffb020', '#f8fafc'];
     const TACTICAL_CAT_COLOR_MAP = {
-      infra: '#ff3b1f',
-      bug_fix: '#ff3b1f',
+      infra: '#ff2e1f',
+      bug_fix: '#ff2e1f',
       architecture: '#ff6a00',
-      checkpoint: '#ffb020',
-      optimization: '#ffb020',
+      checkpoint: '#ffb830',
+      optimization: '#ffd166',
+      learned_rule: '#f8fafc',
       directive: '#f8fafc',
-      preference: '#f8fafc',
-      environment: '#ff6a00',
-      code_change: '#ff8c1a',
-      explicit_note: '#ffb020',
+      preference: '#e2e8f0',
+      environment: '#ff5a1f',
+      code_change: '#e2e8f0',
+      explicit_note: '#ff8c1a',
       general: '#ff6a00'
     };
 
     // Unrestricted 3D Free-Flight Camera (infinite pan, 360° look/orbit, unlimited fly-through scroll & WASD+QE)
     let tacticalCam = {
-      x: -1.45, y: -0.78, z: -3.28,
-      targetX: -1.45, targetY: -0.78, targetZ: -3.28,
-      yaw: 0.40, pitch: 0.21,
-      targetYaw: 0.40, targetPitch: 0.21,
+      x: -0.88, y: -0.42, z: -2.08,
+      targetX: -0.88, targetY: -0.42, targetZ: -2.08,
+      yaw: 0.38, pitch: 0.19,
+      targetYaw: 0.38, targetPitch: 0.19,
       autoOrbit: true
     };
     const tacticalKeysDown = new Set();
     let tacticalNodes3D = [];
     let tacticalEdges3D = [];
+    let tacticalNeuralPulses = [];
     let tacticalClusterHubs = [];
     let tacticalAmbientStars = [];
     let tacticalFilter = null; // { kind: 'category'|'workspace'|'agent', value: string } | null
@@ -19131,35 +19133,43 @@ ${rulesSection}`;
         const mag = Math.hypot(dx, dy, dz) || 1;
         const dir = { x: dx / mag, y: dy / mag, z: dz / mag, color: tacticalColorForCategory(ck), key: ck };
         clusterDir[ck] = dir;
-        // Normalized 3D unit-space hubs (guaranteed safe against near-plane clipping at any screen resolution)
+        // Normalized 3D unit-space hubs (crystalline domain beacons distributed cleanly around the core)
         tacticalClusterHubs.push({
           key: ck,
-          x: dir.x * 0.95,
-          y: dir.y * 0.72,
-          z: dir.z * 0.75,
-          color: dir.color
+          x: dir.x * 1.18,
+          y: dir.y * 0.62,
+          z: dir.z * 0.85,
+          color: dir.color,
+          count: 0
         });
       });
 
+      const hubByKey = new Map(tacticalClusterHubs.map(hb => [hb.key, hb]));
       const idToIndex = new Map();
       tacticalNodes3D = memNodes.map((n, idx) => {
         const ck = String(n.category || n.workspace || 'general');
         const dir = clusterDir[ck] || { x: 0.6, y: 0.2, z: 0.7 };
+        const hb = hubByKey.get(ck);
+        if (hb) hb.count++;
         const h = tacticalHashStr(n.id || n.label || idx);
         const h2 = tacticalHashStr(String(n.id || idx) + '_r');
         const h3 = tacticalHashStr(String(n.id || idx) + '_a');
 
-        // Normalized multi-shell galactic cloud: x in [-1.5, 1.5], y in [-0.85, 0.85], z in [-0.95, 0.95]
+        // Normalized multi-shell galactic filaments: structured clusters radiating in arms around domain beacons
         const rawImp = Number(n.importance || 5);
         const imp = Math.min(10, Math.max(1, rawImp));
-        const shellBase = 0.20 + (10 - imp) * 0.052 + ((h % 100) / 100) * 0.42;
+        const shellBase = 0.24 + (10 - imp) * 0.055 + ((h % 100) / 100) * 0.54;
         const spreadAngle = ((h2 % 360) * Math.PI) / 180;
-        const spreadElev = (((h3 % 200) / 100) - 1) * 0.34;
-        const jitterR = 0.16 + ((h % 37) / 37) * 0.22;
+        const spreadElev = (((h3 % 200) / 100) - 1) * 0.30;
+        const jitterR = 0.14 + ((h % 37) / 37) * 0.26;
 
-        const px = Math.max(-1.55, Math.min(1.55, (dir.x * shellBase + Math.cos(spreadAngle) * jitterR) * 1.28));
-        const py = Math.max(-0.88, Math.min(0.88, dir.y * shellBase * 0.78 + spreadElev));
-        const pz = Math.max(-0.92, Math.min(0.92, (dir.z * shellBase + Math.sin(spreadAngle) * jitterR) * 0.88));
+        const px = Math.max(-1.85, Math.min(1.85, (dir.x * shellBase + Math.cos(spreadAngle) * jitterR) * 1.42));
+        const py = Math.max(-0.92, Math.min(0.92, dir.y * shellBase * 0.72 + spreadElev));
+        const pz = Math.max(-1.05, Math.min(1.05, (dir.z * shellBase + Math.sin(spreadAngle) * jitterR) * 0.94));
+
+        // Vary starlight tint slightly for visual richness (crimson / amber / champagne / ice-white)
+        const baseCol = tacticalColorForCategory(n.category);
+        const starCol = (h % 9 === 0) ? '#f8fafc' : ((h % 11 === 0) ? '#ff2e1f' : baseCol);
 
         idToIndex.set(n.id, idx);
         return {
@@ -19177,9 +19187,10 @@ ${rulesSection}`;
           x: px,
           y: py,
           z: pz,
-          color: tacticalColorForCategory(n.category),
-          radius: 1.15 + Math.min(2.15, imp * 0.21),
+          color: starCol,
+          radius: 0.85 + Math.min(1.35, imp * 0.13),
           degree: 0,
+          visible: true,
           sx: 0,
           sy: 0,
           rz: 0,
@@ -19188,7 +19199,19 @@ ${rulesSection}`;
         };
       });
 
+      // Build rich multi-layered 3D Neural Synapse Web (real DB synapses + 3D k-NN constellation triangulation + long bridges)
       tacticalEdges3D = [];
+      const edgeSeen = new Set();
+      const addTacEdge = (si, ti, kind, color) => {
+        if (si === ti || si < 0 || ti < 0) return;
+        const k = si < ti ? `${si}:${ti}` : `${ti}:${si}`;
+        if (edgeSeen.has(k)) return;
+        edgeSeen.add(k);
+        tacticalEdges3D.push({ s: si, t: ti, kind, color });
+        tacticalNodes3D[si].degree++;
+        tacticalNodes3D[ti].degree++;
+      };
+
       for (const l of rawLinks) {
         if (l.kind === 'tag_link') continue;
         const si = idToIndex.get(l.source);
@@ -19197,29 +19220,80 @@ ${rulesSection}`;
           const na = tacticalNodes3D[si];
           const nb = tacticalNodes3D[ti];
           const d3 = Math.hypot(na.x - nb.x, na.y - nb.y, na.z - nb.z);
-          if (d3 <= 1.45 || l.kind === 'causal_link') {
-            tacticalEdges3D.push({ s: si, t: ti, kind: l.kind || 'synapse' });
-            na.degree++;
-            nb.degree++;
+          if (d3 <= 1.65 || l.kind === 'causal_link') {
+            addTacEdge(si, ti, l.kind || 'synapse', l.kind === 'causal_link' ? '#ff3b1f' : na.color);
           }
         }
-        if (tacticalEdges3D.length >= 280) break;
+        if (tacticalEdges3D.length >= 260) break;
+      }
+
+      // 3D intra-cluster k-NN constellation filaments so every territory forms a crisp neural web (never isolated dots!)
+      const byCatIdx = new Map();
+      tacticalNodes3D.forEach((n, idx) => {
+        const list = byCatIdx.get(n.category) || [];
+        list.push(idx);
+        byCatIdx.set(n.category, list);
+      });
+      byCatIdx.forEach(idxList => {
+        const len = idxList.length;
+        for (let a = 0; a < len && tacticalEdges3D.length < 780; a++) {
+          const i = idxList[a];
+          const ni = tacticalNodes3D[i];
+          let best1 = -1, d1 = 999;
+          let best2 = -1, d2 = 999;
+          const scanEnd = Math.min(len, a + 36);
+          for (let b = a + 1; b < scanEnd; b++) {
+            const j = idxList[b];
+            const nj = tacticalNodes3D[j];
+            const d = Math.hypot(ni.x - nj.x, ni.y - nj.y, ni.z - nj.z);
+            if (d < d1) {
+              best2 = best1; d2 = d1;
+              best1 = j; d1 = d;
+            } else if (d < d2) {
+              best2 = j; d2 = d;
+            }
+          }
+          if (best1 >= 0 && d1 < 0.72) addTacEdge(i, best1, 'mesh', ni.color);
+          if (best2 >= 0 && d2 < 0.62 && a % 2 === 0) addTacEdge(i, best2, 'mesh', ni.color);
+        }
+      });
+
+      // Long-range cross-constellation ivory/crimson bridge axons (Slide 3 signature!)
+      const bridgeStep = Math.max(8, Math.floor(tacticalNodes3D.length / 28));
+      for (let i = 0; i + bridgeStep < tacticalNodes3D.length && tacticalEdges3D.length < 840; i += bridgeStep) {
+        const targetIdx = (i + bridgeStep * 3) % tacticalNodes3D.length;
+        addTacEdge(i, targetIdx, 'bridge', i % 2 === 0 ? '#f8fafc' : '#ff3b1f');
+      }
+
+      // Live animated neural signal pulses racing along the synaptic pathways
+      tacticalNeuralPulses = [];
+      const pulseCount = Math.min(46, Math.max(12, Math.floor(tacticalEdges3D.length / 16)));
+      for (let p = 0; p < pulseCount && tacticalEdges3D.length > 0; p++) {
+        const edgeIdx = (p * 17) % tacticalEdges3D.length;
+        const ed = tacticalEdges3D[edgeIdx];
+        tacticalNeuralPulses.push({
+          edgeIdx,
+          t: (p * 0.137) % 1,
+          speed: 0.0045 + (p % 5) * 0.0018,
+          dir: p % 2 === 0 ? 1 : -1,
+          color: p % 3 === 0 ? '#ffffff' : (ed.color || '#ffb830')
+        });
       }
 
       // Normalized ambient starlight dust for crisp galactic depth
       tacticalAmbientStars = [];
-      const ambientNeed = Math.max(120, 220 - Math.min(120, tacticalNodes3D.length));
+      const ambientNeed = Math.max(140, 240 - Math.min(100, tacticalNodes3D.length));
       for (let i = 0; i < ambientNeed; i++) {
         const a = (i * goldenAngle) % (Math.PI * 2);
-        const z = ((i / ambientNeed) * 2 - 1) * 0.82;
+        const z = ((i / ambientNeed) * 2 - 1) * 0.86;
         const rxy = Math.sqrt(Math.max(0, 1 - z * z));
-        const dist = 0.35 + ((i * 53) % 100) / 100 * 0.92;
+        const dist = 0.45 + ((i * 53) % 100) / 100 * 1.15;
         tacticalAmbientStars.push({
-          x: Math.cos(a) * rxy * dist * 1.25,
-          y: z * dist * 0.72,
-          z: Math.sin(a) * rxy * dist * 0.85,
-          color: TACTICAL_COLORS[i % TACTICAL_COLORS.length],
-          size: 0.8 + (i % 3) * 0.4
+          x: Math.cos(a) * rxy * dist * 1.42,
+          y: z * dist * 0.78,
+          z: Math.sin(a) * rxy * dist * 0.92,
+          color: i % 3 === 0 ? '#f8fafc' : TACTICAL_COLORS[i % TACTICAL_COLORS.length],
+          size: 0.55 + (i % 3) * 0.30
         });
       }
 
@@ -19401,10 +19475,10 @@ ${rulesSection}`;
     }
 
     function resetTacticalCamera() {
-      const yaw = 0.40;
-      const pitch = 0.21;
+      const yaw = 0.38;
+      const pitch = 0.19;
       const b = getTacticalBasis(yaw, pitch);
-      const dist = 3.7;
+      const dist = 2.32;
       tacticalCam.targetYaw = yaw;
       tacticalCam.targetPitch = pitch;
       tacticalCam.targetX = -b.forward.x * dist;
@@ -19583,33 +19657,36 @@ ${rulesSection}`;
       // Project origin core (0, 0, 0) in true 3D camera space
       const originP = projectTacticalPoint(0, 0, 0, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
 
-      // 1. Subtle radial nebula backdrop centered on projected origin (or screen center if flown past core)
+      // 1. Volumetric nebula backdrop + true 3D perspective coordinate floor grid (gives strong spatial depth during flight!)
       const bgCx = originP.visible ? originP.sx : cx;
       const bgCy = originP.visible ? originP.sy : cy;
-      const bgGrad = tctx.createRadialGradient(bgCx, bgCy, 8, bgCx, bgCy, Math.max(w, h) * 0.52);
-      bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.13)');
-      bgGrad.addColorStop(0.35, 'rgba(255, 59, 31, 0.04)');
+      const bgGrad = tctx.createRadialGradient(bgCx, bgCy, 8, bgCx, bgCy, Math.max(w, h) * 0.55);
+      bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.16)');
+      bgGrad.addColorStop(0.32, 'rgba(255, 46, 23, 0.055)');
+      bgGrad.addColorStop(0.68, 'rgba(180, 90, 20, 0.02)');
       bgGrad.addColorStop(1, 'rgba(5, 6, 8, 0)');
       tctx.fillStyle = bgGrad;
       tctx.fillRect(0, 0, w, h);
 
-      if (originP.visible && originP.rz > 0.4) {
-        tctx.save();
-        tctx.strokeStyle = 'rgba(255, 106, 0, 0.09)';
-        tctx.lineWidth = 1;
-        [0.45, 0.85, 1.32].forEach((rf, idx) => {
-          const rrX = (rf * focal) / originP.rz;
-          const rrY = rrX * (0.35 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.42);
-          if (rrX > 6 && rrX < w * 2.5) {
-            tctx.beginPath();
-            tctx.ellipse(originP.sx, originP.sy, rrX, Math.max(4, rrY), 0, 0, Math.PI * 2);
-            if (idx === 1) tctx.setLineDash([4, 6]);
-            else tctx.setLineDash([]);
-            tctx.stroke();
-          }
-        });
-        tctx.restore();
-      }
+      // Subtle 3D holographic telemetry floor grid at y = +0.96
+      tctx.save();
+      tctx.strokeStyle = 'rgba(255, 106, 0, 0.055)';
+      tctx.lineWidth = 0.7;
+      const gridY = 0.96;
+      const gridSteps = [-1.8, -1.2, -0.6, 0, 0.6, 1.2, 1.8];
+      gridSteps.forEach(gv => {
+        const p1 = projectTacticalPoint(gv, gridY, -1.5, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        const p2 = projectTacticalPoint(gv, gridY, 1.5, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        if (p1.visible && p2.visible) {
+          tctx.beginPath(); tctx.moveTo(p1.sx, p1.sy); tctx.lineTo(p2.sx, p2.sy); tctx.stroke();
+        }
+        const q1 = projectTacticalPoint(-1.8, gridY, gv * 0.85, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        const q2 = projectTacticalPoint(1.8, gridY, gv * 0.85, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        if (q1.visible && q2.visible) {
+          tctx.beginPath(); tctx.moveTo(q1.sx, q1.sy); tctx.lineTo(q2.sx, q2.sy); tctx.stroke();
+        }
+      });
+      tctx.restore();
 
       // 2. Project nodes in true 3D camera space with near-plane culling
       for (let i = 0; i < tacticalNodes3D.length; i++) {
@@ -19622,21 +19699,35 @@ ${rulesSection}`;
         n.scale = p.scale;
       }
 
-      // 3. Crisp radial filaments + synapse edges (only between visible in-front nodes!)
+      // 3. Multi-layered 3D Neural Synapse Web (k-NN constellation filaments + causal links + long bridges + animated pulses!)
       tctx.save();
       tctx.globalCompositeOperation = 'source-over';
 
-      if (originP.visible) {
-        for (let i = 0; i < tacticalClusterHubs.length; i++) {
-          const hub = tacticalClusterHubs[i];
-          const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
-          if (!hp.visible) continue;
+      // Domain cluster glowing nebula wash + core-to-hub trunk axons
+      const projectedHubs = [];
+      for (let i = 0; i < tacticalClusterHubs.length; i++) {
+        const hub = tacticalClusterHubs[i];
+        const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+        projectedHubs.push({ hub, hp });
+        if (!hp.visible) continue;
+
+        // Soft volumetric cluster aura
+        const auraR = Math.max(24, Math.min(110, 48 * hp.scale));
+        const auraGrad = tctx.createRadialGradient(hp.sx, hp.sy, 2, hp.sx, hp.sy, auraR);
+        auraGrad.addColorStop(0, hub.color === '#ff2e1f' ? 'rgba(255, 46, 31, 0.14)' : (hub.color === '#f8fafc' ? 'rgba(226, 232, 240, 0.08)' : 'rgba(255, 118, 20, 0.11)'));
+        auraGrad.addColorStop(1, 'rgba(5, 6, 8, 0)');
+        tctx.fillStyle = auraGrad;
+        tctx.beginPath();
+        tctx.arc(hp.sx, hp.sy, auraR, 0, Math.PI * 2);
+        tctx.fill();
+
+        if (originP.visible) {
           const filGrad = tctx.createLinearGradient(originP.sx, originP.sy, hp.sx, hp.sy);
-          filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.26)');
-          filGrad.addColorStop(0.65, 'rgba(255, 106, 0, 0.09)');
-          filGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+          filGrad.addColorStop(0, 'rgba(255, 196, 90, 0.36)');
+          filGrad.addColorStop(0.55, 'rgba(255, 106, 0, 0.16)');
+          filGrad.addColorStop(1, 'rgba(255, 59, 31, 0.04)');
           tctx.strokeStyle = filGrad;
-          tctx.lineWidth = 0.9;
+          tctx.lineWidth = 1.1;
           tctx.beginPath();
           tctx.moveTo(originP.sx, originP.sy);
           tctx.lineTo(hp.sx, hp.sy);
@@ -19655,11 +19746,18 @@ ${rulesSection}`;
         if (!isFocusEdge && !matchFilter && tacticalFilter) continue;
 
         if (isFocusEdge) {
-          tctx.strokeStyle = 'rgba(255, 224, 150, 0.72)';
-          tctx.lineWidth = 1.25;
+          tctx.strokeStyle = 'rgba(255, 240, 190, 0.85)';
+          tctx.lineWidth = 1.4;
+        } else if (e.kind === 'bridge') {
+          tctx.strokeStyle = e.color === '#f8fafc' ? 'rgba(241, 245, 249, 0.16)' : 'rgba(255, 59, 31, 0.22)';
+          tctx.lineWidth = 0.72;
+        } else if (e.kind === 'causal_link') {
+          tctx.strokeStyle = 'rgba(255, 72, 24, 0.34)';
+          tctx.lineWidth = 0.85;
         } else {
-          tctx.strokeStyle = e.kind === 'causal_link' ? 'rgba(255, 106, 0, 0.22)' : 'rgba(255, 140, 38, 0.12)';
-          tctx.lineWidth = 0.65;
+          const col = e.color === '#f8fafc' ? 'rgba(226, 232, 240, 0.19)' : (e.color === '#ff2e1f' ? 'rgba(255, 56, 36, 0.24)' : 'rgba(255, 134, 34, 0.21)');
+          tctx.strokeStyle = col;
+          tctx.lineWidth = 0.62;
         }
         tctx.beginPath();
         tctx.moveTo(a.sx, a.sy);
@@ -19667,44 +19765,144 @@ ${rulesSection}`;
         tctx.stroke();
       }
 
+      // Live animated neural signal sparks racing along synaptic filaments!
+      for (let p = 0; p < tacticalNeuralPulses.length; p++) {
+        const spk = tacticalNeuralPulses[p];
+        if (!ecoIdle) {
+          spk.t += spk.speed * spk.dir;
+          if (spk.t > 1) spk.t = 0;
+          if (spk.t < 0) spk.t = 1;
+        }
+        const ed = tacticalEdges3D[spk.edgeIdx];
+        if (!ed) continue;
+        const a = tacticalNodes3D[ed.s];
+        const b = tacticalNodes3D[ed.t];
+        if (!a || !b || !a.visible || !b.visible) continue;
+        const px = a.sx + (b.sx - a.sx) * spk.t;
+        const py = a.sy + (b.sy - a.sy) * spk.t;
+        const tailT = Math.max(0, Math.min(1, spk.t - spk.dir * 0.14));
+        const tx = a.sx + (b.sx - a.sx) * tailT;
+        const ty = a.sy + (b.sy - a.sy) * tailT;
+
+        const sg = tctx.createLinearGradient(tx, ty, px, py);
+        sg.addColorStop(0, 'rgba(255, 140, 26, 0)');
+        sg.addColorStop(1, spk.color === '#ffffff' ? 'rgba(255, 255, 255, 0.92)' : 'rgba(255, 196, 80, 0.90)');
+        tctx.strokeStyle = sg;
+        tctx.lineWidth = 1.5;
+        tctx.beginPath();
+        tctx.moveTo(tx, ty);
+        tctx.lineTo(px, py);
+        tctx.stroke();
+
+        tctx.fillStyle = '#ffffff';
+        tctx.beginPath();
+        tctx.arc(px, py, 1.35, 0, Math.PI * 2);
+        tctx.fill();
+      }
+
       // Ambient starlight dust
       for (let i = 0; i < tacticalAmbientStars.length; i++) {
         const st = tacticalAmbientStars[i];
         const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
         if (!sp.visible || sp.sx < -20 || sp.sx > w + 20 || sp.sy < -20 || sp.sy > h + 20) continue;
-        const alpha = Math.max(0.10, Math.min(0.45, 0.28 * sp.scale));
+        const alpha = Math.max(0.12, Math.min(0.55, 0.30 * sp.scale));
         tctx.fillStyle = st.color;
         tctx.globalAlpha = alpha;
         tctx.beginPath();
-        tctx.arc(sp.sx, sp.sy, Math.max(0.6, Math.min(2.4, st.size * sp.scale)), 0, Math.PI * 2);
+        tctx.arc(sp.sx, sp.sy, Math.max(0.5, Math.min(1.6, st.size * sp.scale)), 0, Math.PI * 2);
         tctx.fill();
       }
       tctx.globalAlpha = 1;
 
-      // 4. Compact incandescent amber core at (0, 0, 0) when in front of camera
+      // 4. Living 3D Gyroscopic Core at (0, 0, 0): 3 true-3D spinning astrolabe rings + incandescent sun core
       if (originP.visible) {
+        const ringDefs = [
+          { r: 0.24, tiltX: tacticalTick * 0.7, tiltZ: 0.35, col: 'rgba(255, 176, 32, 0.34)' },
+          { r: 0.38, tiltX: -tacticalTick * 0.45 + 1.1, tiltZ: -0.55, col: 'rgba(255, 106, 0, 0.24)' },
+          { r: 0.56, tiltX: 0.22, tiltZ: tacticalTick * 0.25, col: 'rgba(241, 245, 249, 0.14)' }
+        ];
+        ringDefs.forEach(rd => {
+          const segs = 32;
+          tctx.strokeStyle = rd.col;
+          tctx.lineWidth = 0.85;
+          tctx.beginPath();
+          let started = false;
+          for (let s = 0; s <= segs; s++) {
+            const a = (s / segs) * Math.PI * 2;
+            const rx0 = Math.cos(a) * rd.r;
+            const ry0 = Math.sin(a) * rd.r * Math.cos(rd.tiltX);
+            const rz0 = Math.sin(a) * rd.r * Math.sin(rd.tiltX);
+            const rx = rx0 * Math.cos(rd.tiltZ) - ry0 * Math.sin(rd.tiltZ);
+            const ry = rx0 * Math.sin(rd.tiltZ) + ry0 * Math.cos(rd.tiltZ);
+            const rp = projectTacticalPoint(rx, ry, rz0, cx, cy, tacticalCam.x, tacticalCam.y, tacticalCam.z, cosY, sinY, cosP, sinP, focal);
+            if (!rp.visible) { started = false; continue; }
+            if (!started) { tctx.moveTo(rp.sx, rp.sy); started = true; }
+            else tctx.lineTo(rp.sx, rp.sy);
+          }
+          tctx.stroke();
+        });
+
         const pulse = 1 + Math.sin(tacticalTick * 1.9) * 0.08;
-        const coreR = Math.max(7, Math.min(34, 12 * originP.scale * pulse));
-        const coreGrad = tctx.createRadialGradient(originP.sx, originP.sy, 1, originP.sx, originP.sy, coreR * 2.4);
+        const coreR = Math.max(7, Math.min(26, 10.5 * originP.scale * pulse));
+        const coreGrad = tctx.createRadialGradient(originP.sx, originP.sy, 1, originP.sx, originP.sy, coreR * 2.8);
         coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-        coreGrad.addColorStop(0.22, 'rgba(255, 196, 80, 0.90)');
-        coreGrad.addColorStop(0.52, 'rgba(255, 106, 0, 0.36)');
-        coreGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+        coreGrad.addColorStop(0.20, 'rgba(255, 210, 110, 0.92)');
+        coreGrad.addColorStop(0.48, 'rgba(255, 106, 0, 0.40)');
+        coreGrad.addColorStop(1, 'rgba(255, 46, 23, 0)');
         tctx.fillStyle = coreGrad;
         tctx.beginPath();
-        tctx.arc(originP.sx, originP.sy, coreR * 2.4, 0, Math.PI * 2);
+        tctx.arc(originP.sx, originP.sy, coreR * 2.8, 0, Math.PI * 2);
         tctx.fill();
 
-        tctx.strokeStyle = 'rgba(255, 176, 32, 0.42)';
+        // 4-point central star diffraction flare
+        const flareLen = coreR * 2.6;
+        tctx.strokeStyle = 'rgba(255, 235, 190, 0.55)';
         tctx.lineWidth = 1;
         tctx.beginPath();
-        tctx.arc(originP.sx, originP.sy, coreR * 1.35, 0, Math.PI * 2);
+        tctx.moveTo(originP.sx - flareLen, originP.sy);
+        tctx.lineTo(originP.sx + flareLen, originP.sy);
+        tctx.moveTo(originP.sx, originP.sy - flareLen * 0.72);
+        tctx.lineTo(originP.sx, originP.sy + flareLen * 0.72);
         tctx.stroke();
       }
 
-      // 5. Depth-sorted razor-sharp starry 3D nodes (back-to-front by camera distance rz)
+      // 4B. Crystalline Hexagonal Domain Hub Beacons + Territory Titles
+      projectedHubs.forEach(({ hub, hp }) => {
+        if (!hp.visible || hp.sx < 210 || hp.sx > w - 40 || hp.sy < 34 || hp.sy > h - 24) return;
+        const hr = Math.max(4.5, Math.min(11, 5.8 * hp.scale));
+        tctx.save();
+        tctx.translate(hp.sx, hp.sy);
+        tctx.rotate(tacticalTick * 0.35);
+        tctx.strokeStyle = hub.color;
+        tctx.fillStyle = 'rgba(8, 9, 14, 0.85)';
+        tctx.lineWidth = 1.1;
+        tctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const ang = (k * Math.PI) / 3;
+          const hx = Math.cos(ang) * hr;
+          const hy = Math.sin(ang) * hr;
+          if (k === 0) tctx.moveTo(hx, hy);
+          else tctx.lineTo(hx, hy);
+        }
+        tctx.closePath();
+        tctx.fill();
+        tctx.stroke();
+        tctx.fillStyle = '#ffffff';
+        tctx.beginPath();
+        tctx.arc(0, 0, 1.6, 0, Math.PI * 2);
+        tctx.fill();
+        tctx.restore();
+
+        // Subtle crisp territory label beside each domain beacon
+        tctx.fillStyle = 'rgba(255, 196, 110, 0.72)';
+        tctx.font = '700 8px "JetBrains Mono", monospace';
+        tctx.fillText(String(hub.key).toUpperCase().slice(0, 14), hp.sx + hr + 5, hp.sy + 3);
+      });
+
+      // 5. Depth-sorted razor-sharp starlight 3D neurons (pinpoint white specular cores + 4-pt optical flares on god nodes!)
       const visibleNodes = tacticalNodes3D.filter(n => n.visible).sort((a, b) => b.rz - a.rz);
-      const godThreshold = Math.max(0, visibleNodes.length - 12);
+      const godThreshold = Math.max(0, visibleNodes.length - 14);
+      const closeLabels = [];
       for (let i = 0; i < visibleNodes.length; i++) {
         const n = visibleNodes[i];
         const isMatched = matchesTacticalFilter(n);
@@ -19712,43 +19910,80 @@ ${rulesSection}`;
         const isSel = tacticalSelectedNodeId && tacticalSelectedNodeId === n.id;
         const isTopGod = i >= godThreshold && n.importance >= 8;
         const depthAlpha = Math.max(0.24, Math.min(0.98, 1.05 - n.rz * 0.13));
-        const alpha = isHov || isSel ? 1 : (tacticalFilter && !isMatched ? 0.12 : depthAlpha);
-        const r = Math.max(1.1, Math.min(8.5, n.radius * n.scale * (isHov ? 1.65 : (isSel ? 1.45 : 1))));
+        const alpha = isHov || isSel ? 1 : (tacticalFilter && !isMatched ? 0.10 : depthAlpha);
+        // Keep stars crisp and refined (1.0px..3.8px), NEVER oversized flat polka-dots!
+        const r = Math.max(0.95, Math.min(3.8, n.radius * Math.pow(n.scale, 0.72) * (isHov ? 1.55 : (isSel ? 1.35 : 1))));
 
-        // Razor-thin radial filament to core for select top hubs & focused node
-        if (originP.visible && (isTopGod || isHov || isSel) && alpha > 0.25) {
-          tctx.strokeStyle = n.color;
-          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.16;
-          tctx.lineWidth = isHov || isSel ? 1.0 : 0.55;
+        // Soft halo + 4-point optical diffraction star flare on god nodes / hovered / selected
+        if (isTopGod || isHov || isSel) {
+          tctx.globalAlpha = alpha * (isHov || isSel ? 0.42 : 0.22);
+          tctx.fillStyle = n.color;
           tctx.beginPath();
-          tctx.moveTo(originP.sx, originP.sy);
-          tctx.lineTo(n.sx, n.sy);
+          tctx.arc(n.sx, n.sy, r * 2.5, 0, Math.PI * 2);
+          tctx.fill();
+
+          const fl = r * (isHov || isSel ? 4.2 : 2.9);
+          tctx.strokeStyle = isHov ? '#ffffff' : n.color;
+          tctx.globalAlpha = alpha * 0.65;
+          tctx.lineWidth = 0.75;
+          tctx.beginPath();
+          tctx.moveTo(n.sx - fl, n.sy); tctx.lineTo(n.sx + fl, n.sy);
+          tctx.moveTo(n.sx, n.sy - fl); tctx.lineTo(n.sx, n.sy + fl);
           tctx.stroke();
         }
 
-        // Soft radial halo ONLY for hovered, selected, or top 12 god-nodes
-        if (isTopGod || isHov || isSel) {
-          tctx.globalAlpha = alpha * (isHov || isSel ? 0.45 : 0.22);
-          tctx.fillStyle = n.color;
-          tctx.beginPath();
-          tctx.arc(n.sx, n.sy, r * 2.3, 0, Math.PI * 2);
-          tctx.fill();
-        }
-
+        // Outer colored corona + pinpoint white specular center (true starlight neuron look!)
         tctx.globalAlpha = alpha;
         tctx.fillStyle = isHov ? '#ffffff' : n.color;
         tctx.beginPath();
         tctx.arc(n.sx, n.sy, r, 0, Math.PI * 2);
         tctx.fill();
 
-        if (isSel || isHov) {
-          tctx.strokeStyle = '#ffffff';
-          tctx.lineWidth = 1.2;
+        if (r >= 1.25) {
+          tctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
           tctx.beginPath();
-          tctx.arc(n.sx, n.sy, r + 3.5, 0, Math.PI * 2);
+          tctx.arc(n.sx, n.sy, r * 0.42, 0, Math.PI * 2);
+          tctx.fill();
+        }
+
+        if (isSel || isHov) {
+          // Diamond target reticle around hovered/selected neuron
+          const dr = r + 5;
+          tctx.strokeStyle = '#ffffff';
+          tctx.lineWidth = 1.1;
+          tctx.beginPath();
+          tctx.moveTo(n.sx, n.sy - dr);
+          tctx.lineTo(n.sx + dr, n.sy);
+          tctx.lineTo(n.sx, n.sy + dr);
+          tctx.lineTo(n.sx - dr, n.sy);
+          tctx.closePath();
           tctx.stroke();
         }
+
+        // Collect nearby memories when flying inside the nebula so user can read them in 3D space!
+        if (n.rz < 1.95 && n.sx > 218 && n.sx < w - 120 && n.sy > 44 && n.sy < h - 30 && isMatched) {
+          closeLabels.push(n);
+        }
       }
+
+      // Render crisp proximity-reveal micro-labels when flying close to neurons
+      if (closeLabels.length) {
+        closeLabels.sort((a, b) => a.rz - b.rz);
+        const labelUsed = [];
+        tctx.font = '600 8.5px "JetBrains Mono", monospace';
+        for (let i = 0; i < closeLabels.length && labelUsed.length < 10; i++) {
+          const n = closeLabels[i];
+          const lx = n.sx + 8;
+          const ly = n.sy + 3;
+          if (labelUsed.some(lu => Math.abs(lu.x - lx) < 115 && Math.abs(lu.y - ly) < 15)) continue;
+          labelUsed.push({ x: lx, y: ly });
+          const fade = Math.max(0.18, Math.min(0.88, (1.95 - n.rz) / 1.1));
+          tctx.globalAlpha = fade;
+          tctx.fillStyle = '#e2e8f0';
+          tctx.fillText(String(n.label || '').slice(0, 22), lx, ly);
+        }
+      }
+      tctx.globalAlpha = 1;
       tctx.restore();
 
       // 6. Floating Tactical Callout Cards (hovered + up to 3 strictly non-overlapping distinct god nodes)
