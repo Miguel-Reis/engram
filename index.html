@@ -2825,6 +2825,465 @@
     .holo-tower-heat-fill {
       background: linear-gradient(90deg, #10b981, #06b6d4, #f59e0b);
     }
+
+    /* =========================================================================
+       AMBER TACTICAL 3D CORTEX THEME (.tactical-*)
+       ========================================================================= */
+    .tactical-shell {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      display: flex;
+      flex-direction: column;
+      padding: 44px 12px 10px 12px;
+      background:
+        radial-gradient(circle at 52% 38%, rgba(255, 106, 0, 0.08) 0%, #050608 62%),
+        repeating-linear-gradient(90deg, rgba(255, 120, 20, 0.025) 0 1px, transparent 1px 44px),
+        repeating-linear-gradient(0deg, rgba(255, 120, 20, 0.025) 0 1px, transparent 1px 44px),
+        #050608;
+      overflow: hidden;
+      font-family: var(--font-mono);
+    }
+
+    .tactical-frame {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(255, 106, 0, 0.58);
+      border-radius: 12px;
+      background: rgba(6, 7, 10, 0.94);
+      box-shadow: 0 0 36px rgba(255, 106, 0, 0.12), inset 0 0 24px rgba(255, 106, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .tactical-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 14px;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.28);
+      background: linear-gradient(180deg, rgba(255, 106, 0, 0.08) 0%, rgba(7, 8, 12, 0.96) 100%);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .tactical-badge {
+      background: #ff6a00;
+      color: #050608;
+      font-weight: 900;
+      padding: 6px 12px;
+      border-radius: 5px;
+      letter-spacing: 0.06em;
+      font-size: 12px;
+      white-space: nowrap;
+      box-shadow: 0 0 16px rgba(255, 106, 0, 0.38);
+      flex-shrink: 0;
+    }
+
+    .tactical-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .tactical-title-main {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: 0.09em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tactical-title-sub {
+      font-size: 9.5px;
+      color: #a1a1aa;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tactical-kpis {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .tactical-kpi-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.1;
+    }
+
+    .tactical-kpi-val {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ff8c1a;
+      text-shadow: 0 0 10px rgba(255, 106, 0, 0.35);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tactical-kpi-val.is-white {
+      color: #f8fafc;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+    }
+
+    .tactical-kpi-lbl {
+      font-size: 8px;
+      color: #71717a;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tactical-stage {
+      position: relative;
+      flex: 1 1 56%;
+      min-height: 240px;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.22);
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 95, 0, 0.10) 0%, rgba(5, 6, 8, 0.98) 70%);
+    }
+
+    #tacticalGraphCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #tacticalGraphCanvas.is-dragging {
+      cursor: grabbing;
+    }
+
+    .tactical-legend-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 196px;
+      max-height: calc(100% - 20px);
+      overflow-y: auto;
+      background: rgba(7, 8, 12, 0.82);
+      border: 1px solid rgba(255, 106, 0, 0.28);
+      border-radius: 8px;
+      padding: 8px;
+      backdrop-filter: blur(8px);
+      z-index: 5;
+    }
+
+    .tactical-legend-title {
+      font-size: 9px;
+      font-weight: 800;
+      color: #ff8c1a;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid rgba(255, 106, 0, 0.2);
+      padding-bottom: 4px;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+
+    .tactical-legend-sec {
+      font-size: 8px;
+      color: #71717a;
+      letter-spacing: 0.08em;
+      margin: 5px 0 3px;
+      text-transform: uppercase;
+    }
+
+    .tactical-legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 3px 5px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      color: #d4d4d8;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.12s ease;
+    }
+
+    .tactical-legend-row:hover {
+      background: rgba(255, 106, 0, 0.1);
+      border-color: rgba(255, 106, 0, 0.25);
+      color: #ffffff;
+    }
+
+    .tactical-legend-row.active {
+      background: rgba(255, 106, 0, 0.18);
+      border-color: rgba(255, 106, 0, 0.55);
+      color: #ffb020;
+    }
+
+    .tactical-legend-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .tactical-actions-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      z-index: 5;
+    }
+
+    .tactical-act-btn {
+      background: rgba(10, 11, 16, 0.86);
+      border: 1px solid rgba(255, 106, 0, 0.35);
+      color: #ffb020;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.14s ease;
+      white-space: nowrap;
+    }
+
+    .tactical-act-btn:hover {
+      background: rgba(255, 106, 0, 0.2);
+      border-color: #ff6a00;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(255, 106, 0, 0.28);
+    }
+
+    .tactical-telegram-popover {
+      position: absolute;
+      top: 42px;
+      right: 10px;
+      width: 264px;
+      background: rgba(8, 9, 14, 0.96);
+      border: 1px solid rgba(255, 106, 0, 0.48);
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 7;
+      display: none;
+    }
+
+    .tactical-telegram-popover.open {
+      display: block;
+    }
+
+    .tactical-widgets-grid {
+      flex: 0 0 228px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 6px 8px;
+      background: rgba(5, 6, 9, 0.96);
+    }
+
+    @media (max-width: 860px) {
+      .tactical-widgets-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto;
+        flex: 0 0 auto;
+        max-height: 290px;
+        overflow-y: auto;
+      }
+    }
+
+    .tactical-widget-card {
+      background: rgba(11, 12, 17, 0.92);
+      border: 1px solid rgba(255, 106, 0, 0.22);
+      border-radius: 7px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .tactical-widget-hdr {
+      font-size: 8.5px;
+      letter-spacing: 0.08em;
+      color: #ff8c1a;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .tactical-widget-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5px;
+    }
+
+    .tactical-bar-row {
+      display: grid;
+      grid-template-columns: 72px 1fr 28px;
+      align-items: center;
+      gap: 5px;
+      font-size: 8.4px;
+      cursor: pointer;
+      padding: 0.5px 2px;
+      border-radius: 3px;
+    }
+
+    .tactical-bar-row:hover {
+      background: rgba(255, 106, 0, 0.08);
+    }
+
+    .tactical-bar-track {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .tactical-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.35s ease;
+    }
+
+    .tactical-input {
+      background: #07080c;
+      border: 1px solid rgba(255, 106, 0, 0.28);
+      color: #f4f4f5;
+      border-radius: 4px;
+      padding: 3.5px 6px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      outline: none;
+      min-width: 0;
+    }
+
+    .tactical-input:focus {
+      border-color: #ff6a00;
+      box-shadow: 0 0 0 1px rgba(255, 106, 0, 0.25);
+    }
+
+    .tactical-mini-btn {
+      background: rgba(255, 106, 0, 0.16);
+      border: 1px solid rgba(255, 106, 0, 0.42);
+      color: #ffb020;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s ease;
+    }
+
+    .tactical-mini-btn:hover {
+      background: #ff6a00;
+      color: #050608;
+    }
+
+    .tactical-wave-strip {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 18px;
+      margin-bottom: 4px;
+      flex-shrink: 0;
+    }
+
+    @keyframes tacticalWavePulse {
+      0%, 100% { transform: scaleY(0.35); opacity: 0.55; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    .tactical-wave-bar {
+      flex: 1;
+      height: 100%;
+      background: linear-gradient(180deg, #ffb020, #ff6a00);
+      border-radius: 1.5px;
+      transform-origin: bottom;
+      animation: tacticalWavePulse 1.4s ease-in-out infinite;
+    }
+
+    .tactical-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+      gap: 3px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tactical-matrix-cell {
+      border-radius: 3px;
+      border: 1px solid rgba(255, 106, 0, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7.5px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      cursor: default;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 2px;
+    }
+
+    .tactical-matrix-cell:hover {
+      transform: scale(1.06);
+      border-color: #ffffff;
+      z-index: 2;
+    }
+
+    .tactical-ticker {
+      height: 22px;
+      flex: 0 0 22px;
+      border-top: 1px solid rgba(255, 106, 0, 0.25);
+      background: #07080b;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 12px;
+      font-size: 9px;
+      color: #a1a1aa;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .tactical-ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .tactical-ticker-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #ff6a00;
+      box-shadow: 0 0 8px #ff6a00;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -2996,14 +3455,17 @@
 
       <!-- Minimalist Centered Top Studio Segmented Bar -->
       <div class="graph-hud-top">
-        <span class="hud-zoom-tag" id="lblPlanetaryZoom">BLUEPRINT OS</span>
+        <span class="hud-zoom-tag" id="lblPlanetaryZoom">TACTICAL 3D</span>
         <span class="hud-dues-badge" id="lblPlanetaryDues">0 sinapses</span>
         <button class="hud-objectives-pill" onclick="focusDailyObjectives()" title="Focar nos Objetivos Críticos & Triangulação Causal do Córtex">
           <span style="width:5px; height:5px; border-radius:1px; background:#10b981; display:inline-block;"></span>
           <span id="lblDailyObjectives">3 metas</span>
         </button>
         <span class="hud-divider"></span>
-        <button class="hud-pill active" id="btnBlueprintView" onclick="setBrainViewStyle('blueprint')" style="cursor:pointer;" title="Quadro Arquitetónico Estruturado (Zero sobreposição — Cartões de Domínio & Colunas Kanban)">
+        <button class="hud-pill active" id="btnTacticalView" onclick="setBrainViewStyle('tactical')" style="cursor:pointer; color:#ff9d42; border-color:rgba(255,106,0,0.45); background:rgba(255,106,0,0.12);" title="Vista Estelar 3D Amber Tactical (GBRAIN Command + 6 Widgets Reais)">
+          ✦ Tactical 3D
+        </button>
+        <button class="hud-pill" id="btnBlueprintView" onclick="setBrainViewStyle('blueprint')" style="cursor:pointer;" title="Quadro Arquitetónico Estruturado (Zero sobreposição — Cartões de Domínio & Colunas Kanban)">
           ▣ Quadro
         </button>
         <button class="hud-pill" id="btnBentoView" onclick="setBrainViewStyle('bento')" style="cursor:pointer;" title="Galeria Bento HTML com Scroll Nativo e Ações em Lote">
@@ -3042,9 +3504,176 @@
         </button>
       </div>
 
-      <canvas id="brainGraph"></canvas>
+      <canvas id="brainGraph" style="display:none;"></canvas>
       <div id="brainBentoGallery" class="brain-bento-gallery" style="display:none;"></div>
-      <div id="blueprintQuickJumpBar" class="bp-quick-jump-bar"></div>
+      <div id="blueprintQuickJumpBar" class="bp-quick-jump-bar" style="display:none;"></div>
+
+      <!-- AMBER TACTICAL 3D CORTEX SHELL -->
+      <div id="tacticalCortexShell" class="tactical-shell">
+        <div class="tactical-frame">
+          <!-- TOP BANNER -->
+          <div class="tactical-header">
+            <div class="tactical-badge">ENGRAM · 2ND BRAIN</div>
+            <div class="tactical-title-block">
+              <div class="tactical-title-main">ENGRAM · UNIVERSAL 2ND BRAIN</div>
+              <div class="tactical-title-sub">every fact sourced · one memory for every agent · plain md + local search</div>
+            </div>
+            <div class="tactical-kpis">
+              <div class="tactical-kpi-item">
+                <span class="tactical-kpi-val" id="tacStatMemories">0</span>
+                <span class="tactical-kpi-lbl">MEMORIES</span>
+              </div>
+              <div class="tactical-kpi-item">
+                <span class="tactical-kpi-val is-white" id="tacStatIdes">0</span>
+                <span class="tactical-kpi-lbl">IDES</span>
+              </div>
+              <div class="tactical-kpi-item">
+                <span class="tactical-kpi-val" id="tacStatSkills">0</span>
+                <span class="tactical-kpi-lbl">SKILLS</span>
+              </div>
+              <div class="tactical-kpi-item">
+                <span class="tactical-kpi-val is-white" id="tacStatRules">0</span>
+                <span class="tactical-kpi-lbl">RULES</span>
+              </div>
+              <div class="tactical-kpi-item">
+                <span class="tactical-kpi-val" id="tacStatLatency">0ms</span>
+                <span class="tactical-kpi-lbl">LATENCY</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MAIN 3D NEBULA STAGE -->
+          <div class="tactical-stage">
+            <canvas id="tacticalGraphCanvas"></canvas>
+
+            <div id="tacticalLegendOverlay" class="tactical-legend-overlay">
+              <div class="tactical-legend-title">ENGRAM · every agent, one memory</div>
+              <div style="font-size:9px; color:#71717a;">Loading clusters...</div>
+            </div>
+
+            <div id="tacticalActionsOverlay" class="tactical-actions-overlay">
+              <button type="button" class="tactical-act-btn" onclick="triggerTacticalRuleDistillUI()" title="Distill pending corrections into AGENTS.md / learned rules">⚡ Distill Rules</button>
+              <button type="button" class="tactical-act-btn" onclick="exportCrossIdeHandoffUI()" title="Export cross-IDE HANDOFF.md & copy resume prompt">⇄ Handoff.md</button>
+              <button type="button" class="tactical-act-btn" onclick="toggleTacticalTelegramPopover()" title="Configure Telegram Voice & Quick Intake Bot">⚙ Telegram</button>
+              <button type="button" class="tactical-act-btn" onclick="resetTacticalCamera()" title="Reset 3D orbital camera">⟳ Reset 3D</button>
+            </div>
+
+            <div id="tacticalTelegramPopover" class="tactical-telegram-popover">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:7px;">
+                <span style="font-size:10px; font-weight:800; color:#ff8c1a; letter-spacing:0.06em;">⚙ TELEGRAM BOT INTAKE</span>
+                <button type="button" class="tactical-mini-btn" style="padding:1px 5px;" onclick="toggleTacticalTelegramPopover()">✕</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <input type="password" id="tacTgBotToken" class="tactical-input" placeholder="Bot Token (123456:ABC...)" autocomplete="off" />
+                <input type="text" id="tacTgChatId" class="tactical-input" placeholder="Chat ID (e.g. 987654321)" />
+                <label style="display:flex; align-items:center; gap:6px; font-size:9.5px; color:#d4d4d8; cursor:pointer;">
+                  <input type="checkbox" id="tacTgEnabled" style="accent-color:#ff6a00;" />
+                  <span>Enable live Telegram polling bridge</span>
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap:5px; margin-top:2px;">
+                  <button type="button" class="tactical-mini-btn" onclick="saveTacticalTelegramConfigUI()">Save Config</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6 LOWER TACTICAL WIDGETS -->
+          <div class="tactical-widgets-grid">
+            <!-- Widget 1: Category Distribution -->
+            <div id="tacWidgetBars" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>CATEGORY DISTRIBUTION</span>
+                <span id="tacBarsTotalLbl" style="color:#a1a1aa; font-weight:600;">0 nodes</span>
+              </div>
+              <div id="tacWidgetBarsBody" class="tactical-widget-body"></div>
+            </div>
+
+            <!-- Widget 2: Memory & Token Velocity -->
+            <div id="tacWidgetArea" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>MEMORY &amp; TOKEN VELOCITY</span>
+                <span id="tacAreaPeakLbl" style="color:#ffb020; font-weight:700;">LIVE</span>
+              </div>
+              <div id="tacWidgetAreaBody" class="tactical-widget-body" style="overflow:hidden;"></div>
+            </div>
+
+            <!-- Widget 3: Provenance Sourced Fact -->
+            <div id="tacWidgetProvenance" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>PROVENANCE · SOURCED FACT</span>
+                <span id="tacProvSourceBadge" style="color:#f8fafc; font-weight:700;">SOURCED</span>
+              </div>
+              <div id="tacWidgetProvenanceBody" class="tactical-widget-body"></div>
+            </div>
+
+            <!-- Widget 4: Voice & Telegram Intake -->
+            <div id="tacWidgetVoiceIntake" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>VOICE &amp; TELEGRAM INTAKE</span>
+                <span id="tacIntakeStatusBadge" style="color:#ffb020; font-weight:700;">READY</span>
+              </div>
+              <div class="tactical-wave-strip" aria-hidden="true">
+                <span class="tactical-wave-bar" style="animation-delay:0.00s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.12s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.24s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.36s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.48s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.60s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.72s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.84s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.96s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:1.08s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.18s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.42s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.66s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.90s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.30s;"></span>
+                <span class="tactical-wave-bar" style="animation-delay:0.54s;"></span>
+              </div>
+              <div id="tacIntakeLastInfo" style="font-size:8.5px; color:#a1a1aa; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                Route voice notes, tasks, or .md vault facts instantly.
+              </div>
+              <div style="display:flex; gap:4px; align-items:center; margin-top:auto;">
+                <input type="text" id="tacIntakeInput" class="tactical-input" style="flex:1;" placeholder="Dictate or paste intake..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitTacticalIntakeUI();}" />
+                <select id="tacIntakeMode" class="tactical-input" style="width:62px; padding:3px 2px;" title="Intake routing mode">
+                  <option value="auto">auto</option>
+                  <option value="task">task</option>
+                  <option value="vault">vault</option>
+                </select>
+                <button type="button" class="tactical-mini-btn" onclick="submitTacticalIntakeUI()">Send</button>
+              </div>
+            </div>
+
+            <!-- Widget 5: Nightly Corrections -> Rules -->
+            <div id="tacWidgetRules" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>NIGHTLY CORRECTIONS ➔ RULES</span>
+                <span id="tacRulesPendingBadge" style="color:#f8fafc; font-weight:700;">0 pending</span>
+              </div>
+              <div id="tacRulesListBody" class="tactical-widget-body" style="margin-bottom:4px;"></div>
+              <div style="display:flex; gap:4px; align-items:center; margin-top:auto;">
+                <input type="text" id="tacCorrectionInput" class="tactical-input" style="flex:1;" placeholder="Log correction / rule..." onkeydown="if(event.key==='Enter'){event.preventDefault();logTacticalCorrectionUI();}" />
+                <button type="button" class="tactical-mini-btn" onclick="logTacticalCorrectionUI()">Log</button>
+                <button type="button" class="tactical-mini-btn" onclick="triggerTacticalRuleDistillUI()">Distill</button>
+              </div>
+            </div>
+
+            <!-- Widget 6: System & Model Matrix -->
+            <div id="tacWidgetMatrix" class="tactical-widget-card">
+              <div class="tactical-widget-hdr">
+                <span>SYSTEM &amp; MODEL MATRIX</span>
+                <span id="tacMatrixActiveModelPill" style="background:rgba(255,106,0,0.18); border:1px solid rgba(255,106,0,0.4); color:#ffb020; padding:1px 5px; border-radius:3px; font-size:8px;">LOCAL · 0MS</span>
+              </div>
+              <div id="tacWidgetMatrixBody" class="tactical-matrix-grid"></div>
+            </div>
+          </div>
+
+          <!-- BOTTOM TICKER -->
+          <div id="tacticalBottomTicker" class="tactical-ticker">
+            <span class="tactical-ticker-item"><span class="tactical-ticker-dot"></span><span>ENGRAM TACTICAL 3D READY</span></span>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- RIGHT DRAWER: BENTO DOCUMENT INSPECTOR -->
@@ -5717,6 +6346,23 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
     </div>
   </div>
 
+  <!-- TACTICAL HANDOFF PREVIEW MODAL -->
+  <div class="modal-backdrop" id="tacticalHandoffPreviewModal" onclick="if(event.target===this) this.classList.remove('open');">
+    <div class="modal" style="width:min(720px, 94vw); max-height:84vh; display:flex; flex-direction:column; padding:16px 18px; border-color:rgba(255,106,0,0.55); background:#08090e;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,106,0,0.28); padding-bottom:10px; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0; font-size:14px; font-family:var(--font-mono); color:#ff8c1a;">⇄ CROSS-IDE HANDOFF EXPORT</h3>
+          <div id="tacHandoffPathLbl" style="font-size:10.5px; color:#a1a1aa; font-family:var(--font-mono); margin-top:2px;">HANDOFF.md</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="tactical-mini-btn" onclick="copyTacticalHandoffModalText()">📋 Copy Prompt</button>
+          <button type="button" class="btn" onclick="document.getElementById('tacticalHandoffPreviewModal').classList.remove('open')">✕ Fechar</button>
+        </div>
+      </div>
+      <textarea id="tacHandoffPreviewText" readonly style="flex:1; min-height:280px; background:#050608; border:1px solid rgba(255,106,0,0.28); border-radius:6px; color:#f4f4f5; font-family:var(--font-mono); font-size:11px; padding:10px; resize:vertical;"></textarea>
+    </div>
+  </div>
+
   <div class="toast" id="toastMsg"></div>
 
   <script>
@@ -6098,6 +6744,11 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         const firstMem = activeNodes.find(n => n.node_type === 'memory') || activeNodes[0];
         selectNode(firstMem, false, false);
       }
+
+      if (brainViewStyle === 'tactical') {
+        if (typeof buildTactical3DScene === 'function') buildTactical3DScene();
+        if (typeof fetchTacticalOverview === 'function') fetchTacticalOverview();
+      }
     }
 
     let timeTravelPct = 100;
@@ -6134,8 +6785,9 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       }, 220);
     }
 
-    // Estado de Visualização do Córtex: 'blueprint' (Quadro Arquitetónico Zero-Overlap por defeito) | 'bento' (Galeria HTML) | 'planetary' (Astrolábio Orbital)
-    let brainViewStyle = 'blueprint';
+    // Estado de Visualização do Córtex: 'tactical' (Amber Tactical 3D por defeito) | 'blueprint' (Quadro Arquitetónico Zero-Overlap) | 'bento' (Galeria HTML) | 'planetary' (Astrolábio Orbital)
+    let brainViewStyle = 'tactical';
+    let userPinnedDrawers = { left: false, right: false };
     let blueprintPage = 0;
     let blueprintTotalPages = 1;
     let blueprintCardsMeta = [];
@@ -6358,7 +7010,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
     function renderBlueprintQuickJumpBar() {
       const bar = document.getElementById('blueprintQuickJumpBar');
       if (!bar) return;
-      if (brainViewStyle === 'bento') {
+      if (brainViewStyle === 'bento' || brainViewStyle === 'tactical') {
         bar.style.display = 'none';
         return;
       }
@@ -6439,9 +7091,11 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       blueprintPage = 0;
       bentoPage = 0;
 
+      const btnTac = document.getElementById('btnTacticalView');
       const btnBp = document.getElementById('btnBlueprintView');
       const btnBento = document.getElementById('btnBentoView');
       const btnPlan = document.getElementById('btnPlanetaryView');
+      if (btnTac) btnTac.classList.toggle('active', style === 'tactical');
       if (btnBp) btnBp.classList.toggle('active', style === 'blueprint');
       if (btnBento) btnBento.classList.toggle('active', style === 'bento');
       if (btnPlan) btnPlan.classList.toggle('active', style === 'planetary');
@@ -6450,11 +7104,21 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       if (lockBtn) lockBtn.style.display = style === 'planetary' ? 'inline-flex' : 'none';
 
       const pagerWrap = document.getElementById('blueprintPagerWrap');
-      if (pagerWrap) pagerWrap.style.display = style === 'bento' ? 'none' : 'inline-flex';
+      if (pagerWrap) pagerWrap.style.display = (style === 'bento' || style === 'tactical') ? 'none' : 'inline-flex';
+      ['btnAllLinksHud', 'btnGlobalGraph', 'btnLocalGraph', 'btnQuickCompactHud'].forEach(hid => {
+        const el = document.getElementById(hid);
+        if (el) el.style.display = style === 'tactical' ? 'none' : '';
+      });
 
+      const tacEl = document.getElementById('tacticalCortexShell');
       const bentoEl = document.getElementById('brainBentoGallery');
       const canvasEl = document.getElementById('brainGraph');
-      if (bentoEl && canvasEl) {
+      const jumpBarEl = document.getElementById('blueprintQuickJumpBar');
+
+      if (tacEl) tacEl.style.display = style === 'tactical' ? 'flex' : 'none';
+      if (canvasEl) canvasEl.style.display = (style === 'tactical' || style === 'bento') ? 'none' : 'block';
+      if (jumpBarEl) jumpBarEl.style.display = (style === 'tactical' || style === 'bento') ? 'none' : 'flex';
+      if (bentoEl) {
         if (style === 'bento') {
           bentoEl.style.display = 'block';
           renderBrainBentoGallery();
@@ -6465,9 +7129,28 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
 
       const zoomLbl = document.getElementById('lblPlanetaryZoom');
       if (zoomLbl) {
-        zoomLbl.textContent = style === 'blueprint' ? 'BLUEPRINT OS' : (style === 'bento' ? 'BENTO ATLAS' : 'ORBITAL OS');
+        zoomLbl.textContent = style === 'tactical'
+          ? 'TACTICAL 3D'
+          : (style === 'blueprint' ? 'BLUEPRINT OS' : (style === 'bento' ? 'BENTO ATLAS' : 'ORBITAL OS'));
       }
 
+      if (style === 'tactical') {
+        const leftDrw = document.getElementById('brainLeftDrawer');
+        const rightDrw = document.getElementById('inspectorPane');
+        if (leftDrw && !userPinnedDrawers.left && !leftDrw.classList.contains('drawer-collapsed')) {
+          toggleBrainDrawer('left', false);
+        }
+        if (rightDrw && !userPinnedDrawers.right && !rightDrw.classList.contains('drawer-collapsed')) {
+          toggleBrainDrawer('right', false);
+        }
+        graphAnimRunning = false;
+        if (typeof buildTactical3DScene === 'function') buildTactical3DScene();
+        if (typeof fetchTacticalOverview === 'function') fetchTacticalOverview();
+        if (typeof startTactical3DLoop === 'function') startTactical3DLoop();
+        return;
+      }
+
+      if (typeof stopTactical3DLoop === 'function') stopTactical3DLoop();
       if (style === 'planetary') {
         planetaryAstrolabeMode = true;
       }
@@ -7760,6 +8443,13 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
           </div>
         `;
       }).join('');
+
+      if (typeof tacticalSelectedNodeId !== 'undefined') {
+        tacticalSelectedNodeId = node ? node.id : null;
+      }
+      if (typeof renderTacticalProvenanceWidget === 'function') {
+        renderTacticalProvenanceWidget(node);
+      }
     }
 
     function searchByTag(tag) {
@@ -8597,8 +9287,8 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
 
     let graphAnimRunning = false;
     function renderGraph() {
-      // Se estiver na vista Swarm Monitor, Office ou Galeria Bento HTML, suspende a 100% o loop do Canvas (0% CPU/GPU)
-      if (activeMainView !== 'graph' || brainViewStyle === 'bento') {
+      // Se estiver na vista Swarm Monitor, Office, Galeria Bento HTML ou Tactical 3D, suspende a 100% o loop do Canvas (0% CPU/GPU)
+      if (activeMainView !== 'graph' || brainViewStyle === 'bento' || brainViewStyle === 'tactical') {
         graphAnimRunning = false;
         return;
       }
@@ -9624,11 +10314,17 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
 
       } else {
         window.location.hash = 'graph';
-        resizeCanvas();
-        graphDirty = true;
-        if (!graphAnimRunning && brainViewStyle !== 'bento') {
-          graphAnimRunning = true;
-          requestAnimationFrame(renderGraph);
+        if (brainViewStyle === 'tactical') {
+          if (typeof resizeTacticalCanvas === 'function') resizeTacticalCanvas();
+          if (typeof startTactical3DLoop === 'function') startTactical3DLoop();
+          if (typeof fetchTacticalOverview === 'function') fetchTacticalOverview();
+        } else {
+          resizeCanvas();
+          graphDirty = true;
+          if (!graphAnimRunning && brainViewStyle !== 'bento') {
+            graphAnimRunning = true;
+            requestAnimationFrame(renderGraph);
+          }
         }
       }
     }
@@ -12893,6 +13589,15 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       const nextCollapsed = forceOpen === true ? false : (forceOpen === false ? true : !currentlyCollapsed);
       drawerEl.classList.toggle('drawer-collapsed', nextCollapsed);
 
+      if (forceOpen === null && typeof userPinnedDrawers === 'object' && userPinnedDrawers) {
+        userPinnedDrawers[isLeft ? 'left' : 'right'] = !nextCollapsed;
+      }
+
+      const fabBtn = document.getElementById(isLeft ? 'btnToggleLeftDrawerFloating' : 'btnToggleRightDrawerFloating');
+      if (fabBtn) {
+        fabBtn.classList.toggle('is-collapsed', nextCollapsed);
+      }
+
       const fabLbl = document.getElementById(isLeft ? 'lblLeftDrawerFab' : 'lblRightDrawerFab');
       if (fabLbl) {
         if (isLeft) {
@@ -12900,6 +13605,10 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         } else {
           fabLbl.textContent = nextCollapsed ? '◀ Inspetor' : 'Inspetor ▶';
         }
+      }
+      if (brainViewStyle === 'tactical') {
+        if (typeof resizeTacticalCanvas === 'function') resizeTacticalCanvas();
+        return;
       }
       resizeCanvas();
       resetCamera();
@@ -16671,7 +17380,7 @@ ${rulesSection}`;
 
     // Iniciar aplicação (respeita #swarm, #office/#office3d, #selflearn, #promptforge, #vault/#vault6x, #tasks, #orbit, #ast na URL)
     fetchGraph().then(() => {
-      requestAnimationFrame(renderGraph);
+      setBrainViewStyle(brainViewStyle);
       loadGitStatus();
       initBrainSseStream();
       refreshInlineToolPrune();
@@ -18302,6 +19011,1220 @@ ${rulesSection}`;
     }
 
 
+
+    // =========================================================================
+    // 08 // AMBER TACTICAL 3D CORTEX ENGINE (60 FPS NEBULA + 6 LIVE WIDGETS)
+    // =========================================================================
+    const TACTICAL_COLORS = ['#ff3b1f', '#ff6a00', '#ffb020', '#f8fafc'];
+    const TACTICAL_CAT_COLOR_MAP = {
+      infra: '#ff3b1f',
+      bug_fix: '#ff3b1f',
+      architecture: '#ff6a00',
+      checkpoint: '#ffb020',
+      optimization: '#ffb020',
+      directive: '#f8fafc',
+      preference: '#f8fafc',
+      environment: '#ff6a00',
+      code_change: '#ff8c1a',
+      explicit_note: '#ffb020',
+      general: '#ff6a00'
+    };
+
+    let tacticalCam = { yaw: 0.42, pitch: 0.24, zoom: 1.0, targetYaw: 0.42, targetPitch: 0.24, targetZoom: 1.0 };
+    let tacticalNodes3D = [];
+    let tacticalEdges3D = [];
+    let tacticalClusterHubs = [];
+    let tacticalAmbientStars = [];
+    let tacticalFilter = null; // { kind: 'category'|'workspace'|'agent', value: string } | null
+    let tacticalHoveredNode3D = null;
+    let tacticalSelectedNodeId = null;
+    let tacticalAnimRunning = false;
+    let tacticalTick = 0;
+    let tacticalDragging = false;
+    let tacticalLastPtr = { x: 0, y: 0 };
+    let tacticalDragDist = 0;
+    let tacticalOverviewCache = null;
+    let tacticalInteractionsBound = false;
+
+    function tacticalHashStr(s) {
+      let h = 2166136261;
+      const str = String(s || 'general');
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function tacticalColorForCategory(cat) {
+      const key = String(cat || 'general').toLowerCase().trim();
+      if (TACTICAL_CAT_COLOR_MAP[key]) return TACTICAL_CAT_COLOR_MAP[key];
+      return TACTICAL_COLORS[tacticalHashStr(key) % TACTICAL_COLORS.length];
+    }
+
+    function getTacticalActiveWorkspace() {
+      const wsEl = document.getElementById('wsFilter');
+      if (wsEl && wsEl.value && wsEl.value !== 'all') return wsEl.value;
+      if (typeof activeWorkspace !== 'undefined' && activeWorkspace && activeWorkspace !== 'all') return activeWorkspace;
+      return 'all';
+    }
+
+    function resizeTacticalCanvas() {
+      const tacCanvas = document.getElementById('tacticalGraphCanvas');
+      if (!tacCanvas) return;
+      const parent = tacCanvas.parentElement;
+      if (!parent || parent.clientWidth === 0 || parent.clientHeight === 0) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      tacCanvas.width = Math.round(parent.clientWidth * dpr);
+      tacCanvas.height = Math.round(parent.clientHeight * dpr);
+      const tctx = tacCanvas.getContext('2d');
+      if (tctx) tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', () => {
+      if (brainViewStyle === 'tactical') resizeTacticalCanvas();
+    });
+
+    function buildTactical3DScene() {
+      const rawNodes = (graphData && Array.isArray(graphData.nodes)) ? graphData.nodes : [];
+      const rawLinks = (graphData && Array.isArray(graphData.links)) ? graphData.links : [];
+
+      const memNodes = rawNodes
+        .filter(n => n.node_type === 'memory' || n.node_type === 'checkpoint')
+        .sort((a, b) => ((b.importance || 3) * 10 + (b.access_count || 0)) - ((a.importance || 3) * 10 + (a.access_count || 0)))
+        .slice(0, 460);
+
+      const clusterKeys = [];
+      const clusterSet = new Set();
+      for (const n of memNodes) {
+        const ck = String(n.category || n.workspace || 'general');
+        if (!clusterSet.has(ck)) {
+          clusterSet.add(ck);
+          clusterKeys.push(ck);
+        }
+      }
+      if (!clusterKeys.length) clusterKeys.push('architecture', 'checkpoint', 'optimization', 'infra');
+
+      const clusterDir = {};
+      tacticalClusterHubs = [];
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      clusterKeys.forEach((ck, idx) => {
+        const y = 1 - ((idx + 0.5) / Math.max(1, clusterKeys.length)) * 2;
+        const rad = Math.sqrt(Math.max(0, 1 - y * y));
+        const theta = goldenAngle * idx;
+        const dx = Math.cos(theta) * rad;
+        const dz = Math.sin(theta) * rad;
+        const dy = y * 0.72;
+        const mag = Math.hypot(dx, dy, dz) || 1;
+        const dir = { x: dx / mag, y: dy / mag, z: dz / mag, color: tacticalColorForCategory(ck), key: ck };
+        clusterDir[ck] = dir;
+        tacticalClusterHubs.push({
+          key: ck,
+          x: dir.x * 215,
+          y: dir.y * 215,
+          z: dir.z * 215,
+          color: dir.color
+        });
+      });
+
+      const idToIndex = new Map();
+      tacticalNodes3D = memNodes.map((n, idx) => {
+        const ck = String(n.category || n.workspace || 'general');
+        const dir = clusterDir[ck] || { x: 0.6, y: 0.2, z: 0.7 };
+        const h = tacticalHashStr(n.id || n.label || idx);
+        const h2 = tacticalHashStr(String(n.id || idx) + '_r');
+        const h3 = tacticalHashStr(String(n.id || idx) + '_a');
+
+        // Multi-shell galactic distribution: wide Slide-3 constellation spread
+        const rawImp = Number(n.importance || 5);
+        const imp = Math.min(10, Math.max(1, rawImp));
+        const shellBase = 55 + (10 - imp) * 22 + ((h % 100) / 100) * 185;
+        const spreadAngle = ((h2 % 360) * Math.PI) / 180;
+        const spreadElev = (((h3 % 200) / 100) - 1) * 0.65;
+
+        // Wide galactic ellipsoid so starfield fills the full dark stage
+        const px = (dir.x * shellBase + Math.cos(spreadAngle) * 95) * 1.48;
+        const py = (dir.y * shellBase * 0.72 + spreadElev * 105);
+        const pz = (dir.z * shellBase + Math.sin(spreadAngle) * 95) * 1.18;
+
+        idToIndex.set(n.id, idx);
+        return {
+          id: n.id,
+          db_id: n.db_id,
+          label: n.label || n._cleanLabel || 'Memory',
+          fact: n.fact || '',
+          workspace: n.workspace || 'global',
+          category: n.category || 'general',
+          source: n.source || n.agent_source || n.workspace || 'engram',
+          created_at: n.created_at || n.updated_at || '',
+          importance: imp,
+          access_count: n.access_count || 0,
+          tags: n.tags || '',
+          x: px,
+          y: py,
+          z: pz,
+          color: tacticalColorForCategory(n.category),
+          radius: 1.15 + Math.min(2.15, imp * 0.21),
+          degree: 0,
+          sx: 0,
+          sy: 0,
+          rz: 0,
+          scale: 1,
+          rawNode: n
+        };
+      });
+
+      tacticalEdges3D = [];
+      for (const l of rawLinks) {
+        if (l.kind === 'tag_link') continue;
+        const si = idToIndex.get(l.source);
+        const ti = idToIndex.get(l.target);
+        if (si !== undefined && ti !== undefined && si !== ti) {
+          tacticalEdges3D.push({ s: si, t: ti, kind: l.kind || 'synapse' });
+          tacticalNodes3D[si].degree++;
+          tacticalNodes3D[ti].degree++;
+        }
+        if (tacticalEdges3D.length >= 620) break;
+      }
+
+      // Ambient starlight dust for spatial depth even on small vaults
+      tacticalAmbientStars = [];
+      const ambientNeed = Math.max(85, 160 - tacticalNodes3D.length);
+      for (let i = 0; i < ambientNeed; i++) {
+        const a = (i * goldenAngle) % (Math.PI * 2);
+        const z = ((i / ambientNeed) * 2 - 1) * 0.85;
+        const rxy = Math.sqrt(Math.max(0, 1 - z * z));
+        const dist = 95 + ((i * 53) % 195);
+        tacticalAmbientStars.push({
+          x: Math.cos(a) * rxy * dist,
+          y: z * dist * 0.82,
+          z: Math.sin(a) * rxy * dist,
+          color: TACTICAL_COLORS[i % TACTICAL_COLORS.length],
+          size: 0.9 + (i % 3) * 0.45
+        });
+      }
+
+      bindTacticalCanvasInteractions();
+    }
+
+    function bindTacticalCanvasInteractions() {
+      if (tacticalInteractionsBound) return;
+      const tacCanvas = document.getElementById('tacticalGraphCanvas');
+      if (!tacCanvas) return;
+      tacticalInteractionsBound = true;
+
+      tacCanvas.addEventListener('mousedown', ev => {
+        tacticalDragging = true;
+        tacticalDragDist = 0;
+        tacticalLastPtr = { x: ev.clientX, y: ev.clientY };
+        tacCanvas.classList.add('is-dragging');
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!tacticalDragging) return;
+        tacticalDragging = false;
+        tacCanvas.classList.remove('is-dragging');
+      });
+
+      tacCanvas.addEventListener('mousemove', ev => {
+        const rect = tacCanvas.getBoundingClientRect();
+        const mx = ev.clientX - rect.left;
+        const my = ev.clientY - rect.top;
+
+        if (tacticalDragging) {
+          const dx = ev.clientX - tacticalLastPtr.x;
+          const dy = ev.clientY - tacticalLastPtr.y;
+          tacticalDragDist += Math.hypot(dx, dy);
+          tacticalLastPtr = { x: ev.clientX, y: ev.clientY };
+          tacticalCam.targetYaw += dx * 0.0075;
+          tacticalCam.targetPitch = Math.max(-1.25, Math.min(1.25, tacticalCam.targetPitch + dy * 0.0065));
+          return;
+        }
+
+        let best = null;
+        let bestDist = 17;
+        for (let i = 0; i < tacticalNodes3D.length; i++) {
+          const n = tacticalNodes3D[i];
+          const d = Math.hypot(mx - n.sx, my - n.sy);
+          if (d < bestDist) {
+            bestDist = d;
+            best = n;
+          }
+        }
+        tacticalHoveredNode3D = best;
+        tacCanvas.style.cursor = best ? 'pointer' : 'grab';
+      });
+
+      tacCanvas.addEventListener('mouseleave', () => {
+        tacticalHoveredNode3D = null;
+      });
+
+      tacCanvas.addEventListener('click', () => {
+        if (tacticalDragDist >= 6 || !tacticalHoveredNode3D) return;
+        const picked = tacticalHoveredNode3D;
+        tacticalSelectedNodeId = picked.id;
+        const match = (activeNodes || []).find(a => a.id === picked.id) || picked.rawNode;
+        if (match && typeof selectNode === 'function') {
+          selectNode(match, false, false);
+        } else {
+          renderTacticalProvenanceWidget(picked);
+        }
+      });
+
+      tacCanvas.addEventListener('wheel', ev => {
+        ev.preventDefault();
+        const factor = ev.deltaY > 0 ? 0.91 : 1.09;
+        tacticalCam.targetZoom = Math.max(0.48, Math.min(2.6, tacticalCam.targetZoom * factor));
+      }, { passive: false });
+    }
+
+    function resetTacticalCamera() {
+      tacticalCam.targetYaw = 0.42;
+      tacticalCam.targetPitch = 0.24;
+      tacticalCam.targetZoom = 1.0;
+      tacticalFilter = null;
+      if (tacticalOverviewCache) renderTacticalLegend(tacticalOverviewCache);
+      showToast('⟳ Câmara 3D Tactical recentrada');
+    }
+
+    function matchesTacticalFilter(n) {
+      if (!tacticalFilter) return true;
+      const val = String(tacticalFilter.value || '').toLowerCase();
+      if (tacticalFilter.kind === 'category') return String(n.category || '').toLowerCase() === val;
+      if (tacticalFilter.kind === 'workspace') return String(n.workspace || '').toLowerCase() === val;
+      if (tacticalFilter.kind === 'agent') {
+        const src = String(n.source || n.workspace || '').toLowerCase();
+        const tags = String(n.tags || '').toLowerCase();
+        return src.includes(val) || tags.includes(val);
+      }
+      return true;
+    }
+
+    function filterTacticalCluster(kind, value) {
+      if (tacticalFilter && tacticalFilter.kind === kind && tacticalFilter.value === value) {
+        tacticalFilter = null;
+      } else {
+        tacticalFilter = { kind, value };
+      }
+      if (tacticalOverviewCache) {
+        renderTacticalLegend(tacticalOverviewCache);
+      }
+    }
+
+    function filterTacticalClusterFromEl(el) {
+      if (!el) return;
+      const kind = el.getAttribute('data-tac-kind') || 'category';
+      const val = el.getAttribute('data-tac-val') || '';
+      if (val) filterTacticalCluster(kind, val);
+    }
+
+    function startTactical3DLoop() {
+      resizeTacticalCanvas();
+      if (!tacticalNodes3D.length && graphData && graphData.nodes && graphData.nodes.length) {
+        buildTactical3DScene();
+      }
+      if (tacticalAnimRunning) return;
+      tacticalAnimRunning = true;
+      requestAnimationFrame(renderTactical3DGraph);
+    }
+
+    function stopTactical3DLoop() {
+      tacticalAnimRunning = false;
+    }
+
+    function projectTacticalPoint(x, y, z, cx, cy, cosY, sinY, cosP, sinP, fov, zoom) {
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+      const y2 = y * cosP - z1 * sinP;
+      const z2 = y * sinP + z1 * cosP;
+      const depth = Math.max(80, fov + z2);
+      const scale = (fov / depth) * zoom;
+      return {
+        sx: cx + x1 * scale,
+        sy: cy + y2 * scale,
+        rz: z2,
+        scale
+      };
+    }
+
+    function renderTactical3DGraph() {
+      if (activeMainView !== 'graph' || brainViewStyle !== 'tactical') {
+        tacticalAnimRunning = false;
+        return;
+      }
+
+      const tacCanvas = document.getElementById('tacticalGraphCanvas');
+      if (!tacCanvas) {
+        tacticalAnimRunning = false;
+        return;
+      }
+      const parent = tacCanvas.parentElement;
+      const w = parent ? parent.clientWidth : 800;
+      const h = parent ? parent.clientHeight : 400;
+      if (w <= 0 || h <= 0) {
+        requestAnimationFrame(renderTactical3DGraph);
+        return;
+      }
+
+      const expectedW = Math.round(w * Math.min(window.devicePixelRatio || 1, 1.5));
+      if (Math.abs(tacCanvas.width - expectedW) > 4) {
+        resizeTacticalCanvas();
+      }
+
+      const tctx = tacCanvas.getContext('2d');
+      if (!tctx) {
+        tacticalAnimRunning = false;
+        return;
+      }
+
+      const ecoIdle = typeof isEcoGpuIdle === 'function' && isEcoGpuIdle();
+      tacticalTick += ecoIdle ? 0.008 : 0.022;
+      if (!tacticalDragging && !ecoIdle) {
+        tacticalCam.targetYaw += 0.0018;
+      }
+      tacticalCam.yaw += (tacticalCam.targetYaw - tacticalCam.yaw) * 0.14;
+      tacticalCam.pitch += (tacticalCam.targetPitch - tacticalCam.pitch) * 0.14;
+      tacticalCam.zoom += (tacticalCam.targetZoom - tacticalCam.zoom) * 0.14;
+
+      const cosY = Math.cos(tacticalCam.yaw);
+      const sinY = Math.sin(tacticalCam.yaw);
+      const cosP = Math.cos(tacticalCam.pitch);
+      const sinP = Math.sin(tacticalCam.pitch);
+      const cx = w * 0.52;
+      const cy = h * 0.51;
+      const fov = Math.min(w, h) * 1.18;
+
+      tctx.clearRect(0, 0, w, h);
+
+      // 1. Subtle radial nebula backdrop & perspective orbital rings
+      const bgGrad = tctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(w, h) * 0.56);
+      bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.14)');
+      bgGrad.addColorStop(0.35, 'rgba(255, 59, 31, 0.05)');
+      bgGrad.addColorStop(1, 'rgba(5, 6, 8, 0)');
+      tctx.fillStyle = bgGrad;
+      tctx.fillRect(0, 0, w, h);
+
+      tctx.save();
+      tctx.strokeStyle = 'rgba(255, 106, 0, 0.10)';
+      tctx.lineWidth = 1;
+      [0.32, 0.55, 0.80].forEach((rf, idx) => {
+        const rr = Math.min(w, h) * rf * 0.5 * tacticalCam.zoom;
+        tctx.beginPath();
+        tctx.ellipse(cx, cy, rr * 1.18, rr * (0.42 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.45), 0, 0, Math.PI * 2);
+        if (idx === 1) tctx.setLineDash([4, 6]);
+        else tctx.setLineDash([]);
+        tctx.stroke();
+      });
+      tctx.restore();
+
+      // 2. Project nodes and cluster hubs
+      for (let i = 0; i < tacticalNodes3D.length; i++) {
+        const n = tacticalNodes3D[i];
+        const p = projectTacticalPoint(n.x, n.y, n.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
+        n.sx = p.sx;
+        n.sy = p.sy;
+        n.rz = p.rz;
+        n.scale = p.scale;
+      }
+
+      // 3. Long radial filaments + real synapse edges with additive neon glow
+      tctx.save();
+      tctx.globalCompositeOperation = 'lighter';
+
+      for (let i = 0; i < tacticalClusterHubs.length; i++) {
+        const hub = tacticalClusterHubs[i];
+        const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
+        const filGrad = tctx.createLinearGradient(cx, cy, hp.sx, hp.sy);
+        filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.24)');
+        filGrad.addColorStop(0.6, 'rgba(255, 106, 0, 0.08)');
+        filGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+        tctx.strokeStyle = filGrad;
+        tctx.lineWidth = 1.15;
+        tctx.beginPath();
+        tctx.moveTo(cx, cy);
+        tctx.lineTo(hp.sx, hp.sy);
+        tctx.stroke();
+      }
+
+      const focusId = tacticalHoveredNode3D ? tacticalHoveredNode3D.id : tacticalSelectedNodeId;
+      for (let i = 0; i < tacticalEdges3D.length; i++) {
+        const e = tacticalEdges3D[i];
+        const a = tacticalNodes3D[e.s];
+        const b = tacticalNodes3D[e.t];
+        if (!a || !b) continue;
+        const isFocusEdge = focusId && (a.id === focusId || b.id === focusId);
+        const matchFilter = matchesTacticalFilter(a) && matchesTacticalFilter(b);
+        if (!isFocusEdge && !matchFilter && tacticalFilter) continue;
+
+        if (isFocusEdge) {
+          tctx.strokeStyle = 'rgba(255, 220, 140, 0.62)';
+          tctx.lineWidth = 1.35;
+        } else {
+          tctx.strokeStyle = e.kind === 'causal_link' ? 'rgba(255, 106, 0, 0.22)' : 'rgba(255, 140, 26, 0.11)';
+          tctx.lineWidth = 0.7;
+        }
+        tctx.beginPath();
+        tctx.moveTo(a.sx, a.sy);
+        tctx.lineTo(b.sx, b.sy);
+        tctx.stroke();
+      }
+
+      // Ambient starlight dust
+      for (let i = 0; i < tacticalAmbientStars.length; i++) {
+        const st = tacticalAmbientStars[i];
+        const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
+        const alpha = Math.max(0.08, Math.min(0.45, 0.28 * sp.scale));
+        tctx.fillStyle = st.color;
+        tctx.globalAlpha = alpha;
+        tctx.beginPath();
+        tctx.arc(sp.sx, sp.sy, Math.max(0.6, st.size * sp.scale), 0, Math.PI * 2);
+        tctx.fill();
+      }
+      tctx.globalAlpha = 1;
+
+      // 4. Compact incandescent amber core (0, 0, 0) like Slide 3
+      const pulse = 1 + Math.sin(tacticalTick * 1.9) * 0.08;
+      const coreR = 13 * tacticalCam.zoom * pulse;
+      const coreGrad = tctx.createRadialGradient(cx, cy, 1, cx, cy, coreR * 2.5);
+      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+      coreGrad.addColorStop(0.20, 'rgba(255, 196, 80, 0.92)');
+      coreGrad.addColorStop(0.50, 'rgba(255, 106, 0, 0.42)');
+      coreGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
+      tctx.fillStyle = coreGrad;
+      tctx.beginPath();
+      tctx.arc(cx, cy, coreR * 2.5, 0, Math.PI * 2);
+      tctx.fill();
+
+      tctx.strokeStyle = 'rgba(255, 176, 32, 0.45)';
+      tctx.lineWidth = 1;
+      tctx.beginPath();
+      tctx.arc(cx, cy, coreR * 1.35, 0, Math.PI * 2);
+      tctx.stroke();
+
+      // 5. Depth-sorted razor-sharp starry 3D nodes (switch back to source-over so colors never wash out to white blob!)
+      tctx.globalCompositeOperation = 'source-over';
+      const sorted = tacticalNodes3D.slice().sort((a, b) => b.rz - a.rz);
+      const godThreshold = Math.max(0, sorted.length - 12);
+      for (let i = 0; i < sorted.length; i++) {
+        const n = sorted[i];
+        const isMatched = matchesTacticalFilter(n);
+        const isHov = tacticalHoveredNode3D && tacticalHoveredNode3D.id === n.id;
+        const isSel = tacticalSelectedNodeId && tacticalSelectedNodeId === n.id;
+        const isTopGod = i >= godThreshold && n.importance >= 8;
+        const depthAlpha = Math.max(0.28, Math.min(0.96, 0.72 - n.rz / 760));
+        const alpha = isHov || isSel ? 1 : (tacticalFilter && !isMatched ? 0.12 : depthAlpha);
+        const r = Math.max(1.0, Math.min(4.6, n.radius * n.scale * (isHov ? 1.7 : (isSel ? 1.5 : 1))));
+
+        // Razor-thin radial filament to core for select top hubs & focused node
+        if ((isTopGod || isHov || isSel) && alpha > 0.25) {
+          tctx.strokeStyle = n.color;
+          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.16;
+          tctx.lineWidth = isHov || isSel ? 1.0 : 0.55;
+          tctx.beginPath();
+          tctx.moveTo(cx, cy);
+          tctx.lineTo(n.sx, n.sy);
+          tctx.stroke();
+        }
+
+        // Soft radial halo ONLY for hovered, selected, or top 12 god-nodes
+        if (isTopGod || isHov || isSel) {
+          tctx.globalAlpha = alpha * (isHov || isSel ? 0.45 : 0.22);
+          tctx.fillStyle = n.color;
+          tctx.beginPath();
+          tctx.arc(n.sx, n.sy, r * 2.4, 0, Math.PI * 2);
+          tctx.fill();
+        }
+
+        tctx.globalAlpha = alpha;
+        tctx.fillStyle = isHov ? '#ffffff' : n.color;
+        tctx.beginPath();
+        tctx.arc(n.sx, n.sy, r, 0, Math.PI * 2);
+        tctx.fill();
+
+        if (isSel || isHov) {
+          tctx.strokeStyle = '#ffffff';
+          tctx.lineWidth = 1.2;
+          tctx.beginPath();
+          tctx.arc(n.sx, n.sy, r + 3.5, 0, Math.PI * 2);
+          tctx.stroke();
+        }
+      }
+      tctx.restore();
+
+      // 6. Floating Tactical Callout Cards (hovered + top 3 DISTINCT god nodes, zero overlap)
+      const calloutCandidates = [];
+      const seenIds = new Set();
+      const seenTitleKeys = new Set();
+      if (tacticalHoveredNode3D) {
+        calloutCandidates.push(tacticalHoveredNode3D);
+        seenIds.add(tacticalHoveredNode3D.id);
+        seenTitleKeys.add(String(tacticalHoveredNode3D.label || '').toLowerCase().slice(0, 18));
+      }
+      const godSorted = tacticalNodes3D
+        .filter(n => matchesTacticalFilter(n) && n.sx > 220 && n.sx < w - 180 && n.sy > 46 && n.sy < h - 42)
+        .sort((a, b) => (b.importance * 8 + b.degree * 3) - (a.importance * 8 + a.degree * 3));
+
+      for (let i = 0; i < godSorted.length && calloutCandidates.length < 4; i++) {
+        const cand = godSorted[i];
+        const tkey = String(cand.label || '').toLowerCase().slice(0, 18);
+        if (!seenIds.has(cand.id) && !seenTitleKeys.has(tkey)) {
+          calloutCandidates.push(cand);
+          seenIds.add(cand.id);
+          seenTitleKeys.add(tkey);
+        }
+      }
+
+      const occupiedBoxes = [
+        { x: 6, y: 6, w: 206, h: Math.min(h - 12, 230) }, // Legend overlay guard
+        { x: Math.max(0, w - 335), y: 6, w: 330, h: 42 }  // Top-right actions guard
+      ];
+
+      tctx.save();
+      tctx.font = '600 9.5px "JetBrains Mono", monospace';
+      calloutCandidates.forEach((node, idx) => {
+        const boxW = 166;
+        const boxH = 34;
+        const offsets = [
+          { dx: 24, dy: -36 },
+          { dx: -boxW - 24, dy: -34 },
+          { dx: 24, dy: 16 },
+          { dx: -boxW - 24, dy: 16 }
+        ];
+        let bx = node.sx + offsets[idx % offsets.length].dx;
+        let by = node.sy + offsets[idx % offsets.length].dy;
+        bx = Math.max(216, Math.min(w - boxW - 10, bx));
+        by = Math.max(46, Math.min(h - boxH - 8, by));
+
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const hit = occupiedBoxes.some(ob => !(bx + boxW + 6 < ob.x || bx > ob.x + ob.w + 6 || by + boxH + 6 < ob.y || by > ob.y + ob.h + 6));
+          if (!hit) break;
+          by = Math.max(46, Math.min(h - boxH - 8, by + (attempt % 2 === 0 ? 38 : -38)));
+        }
+        occupiedBoxes.push({ x: bx, y: by, w: boxW, h: boxH });
+
+        // Leader line
+        const anchorX = bx + boxW * 0.5 < node.sx ? bx + boxW : bx;
+        const anchorY = by + boxH * 0.5;
+        tctx.strokeStyle = 'rgba(255, 140, 26, 0.72)';
+        tctx.lineWidth = 1;
+        tctx.beginPath();
+        tctx.moveTo(node.sx, node.sy);
+        tctx.lineTo(anchorX, anchorY);
+        tctx.stroke();
+
+        // Callout card
+        tctx.fillStyle = 'rgba(8, 9, 14, 0.90)';
+        tctx.strokeStyle = (tacticalHoveredNode3D && tacticalHoveredNode3D.id === node.id) ? '#ffffff' : 'rgba(255, 106, 0, 0.58)';
+        tctx.lineWidth = 1;
+        tctx.beginPath();
+        tctx.roundRect(bx, by, boxW, boxH, 5);
+        tctx.fill();
+        tctx.stroke();
+
+        const metaTxt = `source: ${String(node.source || node.workspace).slice(0, 12)} · ${String(node.created_at || 'live').slice(0, 10)}`;
+        const titleTxt = String(node.label || 'Memory').slice(0, 24);
+        tctx.fillStyle = '#ffb020';
+        tctx.font = '700 8px "JetBrains Mono", monospace';
+        tctx.fillText(metaTxt, bx + 7, by + 12);
+        tctx.fillStyle = '#f8fafc';
+        tctx.font = '600 9.5px "JetBrains Mono", monospace';
+        tctx.fillText(titleTxt, bx + 7, by + 26);
+      });
+      tctx.restore();
+
+      if (ecoIdle) {
+        setTimeout(() => requestAnimationFrame(renderTactical3DGraph), 80);
+      } else {
+        requestAnimationFrame(renderTactical3DGraph);
+      }
+    }
+
+    function animateTacticalCounter(el, targetVal, suffix = '') {
+      if (!el) return;
+      const numericTarget = Number(targetVal);
+      if (!Number.isFinite(numericTarget)) {
+        el.textContent = String(targetVal || 0) + suffix;
+        return;
+      }
+      const startVal = parseFloat(String(el.dataset.tacVal || '0')) || 0;
+      el.dataset.tacVal = String(numericTarget);
+      const startTime = performance.now();
+      const duration = 380;
+      function step(now) {
+        const p = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const cur = startVal + (numericTarget - startVal) * eased;
+        el.textContent = (Number.isInteger(numericTarget) ? Math.round(cur).toLocaleString() : cur.toFixed(1)) + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function buildTacticalFallbackOverview() {
+      const mems = (graphData && graphData.nodes ? graphData.nodes : []).filter(n => n.node_type === 'memory');
+      const catCounts = {};
+      mems.forEach(m => {
+        const c = m.category || 'general';
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      });
+      const categories = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+      const featured = mems.slice().sort((a, b) => (b.importance || 3) - (a.importance || 3))[0] || null;
+      return {
+        kpis: {
+          memories: (graphData && graphData.stats && graphData.stats.total_memories) || mems.length,
+          ides: Object.keys((graphData && graphData.filters && graphData.filters.workspace_counts) || {}).length || 4,
+          skills: 18,
+          rules: mems.filter(m => m.category === 'directive').length,
+          latency_ms: (graphData && graphData.stats && graphData.stats.avg_inject_latency_ms) || 11.2
+        },
+        agents: [
+          { name: 'antigravity', count: Math.max(1, Math.round(mems.length * 0.45)), color: '#ff6a00' },
+          { name: 'claude_code', count: Math.max(1, Math.round(mems.length * 0.28)), color: '#ffb020' },
+          { name: 'cursor', count: Math.max(1, Math.round(mems.length * 0.17)), color: '#ff3b1f' },
+          { name: 'codex_cli', count: Math.max(1, Math.round(mems.length * 0.10)), color: '#f8fafc' }
+        ],
+        categories,
+        velocity: [18, 24, 21, 32, 29, 44, 39, 52, 48, 61, 57, 68],
+        featured_fact: featured,
+        rules: [],
+        pending_corrections: 0,
+        active_model: 'local · qwen/gemini',
+        matrix: [],
+        ticker: [
+          `CORTEX LIVE: ${mems.length} SOURCED MEMORIES`,
+          `SYNAPSES: ${(graphData && graphData.links ? graphData.links.length : 0)} ACTIVE EDGES`,
+          'HANDOFF.MD READY · CROSS-IDE SYNC'
+        ]
+      };
+    }
+
+    async function fetchTacticalOverview() {
+      const ws = getTacticalActiveWorkspace();
+      let data = null;
+      try {
+        const res = await fetch(`/api/tactical/overview?workspace=${encodeURIComponent(ws)}`);
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (_e) {}
+
+      const fallback = buildTacticalFallbackOverview();
+      if (!data || typeof data !== 'object') {
+        data = fallback;
+      } else {
+        const hs = data.header_stats || data.kpis || {};
+        data.kpis = {
+          memories: hs.total_memories ?? hs.memories ?? fallback.kpis.memories,
+          ides: hs.connected_ides ?? hs.ides ?? fallback.kpis.ides,
+          skills: hs.total_skills ?? hs.skills ?? fallback.kpis.skills,
+          rules: hs.canonical_rules ?? hs.rules ?? fallback.kpis.rules,
+          latency_ms: hs.latency_ms ?? fallback.kpis.latency_ms
+        };
+        const rawAgents = Array.isArray(data.agent_legend) ? data.agent_legend : data.agents;
+        data.agents = (Array.isArray(rawAgents) && rawAgents.length) ? rawAgents : fallback.agents;
+
+        const rawCats = Array.isArray(data.category_bars) && data.category_bars.length
+          ? data.category_bars
+          : (Array.isArray(data.category_legend) ? data.category_legend : data.categories);
+        data.categories = (Array.isArray(rawCats) && rawCats.length) ? rawCats : fallback.categories;
+
+        const rawSeries = Array.isArray(data.activity_series) ? data.activity_series : data.velocity;
+        if (Array.isArray(rawSeries) && rawSeries.length) {
+          data.velocity = rawSeries.map(pt => typeof pt === 'number'
+            ? pt
+            : Number((pt.memories || 0) + (pt.injections || 0) || pt.count || pt.value || 0));
+        } else {
+          data.velocity = fallback.velocity;
+        }
+
+        if (Array.isArray(data.featured_provenance) && data.featured_provenance.length) {
+          data.featured_fact = data.featured_provenance[0];
+        } else if (!data.featured_fact) {
+          data.featured_fact = fallback.featured_fact;
+        }
+
+        if (data.distiller && typeof data.distiller === 'object') {
+          const prom = Array.isArray(data.distiller.rules) ? data.distiller.rules : [];
+          const pend = Array.isArray(data.distiller.pending)
+            ? data.distiller.pending.map(p => ({ rule: p.correction_text || p.text || '', promoted: false }))
+            : [];
+          data.rules = prom.concat(pend);
+          data.pending_corrections = data.distiller.pending_count ?? pend.length;
+        } else {
+          data.rules = Array.isArray(data.rules) ? data.rules : [];
+        }
+
+        if (data.system_matrix && typeof data.system_matrix === 'object') {
+          data.active_model = data.system_matrix.active_model || data.active_model || fallback.active_model;
+          data.matrix = Array.isArray(data.system_matrix.cells) ? data.system_matrix.cells : [];
+        }
+
+        const rawTicker = Array.isArray(data.ticker_items) ? data.ticker_items : data.ticker;
+        data.ticker = (Array.isArray(rawTicker) && rawTicker.length) ? rawTicker : fallback.ticker;
+      }
+      tacticalOverviewCache = data;
+
+      const k = data.kpis || {};
+      animateTacticalCounter(document.getElementById('tacStatMemories'), k.memories ?? k.total_memories ?? 0);
+      animateTacticalCounter(document.getElementById('tacStatIdes'), k.ides ?? k.connected_ides ?? 0);
+      animateTacticalCounter(document.getElementById('tacStatSkills'), k.skills ?? k.skills_count ?? 0);
+      animateTacticalCounter(document.getElementById('tacStatRules'), k.rules ?? k.rules_count ?? 0);
+      animateTacticalCounter(document.getElementById('tacStatLatency'), k.latency_ms ?? 11.2, 'ms');
+
+      renderTacticalLegend(data);
+      renderTacticalWidgets(data);
+      renderTacticalTicker(data);
+    }
+
+    function renderTacticalLegend(data) {
+      const el = document.getElementById('tacticalLegendOverlay');
+      if (!el) return;
+      const agents = Array.isArray(data.agents) ? data.agents : [];
+      const cats = Array.isArray(data.categories) ? data.categories : [];
+
+      let html = `<div class="tactical-legend-title">ENGRAM · every agent, one memory</div>`;
+      if (tacticalFilter) {
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; padding:3px 5px; background:rgba(255,106,0,0.16); border:1px solid rgba(255,106,0,0.45); border-radius:4px; font-size:8.5px; color:#ffb020;">
+          <span>FILTER: ${escapeHtml(tacticalFilter.value)}</span>
+          <button type="button" class="tactical-mini-btn" style="padding:0 4px;" onclick="filterTacticalCluster(tacticalFilter.kind, tacticalFilter.value)">✕</button>
+        </div>`;
+      }
+
+      html += `<div class="tactical-legend-sec">AGENTS &amp; IDES</div>`;
+      agents.slice(0, 6).forEach((ag, idx) => {
+        const name = typeof ag === 'string' ? ag : (ag.label || ag.name || ag.agent || 'agent');
+        const filterVal = typeof ag === 'string' ? ag : (ag.id || ag.name || name);
+        const cnt = typeof ag === 'object' ? (ag.count ?? ag.memories ?? 0) : 0;
+        const col = (typeof ag === 'object' && ag.color) ? ag.color : TACTICAL_COLORS[idx % TACTICAL_COLORS.length];
+        const isAct = tacticalFilter && tacticalFilter.kind === 'agent' && tacticalFilter.value === filterVal;
+        html += `
+          <div class="tactical-legend-row ${isAct ? 'active' : ''}" data-tac-kind="agent" data-tac-val="${escapeHtml(filterVal)}" onclick="filterTacticalClusterFromEl(this)">
+            <span style="display:flex; align-items:center; gap:6px; min-width:0;">
+              <span class="tactical-legend-dot" style="background:${escapeHtml(col)}; box-shadow:0 0 6px ${escapeHtml(col)};"></span>
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>
+            </span>
+            <span style="font-variant-numeric:tabular-nums; color:#a1a1aa;">${cnt}</span>
+          </div>
+        `;
+      });
+
+      html += `<div class="tactical-legend-sec">CATEGORIES</div>`;
+      cats.slice(0, 8).forEach(cat => {
+        const name = typeof cat === 'string' ? cat : (cat.label || cat.name || cat.category || 'general');
+        const cnt = typeof cat === 'object' ? (cat.count ?? 0) : 0;
+        const col = (typeof cat === 'object' && cat.color) ? cat.color : tacticalColorForCategory(name);
+        const isAct = tacticalFilter && tacticalFilter.kind === 'category' && tacticalFilter.value === name;
+        html += `
+          <div class="tactical-legend-row ${isAct ? 'active' : ''}" data-tac-kind="category" data-tac-val="${escapeHtml(name)}" onclick="filterTacticalClusterFromEl(this)">
+            <span style="display:flex; align-items:center; gap:6px; min-width:0;">
+              <span class="tactical-legend-dot" style="background:${escapeHtml(col)}; box-shadow:0 0 6px ${escapeHtml(col)};"></span>
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>
+            </span>
+            <span style="font-variant-numeric:tabular-nums; color:#a1a1aa;">${cnt}</span>
+          </div>
+        `;
+      });
+
+      el.innerHTML = html;
+    }
+
+    function renderTacticalProvenanceWidget(nodeOrFact) {
+      const bodyEl = document.getElementById('tacWidgetProvenanceBody');
+      const badgeEl = document.getElementById('tacProvSourceBadge');
+      if (!bodyEl) return;
+
+      const item = nodeOrFact || selectedNode || (tacticalOverviewCache && tacticalOverviewCache.featured_fact);
+      if (!item) {
+        bodyEl.innerHTML = `<div style="font-size:9.5px; color:#71717a;">Click any glowing node in the 3D nebula to inspect sourced provenance.</div>`;
+        return;
+      }
+
+      const src = item.source || item.agent_source || item.workspace || 'engram';
+      const ts = item.timestamp || item.created_at || item.updated_at || 'live';
+      const title = item.label || item.topic || 'Sourced Fact';
+      const snippet = item.fact || item.snippet || item.content || '';
+      if (badgeEl) badgeEl.textContent = String(src).toUpperCase().slice(0, 14);
+
+      bodyEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:8.5px; color:#ffb020;">
+          <span>src: ${escapeHtml(src)} · ${escapeHtml(item.category || 'general')}</span>
+          <span style="color:#71717a;">${escapeHtml(String(ts).slice(0, 16))}</span>
+        </div>
+        <div style="font-size:9.5px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(title)}</div>
+        <div style="font-size:8.6px; color:#a1a1aa; line-height:1.28; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${escapeHtml(snippet)}</div>
+        <div style="display:flex; gap:5px; margin-top:auto; padding-top:4px;">
+          <button type="button" class="tactical-mini-btn" onclick="toggleBrainDrawer('right', true)">Abrir Inspetor</button>
+          <button type="button" class="tactical-mini-btn" onclick="exportCrossIdeHandoffUI()">Handoff.md</button>
+        </div>
+      `;
+    }
+
+    function renderTacticalWidgets(data) {
+      // Widget 1: Category Distribution
+      const barsBody = document.getElementById('tacWidgetBarsBody');
+      const barsTotalLbl = document.getElementById('tacBarsTotalLbl');
+      const cats = Array.isArray(data.categories) ? data.categories : [];
+      const maxCat = Math.max(1, ...cats.map(c => Number(c.count || 0)));
+      const totalCat = cats.reduce((acc, c) => acc + Number(c.count || 0), 0);
+      if (barsTotalLbl) barsTotalLbl.textContent = `${totalCat} nodes`;
+      if (barsBody) {
+        barsBody.innerHTML = cats.slice(0, 6).map(c => {
+          const name = c.label || c.name || c.category || 'general';
+          const cnt = Number(c.count || 0);
+          const pct = c.pct !== undefined ? Math.max(6, Math.round(Number(c.pct))) : Math.max(6, Math.round((cnt / maxCat) * 100));
+          const col = c.color || tacticalColorForCategory(name);
+          return `
+            <div class="tactical-bar-row" data-tac-kind="category" data-tac-val="${escapeHtml(name)}" onclick="filterTacticalClusterFromEl(this)">
+              <span style="color:#d4d4d8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(name)}</span>
+              <div class="tactical-bar-track">
+                <div class="tactical-bar-fill" style="width:${pct}%; background:linear-gradient(90deg, ${escapeHtml(col)}, #f8fafc); box-shadow:0 0 8px ${escapeHtml(col)};"></div>
+              </div>
+              <span style="text-align:right; color:#ffb020; font-variant-numeric:tabular-nums;">${cnt}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Widget 2: Memory & Token Velocity (SVG Area Sparkline)
+      const areaBody = document.getElementById('tacWidgetAreaBody');
+      const areaPeakLbl = document.getElementById('tacAreaPeakLbl');
+      const seriesRaw = Array.isArray(data.velocity) ? data.velocity : [12, 18, 15, 24, 29, 36, 33, 45];
+      const vals = seriesRaw.map(v => typeof v === 'number' ? v : Number(v.count ?? v.value ?? v.tokens ?? 0));
+      const maxV = Math.max(1, ...vals);
+      const minV = Math.min(0, ...vals);
+      if (areaPeakLbl) areaPeakLbl.textContent = `PEAK ${maxV}`;
+      if (areaBody && vals.length) {
+        const sw = 240;
+        const sh = 92;
+        const pts = vals.map((v, i) => {
+          const x = vals.length === 1 ? sw / 2 : (i / (vals.length - 1)) * (sw - 8) + 4;
+          const norm = (v - minV) / Math.max(1, maxV - minV);
+          const y = sh - 10 - norm * (sh - 20);
+          return [x, y];
+        });
+        const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+        const areaPath = `${linePath} L${pts[pts.length - 1][0].toFixed(1)},${sh} L${pts[0][0].toFixed(1)},${sh} Z`;
+        areaBody.innerHTML = `
+          <svg viewBox="0 0 ${sw} ${sh}" preserveAspectRatio="none" style="width:100%; height:100%; min-height:76px; display:block;">
+            <defs>
+              <linearGradient id="tacAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ff6a00" stop-opacity="0.52" />
+                <stop offset="100%" stop-color="#ff6a00" stop-opacity="0.02" />
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="${sh * 0.5}" x2="${sw}" y2="${sh * 0.5}" stroke="rgba(255,106,0,0.14)" stroke-dasharray="3,4" />
+            <path d="${areaPath}" fill="url(#tacAreaGrad)" />
+            <path d="${linePath}" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="${pts[pts.length - 1][0].toFixed(1)}" cy="${pts[pts.length - 1][1].toFixed(1)}" r="3.2" fill="#f8fafc" stroke="#ff6a00" stroke-width="1.5" />
+          </svg>
+        `;
+      }
+
+      // Widget 3: Provenance
+      renderTacticalProvenanceWidget(selectedNode || data.featured_fact);
+
+      // Widget 4: Voice & Telegram Intake live status + waveform hydration
+      const intakeObj = data.voice_intake || {};
+      const intakeBadgeEl = document.getElementById('tacIntakeStatusBadge');
+      const intakeInfoEl = document.getElementById('tacIntakeLastInfo');
+      if (intakeBadgeEl) {
+        const tgLive = !!(intakeObj.telegram_configured && intakeObj.telegram_enabled);
+        const totalIn = Number(intakeObj.total_ingested || 0);
+        intakeBadgeEl.textContent = tgLive ? `TG LIVE · ${totalIn}` : `READY · ${totalIn}`;
+        intakeBadgeEl.style.color = tgLive ? '#34d399' : '#ffb020';
+      }
+      if (intakeInfoEl && Array.isArray(intakeObj.recent_items) && intakeObj.recent_items.length) {
+        const latest = intakeObj.recent_items[0];
+        intakeInfoEl.textContent = `[${latest.channel || 'intake'} -> ${latest.routed_to || 'vault'}] ${String(latest.cleaned_text || '').slice(0, 62)}`;
+      }
+      if (Array.isArray(intakeObj.waveform) && intakeObj.waveform.length) {
+        const waveBars = document.querySelectorAll('#tacWidgetVoiceIntake .tactical-wave-bar');
+        waveBars.forEach((bar, idx) => {
+          const amp = Number(intakeObj.waveform[idx % intakeObj.waveform.length] || 0.4);
+          bar.style.height = `${Math.max(22, Math.min(100, Math.round(amp * 100)))}%`;
+        });
+      }
+
+      // Widget 5: Nightly Corrections -> Rules
+      const rulesBody = document.getElementById('tacRulesListBody');
+      const rulesBadge = document.getElementById('tacRulesPendingBadge');
+      const rules = Array.isArray(data.rules) ? data.rules : [];
+      const pendingCount = Number(data.pending_corrections || 0);
+      if (rulesBadge) rulesBadge.textContent = `${pendingCount} pending · ${rules.length} rules`;
+      if (rulesBody) {
+        if (!rules.length) {
+          rulesBody.innerHTML = `<div style="font-size:9px; color:#71717a;">Log session corrections below and click Distill to promote persistent AGENTS.md rules.</div>`;
+        } else {
+          rulesBody.innerHTML = rules.slice(0, 6).map(r => {
+            const txt = typeof r === 'string' ? r : (r.rule || r.rule_text || r.fact || r.topic || '');
+            const promoted = typeof r === 'object' ? (r.promoted !== false) : true;
+            return `
+              <div style="display:flex; align-items:center; gap:5px; font-size:8.8px; padding:2px 4px; border-radius:4px; background:rgba(255,106,0,0.06); border-left:2px solid ${promoted ? '#ff6a00' : '#ffb020'};">
+                <span style="color:${promoted ? '#ff8c1a' : '#f8fafc'}; font-weight:700;">${promoted ? 'RULE' : 'PEND'}</span>
+                <span style="color:#d4d4d8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(txt)}</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Widget 6: System & Model Matrix (4x6 = 24 tactical cells)
+      const matrixBody = document.getElementById('tacWidgetMatrixBody');
+      const modelPill = document.getElementById('tacMatrixActiveModelPill');
+      if (modelPill) {
+        const lat = (data.kpis && data.kpis.latency_ms) || 11.2;
+        modelPill.textContent = `${String(data.active_model || 'LOCAL').toUpperCase().slice(0, 16)} · ${lat}MS`;
+      }
+      if (matrixBody) {
+        const defaultCells = [
+          'FTS5', 'RRF32', 'AST', 'BFS', 'SSE', 'MCP',
+          'SCOUT', 'SWARM', 'COW', 'DOTS', 'VAULT', 'PAGODA',
+          'JEV-S1', 'QUOTA', 'CRON', 'TG-BOT', 'VOICE', 'RULES',
+          'CLAUDE', 'GEMINI', 'CODEX', 'OLLAMA', 'HANDOFF', '3D-GL'
+        ];
+        const rawMatrix = Array.isArray(data.matrix) && data.matrix.length ? data.matrix : defaultCells.map((lbl, idx) => ({
+          label: lbl,
+          status: idx < 18 ? 'hot' : (idx < 22 ? 'warm' : 'idle'),
+          detail: `${lbl} subsystem online`
+        }));
+        const cells = rawMatrix.slice(0, 24);
+        while (cells.length < 24) {
+          cells.push({ label: `NODE-${cells.length + 1}`, status: 'idle', detail: 'Standby' });
+        }
+        matrixBody.innerHTML = cells.map(cell => {
+          const lbl = typeof cell === 'string' ? cell : (cell.label || cell.name || 'SYS');
+          const status = typeof cell === 'object' ? String(cell.state || cell.status || 'hot').toLowerCase() : 'hot';
+          const detail = typeof cell === 'object' ? (cell.detail || cell.tooltip || lbl) : lbl;
+          let bg = 'rgba(255, 106, 0, 0.22)';
+          let fg = '#ffb020';
+          if (status === 'peak' || status === 'active' || status === 'white') {
+            bg = 'rgba(248, 250, 252, 0.90)';
+            fg = '#050608';
+          } else if (status === 'hot' || status === 'ok') {
+            bg = 'rgba(255, 106, 0, 0.42)';
+            fg = '#ffffff';
+          } else if (status === 'warm') {
+            bg = 'rgba(255, 176, 32, 0.34)';
+            fg = '#f8fafc';
+          } else if (status === 'cool') {
+            bg = 'rgba(255, 106, 0, 0.14)';
+            fg = '#ffb020';
+          } else if (status === 'warn' || status === 'alert') {
+            bg = 'rgba(255, 59, 31, 0.55)';
+            fg = '#ffffff';
+          } else if (status === 'idle' || status === 'off') {
+            bg = 'rgba(24, 24, 32, 0.85)';
+            fg = '#71717a';
+          }
+          return `<div class="tactical-matrix-cell" style="background:${bg}; color:${fg};" title="${escapeHtml(detail)}">${escapeHtml(lbl)}</div>`;
+        }).join('');
+      }
+    }
+
+    function renderTacticalTicker(data) {
+      const ticker = document.getElementById('tacticalBottomTicker');
+      if (!ticker) return;
+      const items = Array.isArray(data.ticker) ? data.ticker : [];
+      ticker.innerHTML = items.map(it => `
+        <span class="tactical-ticker-item">
+          <span class="tactical-ticker-dot"></span>
+          <span>${escapeHtml(typeof it === 'string' ? it : (it.text || JSON.stringify(it)))}</span>
+        </span>
+      `).join('');
+    }
+
+    async function submitTacticalIntakeUI() {
+      const inp = document.getElementById('tacIntakeInput');
+      const modeSel = document.getElementById('tacIntakeMode');
+      const infoEl = document.getElementById('tacIntakeLastInfo');
+      const badgeEl = document.getElementById('tacIntakeStatusBadge');
+      const text = inp ? inp.value.trim() : '';
+      const mode = modeSel ? modeSel.value : 'auto';
+      if (!text) {
+        showToast('⚠️ Escreva ou dite primeiro uma nota/tarefa para ingerir.');
+        return;
+      }
+      if (badgeEl) badgeEl.textContent = 'SENDING...';
+      try {
+        const rawWs = getTacticalActiveWorkspace();
+        const ws = rawWs === 'all' ? 'brain_mcp' : rawWs;
+        const res = await fetch('/api/intake/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, mode, channel: 'quick_capture', workspace: ws, sender: 'tactical_ui' })
+        });
+        const out = await res.json();
+        const intakeObj = out.intake || out;
+        const routed = intakeObj.routed_to || mode;
+        if (res.ok && (out.ok !== false)) {
+          if (inp) inp.value = '';
+          if (badgeEl) badgeEl.textContent = 'INGESTED';
+          if (infoEl) infoEl.textContent = `Routed [${routed}]: ${text.slice(0, 56)}`;
+          showToast(`⚡ Intake ingerido (${routed}) e indexado!`);
+          await Promise.all([
+            fetchTacticalOverview(),
+            fetchGraph(),
+            typeof fetchTasksStudioPage === 'function' ? fetchTasksStudioPage(false) : Promise.resolve()
+          ]);
+        } else {
+          if (badgeEl) badgeEl.textContent = 'ERR';
+          showToast('❌ Erro no intake: ' + (out.error || 'Falha'));
+        }
+      } catch (err) {
+        if (badgeEl) badgeEl.textContent = 'ERR';
+        showToast('❌ Falha de rede ao enviar intake');
+      }
+    }
+
+    function toggleTacticalTelegramPopover() {
+      const pop = document.getElementById('tacticalTelegramPopover');
+      if (!pop) return;
+      const isOpen = pop.classList.toggle('open');
+      const tg = tacticalOverviewCache && (tacticalOverviewCache.voice_intake || tacticalOverviewCache.telegram);
+      if (isOpen && tg) {
+        const chatEl = document.getElementById('tacTgChatId');
+        const enEl = document.getElementById('tacTgEnabled');
+        if (chatEl && tg.chat_id) chatEl.value = tg.chat_id;
+        const enabledVal = typeof tg.telegram_enabled === 'boolean' ? tg.telegram_enabled : tg.enabled;
+        if (enEl && typeof enabledVal === 'boolean') enEl.checked = enabledVal;
+      }
+    }
+
+    async function saveTacticalTelegramConfigUI() {
+      const tokenEl = document.getElementById('tacTgBotToken');
+      const chatEl = document.getElementById('tacTgChatId');
+      const enEl = document.getElementById('tacTgEnabled');
+      try {
+        const res = await fetch('/api/intake/telegram-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bot_token: tokenEl ? tokenEl.value.trim() : '',
+            chat_id: chatEl ? chatEl.value.trim() : '',
+            enabled: enEl ? !!enEl.checked : false
+          })
+        });
+        const out = await res.json();
+        if (res.ok && out.ok !== false) {
+          showToast('✅ Configuração Telegram Intake guardada!');
+          const pop = document.getElementById('tacticalTelegramPopover');
+          if (pop) pop.classList.remove('open');
+          await fetchTacticalOverview();
+        } else {
+          showToast('❌ Erro ao guardar Telegram config: ' + (out.error || 'Falha'));
+        }
+      } catch (_e) {
+        showToast('❌ Falha de rede ao guardar configuração Telegram');
+      }
+    }
+
+    async function logTacticalCorrectionUI() {
+      const inp = document.getElementById('tacCorrectionInput');
+      const text = inp ? inp.value.trim() : '';
+      if (!text) {
+        showToast('⚠️ Escreva uma correção ou padrão para registar.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/rules/distill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'record',
+            correction_text: text,
+            workspace: getTacticalActiveWorkspace() === 'all' ? 'brain_mcp' : getTacticalActiveWorkspace()
+          })
+        });
+        const out = await res.json();
+        if (res.ok && out.ok !== false) {
+          if (inp) inp.value = '';
+          showToast('📝 Correção registada na fila de destilação noturna!');
+          await fetchTacticalOverview();
+        } else {
+          showToast('❌ Erro ao registar correção: ' + (out.error || 'Falha'));
+        }
+      } catch (_e) {
+        showToast('❌ Falha de rede ao registar correção');
+      }
+    }
+
+    async function triggerTacticalRuleDistillUI() {
+      try {
+        const res = await fetch('/api/rules/distill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'distill',
+            workspace: getTacticalActiveWorkspace() === 'all' ? 'brain_mcp' : getTacticalActiveWorkspace()
+          })
+        });
+        const out = await res.json();
+        const resObj = out.result || out;
+        if (res.ok && out.ok !== false) {
+          const cnt = resObj.promoted_count ?? resObj.distilled ?? resObj.rules_promoted ?? 0;
+          showToast(`⚡ Distill concluído: ${cnt} regra(s) promovida(s) para AGENTS.md!`);
+          await Promise.all([fetchTacticalOverview(), fetchGraph()]);
+        } else {
+          showToast('❌ Erro na destilação de regras: ' + (out.error || 'Falha'));
+        }
+      } catch (_e) {
+        showToast('❌ Falha de rede ao destilar regras');
+      }
+    }
+
+    function copyTacticalHandoffModalText() {
+      const ta = document.getElementById('tacHandoffPreviewText');
+      if (!ta || !ta.value) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(() => {
+          showToast('📋 Resume prompt copiado para a área de transferência!');
+        }).catch(() => {
+          ta.select();
+          showToast('ℹ️ Selecione e copie o texto manualmente (Ctrl+C).');
+        });
+      } else {
+        ta.select();
+        showToast('ℹ️ Selecione e copie o texto manualmente (Ctrl+C).');
+      }
+    }
+
+    async function exportCrossIdeHandoffUI() {
+      const rawWs = getTacticalActiveWorkspace();
+      const ws = rawWs === 'all' ? 'brain_mcp' : rawWs;
+      try {
+        const res = await fetch('/api/handoff/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspace: ws,
+            node_id: selectedNode ? (selectedNode.db_id || selectedNode.id) : null
+          })
+        });
+        const out = await res.json();
+        const hObj = out.handoff || out;
+        if (res.ok && out.ok !== false) {
+          const promptTxt = hObj.resume_prompt || hObj.markdown || hObj.content || '';
+          const pathLbl = hObj.file_path || hObj.handoff_path || hObj.vault_file || hObj.path || 'HANDOFF.md';
+          let copied = false;
+          if (promptTxt && navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+              await navigator.clipboard.writeText(promptTxt);
+              copied = true;
+            } catch (_cErr) {}
+          }
+          const modal = document.getElementById('tacticalHandoffPreviewModal');
+          const ta = document.getElementById('tacHandoffPreviewText');
+          const pEl = document.getElementById('tacHandoffPathLbl');
+          if (pEl) pEl.textContent = pathLbl;
+          if (ta) ta.value = promptTxt || hObj.markdown || '';
+          if (modal && (!copied || hObj.markdown)) modal.classList.add('open');
+          showToast(copied ? `⇄ ${pathLbl} exportado & prompt copiado!` : `⇄ ${pathLbl} exportado!`);
+        } else {
+          showToast('❌ Erro ao exportar HANDOFF.md: ' + (out.error || 'Falha'));
+        }
+      } catch (_e) {
+        showToast('❌ Falha de rede ao exportar HANDOFF.md');
+      }
+    }
 
     setTimeout(() => {
       refreshQuota5hRadarUI(false);

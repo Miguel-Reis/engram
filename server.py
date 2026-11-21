@@ -1323,6 +1323,133 @@ def brain_route_agent_model(
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 
+@mcp.tool()
+def brain_distill_rules(
+    workspace: str = "brain_mcp",
+    correction_text: str = "",
+    min_occurrences: int = 2,
+    auto_inject_agents_md: bool = False,
+) -> str:
+    """Records a user correction signal (if provided) and distills recurring corrections into canonical rules in BrainDB and optional AGENTS.md.
+
+    Args:
+        workspace: Target workspace identifier (default 'brain_mcp')
+        correction_text: Optional explicit user correction text to record before distilling
+        min_occurrences: Minimum recurrence threshold to promote a pending correction into a canonical rule (default 2)
+        auto_inject_agents_md: Whether to inject promoted canonical rules into AGENTS.md (default False)
+    """
+    target_db = mcp.db or db
+    try:
+        from rule_distiller_engine import (
+            get_distiller_status,
+            record_correction,
+            run_nightly_rule_distillation,
+        )
+
+        recorded: Any = None
+        if correction_text and correction_text.strip():
+            recorded = record_correction(
+                target_db,
+                correction_text.strip(),
+                workspace=workspace,
+                source="mcp:engram",
+            )
+        distilled = run_nightly_rule_distillation(
+            target_db,
+            workspace=workspace,
+            min_occurrences=max(1, int(min_occurrences)),
+            auto_inject_agents_md=bool(auto_inject_agents_md),
+        )
+        status = get_distiller_status(target_db, workspace=workspace)
+        res = {
+            "ok": True,
+            "workspace": workspace,
+            "recorded": recorded,
+            "distillation": distilled,
+            "status": status,
+        }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_ingest_note(
+    text: str,
+    channel: str = "telegram",
+    workspace: str = "brain_mcp",
+    mode: str = "auto",
+    sender: str = "user",
+) -> str:
+    """Ingests an external note, voice memo transcript, or Telegram message into Engram BrainDB with automatic classification and provenance tracking.
+
+    Args:
+        text: Note or transcript content to ingest into memory
+        channel: Origin channel such as 'telegram', 'voice', or 'web_ui' (default 'telegram')
+        workspace: Target workspace identifier (default 'brain_mcp')
+        mode: Ingestion mode ('auto', 'rule', 'task', 'note') (default 'auto')
+        sender: Sender identifier or username (default 'user')
+    """
+    target_db = mcp.db or db
+    try:
+        from intake_handoff_engine import get_intake_handoff_status, ingest_external_note
+
+        intake_res = ingest_external_note(
+            target_db,
+            text=text,
+            channel=channel,
+            sender=sender,
+            workspace=workspace,
+            mode=mode,
+        )
+        status = get_intake_handoff_status(target_db, workspace=workspace)
+        res = {
+            "ok": True,
+            "workspace": workspace,
+            "intake": intake_res,
+            "status": status,
+        }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "workspace": workspace, "channel": channel}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_export_handoff(
+    workspace: str = "brain_mcp",
+    source_ide: str = "antigravity",
+    target_ide: str = "codex_cli",
+    current_task: str = "",
+) -> str:
+    """Exports a cross-IDE handoff state file (HANDOFF.md) containing active context, recent rules, and next actions for seamless IDE switching.
+
+    Args:
+        workspace: Target workspace identifier (default 'brain_mcp')
+        source_ide: Originating IDE/CLI identifier (default 'antigravity')
+        target_ide: Destination IDE/CLI identifier (default 'codex_cli')
+        current_task: Optional description of the current active task to include in the handoff
+    """
+    target_db = mcp.db or db
+    try:
+        from intake_handoff_engine import generate_cross_ide_handoff
+
+        handoff_res = generate_cross_ide_handoff(
+            target_db,
+            workspace=workspace,
+            source_ide=source_ide,
+            target_ide=target_ide,
+            current_task=current_task,
+        )
+        res = {
+            "ok": True,
+            "workspace": workspace,
+            "handoff": handoff_res,
+        }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
 TOOLS: List[Dict[str, Any]] = [t["schema"] for t in mcp._tools.values()]
 
 

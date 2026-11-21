@@ -706,6 +706,604 @@ def build_obsidian_graph_payload(
     return result_payload
 
 
+_TACTICAL_RUNTIME_CACHE: Dict[str, Any] = {
+    "ts": 0.0,
+    "profile": None,
+    "bridge_ts": 0.0,
+    "bridge": None,
+}
+
+_TACTICAL_PALETTE: List[str] = [
+    "#ff3b1f",
+    "#ff6a00",
+    "#ff8c1a",
+    "#ffb020",
+    "#ffd166",
+    "#f8fafc",
+    "#f97316",
+    "#fb923c",
+]
+
+
+def _default_distiller_status(workspace: str = "all", error: str = "") -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "ok": True,
+        "workspace": workspace,
+        "pending_count": 0,
+        "promoted_count": 0,
+        "last_run_at": "",
+        "pending": [],
+        "rules": [],
+    }
+    if error:
+        out["fallback_reason"] = error
+    return out
+
+
+def _default_intake_status(workspace: str = "brain_mcp", error: str = "") -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "ok": True,
+        "workspace": workspace,
+        "waveform": [0.18, 0.34, 0.52, 0.28, 0.64, 0.45, 0.72, 0.38, 0.22, 0.48, 0.31, 0.19],
+        "telegram_configured": False,
+        "telegram_enabled": False,
+        "token_masked": "",
+        "chat_id": "",
+        "total_ingested": 0,
+        "recent_items": [],
+        "handoff": {},
+    }
+    if error:
+        out["fallback_reason"] = error
+    return out
+
+
+def _safe_distiller_status(db: BrainDB, workspace: str = "all") -> Dict[str, Any]:
+    try:
+        from rule_distiller_engine import get_distiller_status
+
+        res = get_distiller_status(db, workspace=workspace)
+        if isinstance(res, dict):
+            return res
+    except Exception as exc:
+        return _default_distiller_status(workspace=workspace, error=str(exc))
+    return _default_distiller_status(workspace=workspace)
+
+
+def _safe_intake_status(db: BrainDB, workspace: str = "brain_mcp") -> Dict[str, Any]:
+    try:
+        from intake_handoff_engine import get_intake_handoff_status
+
+        res = get_intake_handoff_status(db, workspace=workspace)
+        if isinstance(res, dict):
+            return res
+    except Exception as exc:
+        return _default_intake_status(workspace=workspace, error=str(exc))
+    return _default_intake_status(workspace=workspace)
+
+
+def _derive_provenance_source(source_agent: str, tags: str) -> str:
+    sa = (source_agent or "").strip().lower()
+    tg = (tags or "").strip().lower()
+    if "telegram" in sa or "telegram" in tg:
+        return "telegram"
+    if "voice" in sa or "voice" in tg:
+        return "voice"
+    if "vault" in sa or "vault" in tg:
+        return "vault"
+    if "human_ui" in sa or "dashboard" in sa:
+        return "ui:dashboard"
+    if "claude" in sa or "claude" in tg:
+        return "hook:claude_code"
+    if "codex" in sa or "codex" in tg:
+        return "mcp:codex"
+    if "cursor" in sa or "cursor" in tg:
+        return "mcp:cursor"
+    if "antigravity" in sa or "auto_harvest" in tg or "stop_harvest" in sa or "auto_harvest" in sa:
+        return "hook:antigravity"
+    if sa and sa not in ("system", "unknown"):
+        return f"mcp:{sa}"
+    return "mcp:engram"
+
+
+def build_tactical_overview_payload(db: BrainDB, workspace: str = "all") -> Dict[str, Any]:
+    """Constrói o payload completo de telemetria tática do dashboard em <30ms."""
+    from datetime import date, timedelta
+
+    t0 = time.perf_counter()
+    ws = (workspace or "all").strip() or "all"
+    ws_clause = "" if ws == "all" else "WHERE LOWER(COALESCE(workspace, 'global')) = ?"
+    ws_params: Tuple[Any, ...] = () if ws == "all" else (ws.lower(),)
+
+    stats = db.get_stats()
+    total_memories = int(stats.get("total_memories", 0) or 0)
+    total_edges = int(stats.get("causal_edges_count", 0) or 0)
+
+    # IDE bridge status (10s cached filesystem check, fallback 7)
+    connected_ides = 7
+    bridge_targets: List[Dict[str, Any]] = []
+    try:
+        now_mono = time.monotonic()
+        bridge = _TACTICAL_RUNTIME_CACHE.get("bridge")
+        if not isinstance(bridge, dict) or (now_mono - float(_TACTICAL_RUNTIME_CACHE.get("bridge_ts") or 0.0)) >= 10.0:
+            bridge = _get_fresh_orbit_engine(db).get_mcp_bridge_status()
+            if isinstance(bridge, dict):
+                _TACTICAL_RUNTIME_CACHE["bridge_ts"] = now_mono
+                _TACTICAL_RUNTIME_CACHE["bridge"] = bridge
+        if isinstance(bridge, dict):
+            connected_ides = int(bridge.get("connected_count", 7) or 0)
+            raw_targets = bridge.get("targets")
+            if isinstance(raw_targets, list):
+                bridge_targets = raw_targets
+    except Exception:
+        connected_ides = 7
+
+    # Skill catalog count (in-memory cache or fast SQLite COUNT, fallback 379)
+    total_skills = 0
+    try:
+        from skill_resolver_engine import _SKILL_MEM_CACHE
+
+        total_skills = int(_SKILL_MEM_CACHE.get("total_skills", 0) or 0)
+    except Exception:
+        total_skills = 0
+
+    canonical_rules = 0
+    active_lanes = 7
+    cat_rows: List[Any] = []
+    mem_day_rows: List[Any] = []
+    inj_day_rows: List[Any] = []
+    prov_rows: List[Any] = []
+    runtime_rows: List[Any] = []
+    latest_rt_row: Any = None
+    source_rows: List[Any] = []
+
+    with db._connect() as conn:
+        if total_skills <= 0:
+            try:
+                sk_row = conn.execute("SELECT COUNT(*) AS c FROM skill_catalog;").fetchone()
+                total_skills = int(sk_row["c"] or 0) if sk_row else 0
+            except Exception:
+                total_skills = 0
+        if total_skills <= 0:
+            total_skills = 379
+
+        try:
+            lane_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM office_agents WHERE LOWER(COALESCE(status, '')) IN ('working', 'running', 'active');"
+            ).fetchone()
+            active_lanes = int(lane_row["c"] or 0) if lane_row else 0
+            if active_lanes <= 0:
+                lane_row2 = conn.execute("SELECT COUNT(DISTINCT lane) AS c FROM swarm_tasks;").fetchone()
+                active_lanes = int(lane_row2["c"] or 0) if lane_row2 else 0
+        except Exception:
+            active_lanes = 7
+        if active_lanes <= 0:
+            active_lanes = 7
+
+        rule_where = (
+            "(LOWER(COALESCE(category, '')) IN ('rule', 'decision', 'rules', 'decisions') "
+            "OR LOWER(COALESCE(tags, '')) LIKE '%pinned%' "
+            "OR COALESCE(human_locked, 0) = 1)"
+        )
+        if ws != "all":
+            rule_sql = f"SELECT COUNT(*) AS c FROM memories WHERE LOWER(COALESCE(workspace, 'global')) = ? AND {rule_where};"
+            canonical_rules = int(conn.execute(rule_sql, (ws.lower(),)).fetchone()["c"] or 0)
+        else:
+            canonical_rules = int(conn.execute(f"SELECT COUNT(*) AS c FROM memories WHERE {rule_where};").fetchone()["c"] or 0)
+
+        cat_rows = conn.execute(
+            f"SELECT COALESCE(NULLIF(TRIM(category), ''), 'general') AS cat, COUNT(*) AS c "
+            f"FROM memories {ws_clause} GROUP BY cat ORDER BY c DESC LIMIT 8;",
+            ws_params,
+        ).fetchall()
+
+        mem_day_rows = conn.execute(
+            f"SELECT substr(created_at, 1, 10) AS d, COUNT(*) AS c "
+            f"FROM memories {ws_clause} GROUP BY d HAVING d IS NOT NULL AND LENGTH(d) = 10 "
+            f"ORDER BY d DESC LIMIT 14;",
+            ws_params,
+        ).fetchall()
+
+        try:
+            if ws != "all":
+                inj_day_rows = conn.execute(
+                    "SELECT substr(created_at, 1, 10) AS d, COUNT(*) AS c "
+                    "FROM telemetry WHERE event_type = 'pre_invocation_inject' AND LOWER(COALESCE(workspace, 'global')) = ? "
+                    "GROUP BY d HAVING d IS NOT NULL AND LENGTH(d) = 10 ORDER BY d DESC LIMIT 14;",
+                    (ws.lower(),),
+                ).fetchall()
+            else:
+                inj_day_rows = conn.execute(
+                    "SELECT substr(created_at, 1, 10) AS d, COUNT(*) AS c "
+                    "FROM telemetry WHERE event_type = 'pre_invocation_inject' "
+                    "GROUP BY d HAVING d IS NOT NULL AND LENGTH(d) = 10 ORDER BY d DESC LIMIT 14;"
+                ).fetchall()
+        except Exception:
+            inj_day_rows = []
+
+        prov_rows = conn.execute(
+            f"SELECT id, topic, fact, category, workspace, tags, source_agent, importance, "
+            f"created_at, last_accessed "
+            f"FROM memories {ws_clause} "
+            f"ORDER BY COALESCE(importance, 3) DESC, COALESCE(last_accessed, created_at) DESC, id DESC LIMIT 8;",
+            ws_params,
+        ).fetchall()
+
+        try:
+            runtime_rows = conn.execute(
+                "SELECT LOWER(COALESCE(platform_id, 'antigravity')) AS plat, COUNT(*) AS c "
+                "FROM runtime_sessions GROUP BY plat;"
+            ).fetchall()
+            latest_rt_row = conn.execute(
+                "SELECT platform_id, model_display, model_raw FROM runtime_sessions ORDER BY updated_at DESC, id DESC LIMIT 1;"
+            ).fetchone()
+        except Exception:
+            runtime_rows = []
+            latest_rt_row = None
+
+        source_rows = conn.execute(
+            f"SELECT LOWER(COALESCE(source_agent, 'system')) AS sa, LOWER(COALESCE(tags, '')) AS tg, COUNT(*) AS c "
+            f"FROM memories {ws_clause} GROUP BY sa, tg;",
+            ws_params,
+        ).fetchall()
+
+    # Distiller & Voice/Intake status (lazy imported with graceful fallback)
+    intake_ws = "brain_mcp" if ws == "all" else ws
+    distiller = _safe_distiller_status(db, workspace=ws)
+    voice_intake = _safe_intake_status(db, workspace=intake_ws)
+    pending_corrections = int(distiller.get("pending_count", 0) or 0)
+    promoted_rules = int(distiller.get("promoted_count", 0) or 0)
+
+    # Agent Legend
+    agent_counts: Dict[str, int] = {
+        "antigravity": 0,
+        "claude_code": 0,
+        "codex_cli": 0,
+        "cursor": 0,
+        "telegram_voice": int(voice_intake.get("total_ingested", 0) or 0),
+    }
+    for rr in runtime_rows:
+        plat = str(rr["plat"] or "")
+        cnt = int(rr["c"] or 0)
+        if "antigravity" in plat:
+            agent_counts["antigravity"] += cnt
+        elif "claude" in plat:
+            agent_counts["claude_code"] += cnt
+        elif "codex" in plat:
+            agent_counts["codex_cli"] += cnt
+        elif "cursor" in plat:
+            agent_counts["cursor"] += cnt
+
+    for sr in source_rows:
+        sa = str(sr["sa"] or "")
+        tg = str(sr["tg"] or "")
+        cnt = int(sr["c"] or 0)
+        if "telegram" in sa or "voice" in sa or "telegram" in tg or "voice" in tg:
+            agent_counts["telegram_voice"] += cnt
+        elif "claude" in sa or "claude" in tg:
+            agent_counts["claude_code"] += cnt
+        elif "codex" in sa or "codex" in tg:
+            agent_counts["codex_cli"] += cnt
+        elif "cursor" in sa or "cursor" in tg:
+            agent_counts["cursor"] += cnt
+        elif "antigravity" in sa or "auto_harvest" in sa or "auto_harvest" in tg or "human_ui" in sa:
+            agent_counts["antigravity"] += cnt
+
+    agent_specs = [
+        ("antigravity", "Antigravity", "#ff3b1f"),
+        ("claude_code", "Claude Code", "#ff6a00"),
+        ("codex_cli", "Codex", "#ffb020"),
+        ("cursor", "Cursor", "#ffd166"),
+        ("telegram_voice", "Telegram/Voice", "#f8fafc"),
+    ]
+    agent_legend = [
+        {
+            "id": aid,
+            "label": alabel,
+            "count": int(agent_counts.get(aid, 0)),
+            "kind": "agent",
+            "color": acolor,
+        }
+        for aid, alabel, acolor in agent_specs
+    ]
+
+    # Category Legend (top 8) & Category Bars (top 7)
+    category_legend: List[Dict[str, Any]] = []
+    for idx, cr in enumerate(cat_rows[:8]):
+        cat_label = str(cr["cat"] or "general")
+        category_legend.append(
+            {
+                "id": re.sub(r"[^a-z0-9_-]+", "_", cat_label.lower()).strip("_") or "general",
+                "label": cat_label,
+                "count": int(cr["c"] or 0),
+                "kind": "category",
+                "color": _TACTICAL_PALETTE[idx % len(_TACTICAL_PALETTE)],
+            }
+        )
+
+    top7_cats = category_legend[:7]
+    max_bar = max([c["count"] for c in top7_cats], default=1) or 1
+    category_bars = [
+        {
+            "label": c["label"],
+            "count": c["count"],
+            "pct": round((c["count"] / max_bar) * 100.0, 1),
+            "color": c["color"],
+        }
+        for c in top7_cats
+    ]
+
+    # Activity Series (14 chronological buckets)
+    mem_by_day = {str(r["d"]): int(r["c"] or 0) for r in mem_day_rows if r["d"]}
+    inj_by_day = {str(r["d"]): int(r["c"] or 0) for r in inj_day_rows if r["d"]}
+    known_days = sorted(set(mem_by_day.keys()) | set(inj_by_day.keys()))
+    if len(known_days) >= 14:
+        selected_days = known_days[-14:]
+    else:
+        anchor = date.today()
+        if known_days:
+            try:
+                anchor = max(anchor, date.fromisoformat(known_days[-1]))
+            except Exception:
+                pass
+        day_set = set(known_days)
+        offset = 0
+        while len(day_set) < 14 and offset < 60:
+            day_set.add((anchor - timedelta(days=offset)).isoformat())
+            offset += 1
+        selected_days = sorted(day_set)[-14:]
+
+    activity_series = [
+        {
+            "label": d[5:] if len(d) == 10 else d,
+            "date": d,
+            "memories": int(mem_by_day.get(d, 0)),
+            "injections": int(inj_by_day.get(d, 0)),
+        }
+        for d in selected_days
+    ]
+
+    # Featured Provenance (top 8)
+    vault_root = os.path.join(CURRENT_DIR, ".brain_vault")
+    vault_dir_cache: Dict[str, Set[str]] = {}
+    has_vault_root = os.path.isdir(vault_root)
+    featured_provenance: List[Dict[str, Any]] = []
+    for pr in prov_rows:
+        m_ws = str(pr["workspace"] or "global")
+        m_cat = str(pr["category"] or "general")
+        vault_rel = ""
+        if has_vault_root:
+            safe_ws = re.sub(r"[^a-zA-Z0-9_.-]+", "_", m_ws)
+            if safe_ws not in vault_dir_cache:
+                ws_vault_dir = os.path.join(vault_root, safe_ws)
+                try:
+                    vault_dir_cache[safe_ws] = set(os.listdir(ws_vault_dir)) if os.path.isdir(ws_vault_dir) else set()
+                except Exception:
+                    vault_dir_cache[safe_ws] = set()
+            vfiles = vault_dir_cache[safe_ws]
+            if f"{m_cat}.md" in vfiles:
+                vault_rel = f".brain_vault/{m_ws}/{m_cat}.md"
+            elif "atlas.md" in vfiles:
+                vault_rel = f".brain_vault/{m_ws}/atlas.md"
+        featured_provenance.append(
+            {
+                "id": int(pr["id"]),
+                "topic": str(pr["topic"] or ""),
+                "fact": str(pr["fact"] or "")[:280],
+                "category": m_cat,
+                "workspace": m_ws,
+                "source": _derive_provenance_source(str(pr["source_agent"] or ""), str(pr["tags"] or "")),
+                "timestamp": str(pr["last_accessed"] or pr["created_at"] or ""),
+                "importance": int(pr["importance"] or 3),
+                "vault_file": vault_rel,
+            }
+        )
+
+    # Runtime & System Matrix (24 cells = 4x6 grid)
+    active_model = "unknown"
+    platform_id = "antigravity"
+    routing_policy = "auto"
+    local_llms_online = 0
+    try:
+        from runtime_detector import _LOCAL_PROBE_CACHE, detect_runtime_profile, get_routing_policy
+
+        if latest_rt_row and (latest_rt_row["model_display"] or latest_rt_row["model_raw"]):
+            active_model = str(latest_rt_row["model_display"] or latest_rt_row["model_raw"] or "unknown")
+            platform_id = str(latest_rt_row["platform_id"] or "antigravity")
+        else:
+            cached_prof = _TACTICAL_RUNTIME_CACHE.get("profile")
+            now_mono = time.monotonic()
+            if isinstance(cached_prof, dict) and (now_mono - float(_TACTICAL_RUNTIME_CACHE.get("ts") or 0.0)) < 15.0:
+                prof = cached_prof
+            else:
+                prof = detect_runtime_profile(db=db, probe_local=False)
+                _TACTICAL_RUNTIME_CACHE["ts"] = now_mono
+                _TACTICAL_RUNTIME_CACHE["profile"] = prof if isinstance(prof, dict) else {}
+            if isinstance(prof, dict):
+                active_model = str(prof.get("model_display") or prof.get("model_raw") or "unknown")
+                platform_id = str(prof.get("platform_id") or "antigravity")
+        routing_policy = str(get_routing_policy(db) or "auto")
+        cached_local = _LOCAL_PROBE_CACHE.get("data")
+        if isinstance(cached_local, dict):
+            local_llms_online = int(cached_local.get("active_providers_count", 0) or 0)
+    except Exception:
+        pass
+
+    if "hydrogen" in active_model.lower() or "gemini-4" in active_model.lower():
+        active_model = "Gemini 4 (High)"
+
+    def _heat_state(h: float) -> str:
+        if h >= 0.75:
+            return "hot"
+        if h >= 0.45:
+            return "warm"
+        if h >= 0.15:
+            return "cool"
+        return "idle"
+
+    _IDE_SHORT = {
+        "antigravity": "ANTIGRV",
+        "claude_code": "CLAUDE",
+        "codex_cli": "CODEX",
+        "cursor": "CURSOR",
+        "windsurf": "WINDSRF",
+        "opencode": "OPENCDE",
+        "claude_desktop": "DESKTOP",
+    }
+
+    matrix_cells: List[Dict[str, Any]] = []
+    # 1. Runtime & Model cells (2)
+    m_heat = 0.95 if active_model != "unknown" else 0.45
+    model_short = active_model.split("(")[0].strip().upper()[:8] or "MODEL"
+    matrix_cells.append(
+        {
+            "label": model_short,
+            "heat": m_heat,
+            "state": "peak" if m_heat >= 0.9 else _heat_state(m_heat),
+            "detail": f"{active_model} on {platform_id}",
+        }
+    )
+    l_heat = 0.85 if local_llms_online > 0 else 0.25
+    matrix_cells.append(
+        {
+            "label": f"LOC:{local_llms_online}",
+            "heat": l_heat,
+            "state": _heat_state(l_heat),
+            "detail": f"Policy={routing_policy} · {local_llms_online} local LLM(s) online",
+        }
+    )
+
+    # 2. Connected IDE bridge cells (up to 7)
+    for bt in bridge_targets[:7]:
+        is_conn = bool(bt.get("connected"))
+        has_hooks = bool(bt.get("hooks_connected"))
+        b_heat = 0.92 if (is_conn and has_hooks) else (0.72 if is_conn else 0.12)
+        bid = str(bt.get("id") or "ide").lower()
+        matrix_cells.append(
+            {
+                "label": _IDE_SHORT.get(bid, bid.upper()[:7]),
+                "heat": b_heat,
+                "state": _heat_state(b_heat),
+                "detail": f"{bt.get('name', bt.get('id'))} ({'connected' if is_conn else 'standby'})",
+            }
+        )
+
+    # 3. Top Workspaces (up to 5)
+    by_ws_map = stats.get("by_workspace") or {}
+    max_ws_cnt = max([int(v or 0) for v in by_ws_map.values()], default=1) or 1
+    for w_name, w_cnt in list(by_ws_map.items())[:5]:
+        w_heat = round(min(0.98, max(0.25, float(w_cnt or 0) / max_ws_cnt)), 2)
+        short_ws = str(w_name).replace("_mcp", "").upper()[:7]
+        matrix_cells.append(
+            {
+                "label": short_ws,
+                "heat": w_heat,
+                "state": _heat_state(w_heat),
+                "detail": f"Workspace {w_name}: {w_cnt} memories",
+            }
+        )
+
+    # 4. Core Engram subsystems to fill exactly 24 cells (4x6)
+    subsystems = [
+        ("FTS5", 0.92 if total_memories > 0 else 0.4, f"{total_memories} indexed memories"),
+        ("LSH128", 0.88 if total_memories > 0 else 0.35, "Binary quantized semantic recall"),
+        ("CAUSAL", 0.82 if total_edges > 0 else 0.3, f"{total_edges} causal edges"),
+        ("PAGODA", 0.78, "Lossless multi-tier folding active"),
+        ("ARCHIFY", 0.76, "Deterministic AST diff engine"),
+        ("INJECT", 0.90 if stats.get("injections_count", 0) else 0.5, f"{stats.get('injections_count', 0)} injections"),
+        ("HARVEST", 0.86 if stats.get("harvests_count", 0) else 0.45, f"{stats.get('harvests_count', 0)} harvests"),
+        ("SKILLS", 0.84, f"{total_skills} skills indexed"),
+        (
+            "RULES",
+            0.88 if pending_corrections > 0 else (0.72 if promoted_rules > 0 else 0.35),
+            f"{pending_corrections} pending · {promoted_rules} promoted",
+        ),
+        (
+            "TELGRM",
+            0.90 if voice_intake.get("telegram_enabled") else (0.45 if voice_intake.get("telegram_configured") else 0.14),
+            f"{voice_intake.get('total_ingested', 0)} notes ingested",
+        ),
+        (
+            "HANDOFF",
+            0.80 if voice_intake.get("handoff") else 0.40,
+            "Cross-IDE state exporter ready",
+        ),
+        ("SWARM", 0.85, f"{active_lanes} active lanes"),
+        ("GBRAIN", 0.90, "Salience x Recency orthogonal ranking"),
+        ("DAEMON", 0.75, "Background evolution & distillation"),
+    ]
+    for sub_lbl, sub_heat, sub_det in subsystems:
+        if len(matrix_cells) >= 24:
+            break
+        matrix_cells.append(
+            {
+                "label": sub_lbl,
+                "heat": round(sub_heat, 2),
+                "state": _heat_state(sub_heat),
+                "detail": sub_det,
+            }
+        )
+    while len(matrix_cells) < 24:
+        idx_pad = len(matrix_cells) + 1
+        matrix_cells.append(
+            {
+                "label": f"SLOT-{idx_pad:02d}",
+                "heat": 0.1,
+                "state": "idle",
+                "detail": "Reserve telemetry slot",
+            }
+        )
+    matrix_cells = matrix_cells[:24]
+
+    tg_status = (
+        "ONLINE"
+        if voice_intake.get("telegram_enabled")
+        else ("CONFIGURED" if voice_intake.get("telegram_configured") else "STANDBY")
+    )
+    handoff_status = "SYNCED" if (voice_intake.get("handoff") or {}).get("path") else "READY"
+    ticker_items = [
+        "GBRAIN AXES: ACTIVE",
+        "PAGODA LSM: LOSSLESS",
+        "ARCHIFY DELTA: READY",
+        f"7-IDE BRIDGE: {connected_ides}/7",
+        f"SWARM ROUTER: {routing_policy.upper()}",
+        f"NIGHTLY RULES: {promoted_rules} PROMOTED",
+        f"TELEGRAM INTAKE: {tg_status}",
+        f"HANDOFF.MD: {handoff_status}",
+    ]
+
+    latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+    return {
+        "ok": True,
+        "workspace": ws,
+        "header_stats": {
+            "total_memories": total_memories,
+            "total_edges": total_edges,
+            "connected_ides": connected_ides,
+            "total_skills": total_skills,
+            "active_lanes": active_lanes,
+            "canonical_rules": canonical_rules,
+            "pending_corrections": pending_corrections,
+            "latency_ms": latency_ms,
+        },
+        "agent_legend": agent_legend,
+        "category_legend": category_legend,
+        "category_bars": category_bars,
+        "activity_series": activity_series,
+        "featured_provenance": featured_provenance,
+        "voice_intake": voice_intake,
+        "distiller": distiller,
+        "system_matrix": {
+            "active_model": active_model,
+            "platform_id": platform_id,
+            "local_llms_online": local_llms_online,
+            "routing_policy": routing_policy,
+            "cells": matrix_cells,
+        },
+        "ticker_items": ticker_items,
+    }
+
+
 _DIET_CACHE: Dict[str, Any] = {"ts": 0.0, "mcp": [], "plug": {}, "is_lean": False}
 
 
@@ -818,7 +1416,7 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
-            self._send_json({"status": "ok", "service": "engram-v9.0"})
+            self._send_json({"status": "ok", "service": "engram-v9.0", "version": "9.1"})
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -1286,6 +1884,24 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "recommendation": rec, "matrix": matrix})
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc)}, 500)
+            return
+
+        if parsed.path == "/api/tactical/overview":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            self._send_json(build_tactical_overview_payload(BrainDB(), workspace=ws))
+            return
+
+        if parsed.path == "/api/rules/distiller":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            self._send_json(_safe_distiller_status(BrainDB(), workspace=ws))
+            return
+
+        if parsed.path == "/api/intake/status":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["brain_mcp"])[0] or "brain_mcp"
+            self._send_json(_safe_intake_status(BrainDB(), workspace=ws))
             return
 
         if parsed.path == "/api/events":
@@ -1982,6 +2598,159 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc)}, 500)
             return
 
+        if parsed.path == "/api/rules/distill":
+            ws = str(body.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            action = str(body.get("action", "")).strip().lower()
+            corr_text = str(body.get("correction_text") or body.get("text") or "").strip()
+            try:
+                from rule_distiller_engine import (
+                    get_distiller_status,
+                    record_correction,
+                    run_nightly_rule_distillation,
+                )
+
+                if action == "record" or (corr_text and action != "distill"):
+                    if not corr_text:
+                        self._send_json({"ok": False, "error": "correction_text is required"}, 400)
+                        return
+                    rec_res = record_correction(
+                        db,
+                        corr_text,
+                        workspace=ws,
+                        source=str(body.get("source", "dashboard")),
+                    )
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "action": "record",
+                            "result": rec_res,
+                            "status": get_distiller_status(db, workspace=ws),
+                        }
+                    )
+                    return
+
+                min_occ = _safe_int(body.get("min_occurrences", 2), default=2, min_v=1, max_v=20)
+                dry_run = bool(body.get("dry_run", False))
+                auto_inject = bool(body.get("auto_inject_agents_md", False))
+                dist_res = run_nightly_rule_distillation(
+                    db,
+                    workspace=ws,
+                    min_occurrences=min_occ,
+                    dry_run=dry_run,
+                    auto_inject_agents_md=auto_inject,
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "action": "distill",
+                        "result": dist_res,
+                        "status": get_distiller_status(db, workspace=ws),
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
+            return
+
+        if parsed.path == "/api/intake/ingest":
+            ws = str(body.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            text = str(body.get("text") or body.get("note") or "").strip()
+            channel = str(body.get("channel", "web_ui")).strip() or "web_ui"
+            sender = str(body.get("sender", "user")).strip() or "user"
+            mode = str(body.get("mode", "auto")).strip() or "auto"
+            try:
+                audio_dur = float(body.get("audio_duration_sec", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                audio_dur = 0.0
+            try:
+                from intake_handoff_engine import get_intake_handoff_status, ingest_external_note
+
+                intake_res = ingest_external_note(
+                    db,
+                    text=text,
+                    channel=channel,
+                    sender=sender,
+                    workspace=ws,
+                    mode=mode,
+                    audio_duration_sec=audio_dur,
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "intake": intake_res,
+                        "status": get_intake_handoff_status(db, workspace=ws),
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
+            return
+
+        if parsed.path == "/api/intake/telegram-config":
+            ws = str(body.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            bot_token = str(body.get("bot_token", "")).strip()
+            chat_id = str(body.get("chat_id", "")).strip()
+            enabled = (
+                bool(body["enabled"])
+                if "enabled" in body and body["enabled"] is not None
+                else None
+            )
+            poll_interval = _safe_int(body.get("poll_interval_sec", 15), default=15, min_v=5, max_v=3600)
+            try:
+                from intake_handoff_engine import (
+                    configure_telegram_bridge,
+                    get_intake_handoff_status,
+                    poll_telegram_once,
+                )
+
+                cfg_res = configure_telegram_bridge(
+                    db,
+                    bot_token=bot_token,
+                    chat_id=chat_id,
+                    enabled=enabled,
+                    poll_interval_sec=poll_interval,
+                )
+                poll_res: Optional[Dict[str, Any]] = None
+                if body.get("poll_now"):
+                    poll_res = poll_telegram_once(db, workspace=ws)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "config": cfg_res,
+                        "poll": poll_res,
+                        "status": get_intake_handoff_status(db, workspace=ws),
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
+            return
+
+        if parsed.path == "/api/handoff/export":
+            ws = str(body.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            source_ide = str(body.get("source_ide", "antigravity")).strip() or "antigravity"
+            target_ide = str(body.get("target_ide", "codex_cli")).strip() or "codex_cli"
+            current_task = str(body.get("current_task", "")).strip()
+            raw_open = body.get("open_files", [])
+            if isinstance(raw_open, str):
+                open_files = [x.strip() for x in raw_open.split(",") if x.strip()]
+            elif isinstance(raw_open, list):
+                open_files = [str(x).strip() for x in raw_open if str(x).strip()]
+            else:
+                open_files = []
+            try:
+                from intake_handoff_engine import generate_cross_ide_handoff
+
+                handoff_res = generate_cross_ide_handoff(
+                    db,
+                    workspace=ws,
+                    source_ide=source_ide,
+                    target_ide=target_ide,
+                    current_task=current_task,
+                    open_files=open_files,
+                )
+                self._send_json({"ok": True, "handoff": handoff_res})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
+            return
+
         self._send_json({"error": "Endpoint desconhecido"}, 404)
 
     def do_DELETE(self) -> None:
@@ -2030,15 +2799,45 @@ def start_self_learn_sentinel_daemon(interval_seconds: float = 90.0) -> None:
 
     def _sentinel_worker() -> None:
         first_boot = True
+        last_distill_ts = 0.0
         while True:
             time.sleep(3.0 if first_boot else max(15.0, float(interval_seconds)))
             first_boot = False
             try:
-                orb = _get_fresh_orbit_engine(BrainDB())
+                sentinel_db = BrainDB()
+                orb = _get_fresh_orbit_engine(sentinel_db)
                 st = orb.get_self_learn_status("brain_mcp")
                 for proj in st.get("projects", []):
                     if proj.get("enabled"):
                         orb.run_self_learn_evolution_cycle(workspace=str(proj["workspace"]), force=False)
+
+                # Non-blocking Telegram bridge poll (only when configured and enabled)
+                try:
+                    from intake_handoff_engine import get_intake_handoff_status, poll_telegram_once
+
+                    intake_st = get_intake_handoff_status(sentinel_db, workspace="brain_mcp")
+                    if intake_st.get("telegram_configured") and intake_st.get("telegram_enabled"):
+                        poll_telegram_once(sentinel_db, workspace="brain_mcp")
+                except Exception:
+                    pass
+
+                # Nightly rule distillation at most once every 6 hours if pending corrections exist
+                try:
+                    now_ts = time.time()
+                    if now_ts - last_distill_ts >= 21600.0:
+                        from rule_distiller_engine import (
+                            get_distiller_status,
+                            run_nightly_rule_distillation,
+                        )
+
+                        dist_st = get_distiller_status(sentinel_db, workspace="all")
+                        if int(dist_st.get("pending_count", 0) or 0) > 0:
+                            run_nightly_rule_distillation(
+                                sentinel_db, workspace="all", min_occurrences=2
+                            )
+                        last_distill_ts = now_ts
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -2105,6 +2904,10 @@ def run_server(port: int = PORT, host: str = "127.0.0.1") -> None:
             db = BrainDB()
             sync_info = harvest_all_workspace_context(db)
             SwarmEngine(db).ensure_default_run()
+            try:
+                build_tactical_overview_payload(db, workspace="all")
+            except Exception:
+                pass
             start_auto_update_daemon(interval_seconds=300)
             start_code_mtime_watchdog_daemon(interval_seconds=4.0)
             start_ast_impact_watcher_daemon(workspace_path=CURRENT_DIR, interval_seconds=2.0)

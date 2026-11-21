@@ -1567,9 +1567,92 @@ def run_all_tests() -> None:
         "function setRuntimeRoutingPolicyUI(",
         "function simulateAgentModelRouteUI(",
         "function renderSwarmModelMatrixUI(",
+        'id="btnTacticalView"',
+        'id="tacticalCortexShell"',
+        'id="tacticalGraphCanvas"',
+        'id="tacticalLegendOverlay"',
+        'id="tacWidgetBars"',
+        'id="tacWidgetArea"',
+        'id="tacWidgetProvenance"',
+        'id="tacWidgetVoiceIntake"',
+        'id="tacWidgetRules"',
+        'id="tacWidgetMatrix"',
+        'id="tacticalBottomTicker"',
+        "function fetchTacticalOverview(",
+        "function renderTactical3DGraph(",
+        "function submitTacticalIntakeUI(",
+        "function triggerTacticalRuleDistillUI(",
+        "function exportCrossIdeHandoffUI(",
     ):
-        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v8.5 em falta em index.html: {gb_ui_token}"
-    print("[PASS] Pack Completo v6.0..v8.5 Studio OS (Autonomous Swarm Model Router, Multi-Model Cloud+Local LLM, 7-IDE Cross-OS Bridge, GBrain, Pagoda & Archify) OK")
+        assert gb_ui_token in html_content, f"Token Global Brain / Vault / Swarm 48x / Studio v9.1 em falta em index.html: {gb_ui_token}"
+
+    # 35. Engram v9.1 — Nightly Correction->Rule Distiller, Telegram/Voice Intake, Cross-IDE HANDOFF.md & Tactical Overview
+    from rule_distiller_engine import (
+        detect_correction_signal,
+        record_correction,
+        run_nightly_rule_distillation,
+        get_distiller_status,
+    )
+    from intake_handoff_engine import (
+        ingest_external_note,
+        configure_telegram_bridge,
+        generate_cross_ide_handoff,
+        get_intake_handoff_status,
+    )
+    from web_dashboard import build_tactical_overview_payload
+
+    sig_v91 = detect_correction_signal("usa sempre escapeHtml nos onclick do dashboard para evitar XSS")
+    assert sig_v91 and sig_v91["matched"] is True and sig_v91["pattern_key"], f"Sinal de correção v9.1 não detetado: {sig_v91}"
+
+    import shutil as _v91_shutil
+    tmp_v91_dir = tempfile.mkdtemp(prefix="engram_v91_test_")
+    tmp_v91_ws = "_engram_v91_unit_ws"
+    try:
+        v91_db = BrainDB(db_path=os.path.join(tmp_v91_dir, "v91.db"))
+        rec1 = record_correction(v91_db, "usa sempre escapeHtml nos onclick do dashboard", workspace=tmp_v91_ws, source="test")
+        rec2 = record_correction(v91_db, "usa sempre escapeHtml nos onclick do dashboard", workspace=tmp_v91_ws, source="test")
+        assert rec1["ok"] is True and rec2["merged"] is True and rec2["occurrences"] == 2, f"Deduplicação de correções falhou: {rec1}, {rec2}"
+
+        dist_res = run_nightly_rule_distillation(v91_db, workspace=tmp_v91_ws, min_occurrences=2, dry_run=False, auto_inject_agents_md=False)
+        assert dist_res["ok"] is True and dist_res["promoted_count"] >= 1, f"Destilação noturna falhou: {dist_res}"
+        dist_st = get_distiller_status(v91_db, workspace=tmp_v91_ws)
+        assert dist_st["promoted_count"] >= 1 and len(dist_st["rules"]) >= 1, f"Status do distiller inválido: {dist_st}"
+
+        ing_res = ingest_external_note(
+            v91_db,
+            text="tarefa: validar o novo dashboard Amber Tactical 3D no browser",
+            channel="telegram",
+            sender="miguel",
+            workspace=tmp_v91_ws,
+            mode="auto",
+        )
+        assert ing_res["ok"] is True and ing_res["task_created"] is True and ing_res["memory_id"], f"Intake externo falhou: {ing_res}"
+
+        tg_cfg = configure_telegram_bridge(v91_db, bot_token="123456789:ABCDEFGH_SECRET_TOKEN", chat_id="998877", enabled=False)
+        assert tg_cfg["ok"] is True and tg_cfg["token_configured"] is True and "SECRET_TOKEN" not in str(tg_cfg), f"Segurança da máscara Telegram falhou: {tg_cfg}"
+
+        ho_res = generate_cross_ide_handoff(
+            v91_db,
+            workspace=tmp_v91_ws,
+            source_ide="antigravity",
+            target_ide="codex_cli",
+            current_task="Finalizar Engram v9.1 Tactical 3D",
+        )
+        assert ho_res["ok"] is True and ho_res["vault_file"] == "HANDOFF.md" and "Finalizar Engram v9.1" in ho_res["markdown"], f"Cross-IDE Handoff falhou: {ho_res}"
+
+        in_st = get_intake_handoff_status(v91_db, workspace=tmp_v91_ws)
+        assert in_st["total_ingested"] >= 1 and len(in_st["waveform"]) == 16 and in_st["handoff"]["exists"] is True, f"Intake status inválido: {in_st}"
+
+        tac_ov = build_tactical_overview_payload(v91_db, workspace=tmp_v91_ws)
+        assert tac_ov["ok"] is True and len(tac_ov["system_matrix"]["cells"]) == 24 and len(tac_ov["ticker_items"]) >= 6, f"Tactical overview inválido: {tac_ov}"
+        assert {"brain_distill_rules", "brain_ingest_note", "brain_export_handoff"}.issubset(tool_names), f"Tools MCP #26-#28 em falta: {tool_names}"
+    finally:
+        _v91_shutil.rmtree(tmp_v91_dir, ignore_errors=True)
+        vault_tmp = os.path.join(repo_dir, ".brain_vault", tmp_v91_ws)
+        if os.path.isdir(vault_tmp):
+            _v91_shutil.rmtree(vault_tmp, ignore_errors=True)
+
+    print("[PASS] Pack Completo v6.0..v9.1 Studio OS (Amber Tactical 3D Córtex, Nightly Rule Distiller, Telegram/Voice Intake, Cross-IDE HANDOFF.md & 28 MCP Tools) OK")
 
 
 if __name__ == "__main__":

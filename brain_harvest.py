@@ -69,6 +69,7 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
     # Isola apenas os passos após o último USER_INPUT (Antigravity) ou type == "user" (Claude Code)
     last_user_idx = 0
     turn_user_goal = ""
+    turn_user_prompt = ""
     is_subagent = False
     for idx in range(len(steps) - 1, -1, -1):
         st_type = steps[idx].get("type")
@@ -77,12 +78,15 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
             raw_u = str(steps[idx].get("content") or "")
             m_req = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", raw_u, flags=re.DOTALL)
             if m_req:
-                turn_user_goal = clean_system_envelope(m_req.group(1))[:110]
+                turn_user_prompt = clean_system_envelope(m_req.group(1))[:600]
+                turn_user_goal = turn_user_prompt[:110]
             elif "<SYSTEM_MESSAGE>" in raw_u or "sender=" in raw_u:
                 is_subagent = True
-                turn_user_goal = clean_system_envelope(raw_u)[:110]
+                turn_user_prompt = clean_system_envelope(raw_u)[:600]
+                turn_user_goal = turn_user_prompt[:110]
             else:
-                turn_user_goal = clean_system_envelope(raw_u)[:110]
+                turn_user_prompt = clean_system_envelope(raw_u)[:600]
+                turn_user_goal = turn_user_prompt[:110]
             break
         if st_type == "user":
             msg_obj = steps[idx].get("message") if isinstance(steps[idx].get("message"), dict) else steps[idx]
@@ -98,7 +102,8 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 ).strip()
             if u_text:
                 last_user_idx = idx
-                turn_user_goal = clean_system_envelope(u_text)[:110]
+                turn_user_prompt = clean_system_envelope(u_text)[:600]
+                turn_user_goal = turn_user_prompt[:110]
                 break
         if st_type == "SYSTEM_MESSAGE" and last_user_idx == 0:
             raw_sys = str(steps[idx].get("content") or "")
@@ -107,6 +112,16 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 is_subagent = True
                 turn_user_goal = clean_system_envelope(raw_sys)[:110]
                 break
+
+    # Hook zero-LLM: deteta correções do utilizador no prompt e regista para o Nightly Rule Distiller
+    if turn_user_prompt and not is_subagent:
+        try:
+            from rule_distiller_engine import detect_correction_signal, record_correction
+
+            if detect_correction_signal(turn_user_prompt):
+                record_correction(db, turn_user_prompt, workspace=workspace, source="harvest_hook")
+        except Exception:
+            pass
 
     turn_steps = steps[last_user_idx:]
     harvested_count = 0
