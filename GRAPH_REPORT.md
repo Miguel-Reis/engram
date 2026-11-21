@@ -8,7 +8,7 @@
   - 🟢 **EXTRACTED (1.00)**: `1928` arestas (AST / DDL / Rota literal 100% determinística)
   - 🔵 **INFERRED (0.85)**: `742` arestas (Resolução cruzada de métodos e handlers)
   - 🟡 **AMBIGUOUS (0.55)**: `80` arestas (Despacho polimórfico / múltiplos candidatos)
-- **Compressão de Contexto (Graphify Token Diet)**: `558,498` tokens brutos ➔ `360` tokens de índice (**`1551.4x` menos tokens**)
+- **Compressão de Contexto (Graphify Token Diet)**: `558,969` tokens brutos ➔ `360` tokens de índice (**`1552.7x` menos tokens**)
 
 ## 2. Top God Nodes (Centros de Gravidade Arquitetónica)
 | # | Entidade | Tipo | Ficheiro | Grau (In/Out) | Alcance Ficheiros | Score Centralidade | Comunidade |
@@ -21,7 +21,7 @@
 | 6 | **`SwarmEngine`** | `CLASS` | `swarm_engine.py:L54` | 79 (41↙ / 38↗) | 9 files | **206.65** | Asymmetric Swarm & CoW Sandbox |
 | 7 | **`BrainDashboardHandler.do_GET`** | `FUNCTION` | `web_dashboard.py:L1416` | 86 (32↙ / 54↗) | 14 files | **180.85** | HTTP Gateway, MCP Server & Token Diet |
 | 8 | **`OrbitEngine`** | `CLASS` | `orbit_engine.py:L17` | 66 (21↙ / 45↗) | 10 files | **178.85** | HTTP Gateway, MCP Server & Token Diet |
-| 9 | **`/api/orbit/action`** | `API_ROUTE` | `web_dashboard.py:L15976` | 59 (29↙ / 30↗) | 3 files | **161.13** | HTTP Gateway, MCP Server & Token Diet |
+| 9 | **`/api/orbit/action`** | `API_ROUTE` | `web_dashboard.py:L16027` | 59 (29↙ / 30↗) | 3 files | **161.13** | HTTP Gateway, MCP Server & Token Diet |
 | 10 | **`memories`** | `SQL_TABLE` | `db_engine.py:L215` | 38 (38↙ / 0↗) | 9 files | **132.54** | Core Memory & SQLite FTS5 Engine |
 
 ## 3. Comunidades Topológicas Detetadas
@@ -32,9 +32,9 @@
 - **Obsidian 2D Graph & 3D Agent Office UI** (`336` nós) — Exemplos: `office_agents`, `SwarmEngine._ensure_core_office_agents`, `SwarmEngine._sync_live_conversations_to_office`, `SwarmEngine.get_office_state`, `SwarmEngine.assign_office_agent_directive`, `SwarmEngine.spawn_custom_office_agent`
 
 ## 4. Cadeias Causais Full-Stack Verificadas (BFS Shortest Paths)
-- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `3035.3x`):  
+- **triggerAstSaveAuditUI ➔ ast_save_audits** (3 saltos, poupança `3037.9x`):  
   `triggerAstSaveAuditUI` (JS_FUNCTION) ➔ `/api/ast/watch` (API_ROUTE) ➔ `AstImpactWatcher.get_watcher_status` (FUNCTION) ➔ `ast_save_audits` (SQL_TABLE)
-- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `4231.0x`):  
+- **swarm_watch_audit ➔ BrainDB** (2 saltos, poupança `4234.6x`):  
   `swarm_watch_audit` (MCP_TOOL) ➔ `server.py` (FILE) ➔ `BrainDB` (CLASS)
-- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `3035.3x`):  
+- **createAndVerifySandboxUI ➔ swarm_sandboxes** (3 saltos, poupança `3037.9x`):  
   `createAndVerifySandboxUI` (JS_FUNCTION) ➔ `/api/swarm/sandbox` (API_ROUTE) ➔ `SwarmEngine.manage_subagent_sandbox` (FUNCTION) ➔ `swarm_sandboxes` (SQL_TABLE)

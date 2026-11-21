@@ -907,8 +907,13 @@
       padding: 4px 6px;
       border-radius: 8px;
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
-      max-width: calc(100% - 24px);
+      max-width: calc(100% - 236px);
       overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .graph-hud-top::-webkit-scrollbar {
+      display: none;
     }
 
     .hud-divider {
@@ -1888,9 +1893,15 @@
       gap: 5px;
       background: #0a0a0e;
       border-bottom: 1px solid var(--border);
-      padding: 5px 14px;
-      overflow-x: auto;
+      padding: 5px 12px;
+      overflow: hidden;
+      min-width: 0;
+      max-width: 100%;
       flex-shrink: 0;
+    }
+
+    #officeQuickAgentList::-webkit-scrollbar {
+      display: none;
     }
 
     .quick-ag-btn {
@@ -2363,6 +2374,9 @@
 
     .modal {
       width: min(520px, calc(100vw - 32px));
+      max-width: calc(100vw - 24px);
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
       background: var(--bg-panel-solid);
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-lg);
@@ -2726,12 +2740,45 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       padding: 0 10px;
       font-family: var(--font-mono);
       font-size: 10px;
       color: #a1a1aa;
       z-index: 40;
       overflow: hidden;
+    }
+
+    .studio-statusbar .metrics-strip {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
+      flex-wrap: nowrap;
+    }
+
+    .studio-statusbar .metrics-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .studio-statusbar .metrics-strip .metric-pill {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .studio-statusbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1580px) {
+      #footerTechSpec {
+        display: none;
+      }
     }
 
     .studio-statusbar .metrics-strip {
@@ -4336,10 +4383,10 @@
 
       <!-- Docked Quick Agent Follow Switcher Strip -->
       <div class="office-quick-agent-dock" id="officeQuickAgentDock" title="Saltar rapidamente a câmara em Modo Follow entre agentes (Atalhos: teclas [ e ])">
-        <span style="font-family:var(--font-mono); font-size:9.5px; font-weight:700; color:var(--text-muted); margin-right:4px;">FOLLOW:</span>
-        <button type="button" class="quick-ag-btn" onclick="cycleOfficeFollowAgent(-1)" title="Agente Anterior (Atalho: [)">◀ [</button>
-        <div id="officeQuickAgentList" style="display:flex; align-items:center; gap:4px;"></div>
-        <button type="button" class="quick-ag-btn" onclick="cycleOfficeFollowAgent(1)" title="Agente Seguinte (Atalho: ])">] ▶</button>
+        <span style="font-family:var(--font-mono); font-size:9.5px; font-weight:700; color:var(--text-muted); margin-right:4px; flex-shrink:0;">FOLLOW:</span>
+        <button type="button" class="quick-ag-btn" style="flex-shrink:0;" onclick="cycleOfficeFollowAgent(-1)" title="Agente Anterior (Atalho: [)">◀ [</button>
+        <div id="officeQuickAgentList" style="display:flex; align-items:center; gap:4px; flex:1 1 auto; min-width:0; overflow-x:auto; scrollbar-width:none;"></div>
+        <button type="button" class="quick-ag-btn" style="flex-shrink:0;" onclick="cycleOfficeFollowAgent(1)" title="Agente Seguinte (Atalho: ])">] ▶</button>
       </div>
 
       <!-- Unobstructed 3D Viewport Canvas -->
@@ -5477,9 +5524,9 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       <div class="metric-pill" style="display:none;"><strong id="statSaved">+0 tok</strong><strong id="statWindow5h">Reset 5h</strong></div>
     </div>
 
-    <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:9.5px; color:#64748b;">SQLite WAL mmap: 256MB · LSH-128D + RRF</span>
-      <button class="metric-pill" id="btnLangSwitcher" onclick="toggleBrainLanguageUI()" style="cursor:pointer; color:#7dd3fc; font-family:var(--font-mono); font-weight:800;" title="Alternar Idioma da Interface e Prompt Forge (PT-PT ⇄ EN-EN)">
+    <div class="studio-statusbar-right">
+      <span id="footerTechSpec" style="font-size:9.5px; color:#64748b; white-space:nowrap;">SQLite WAL mmap: 256MB · LSH-128D + RRF</span>
+      <button class="metric-pill" id="btnLangSwitcher" onclick="toggleBrainLanguageUI()" style="cursor:pointer; color:#7dd3fc; font-family:var(--font-mono); font-weight:800; flex-shrink:0; white-space:nowrap;" title="Alternar Idioma da Interface e Prompt Forge (PT-PT ⇄ EN-EN)">
         🇵🇹 PT-PT
       </button>
     </div>
@@ -8079,6 +8126,10 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       // Draw Jev-Mem Adaptive Stopping Curve on #jevStopCurveCanvas
       const c = document.getElementById('jevStopCurveCanvas');
       if (!c) return;
+      const cssW = Math.round(c.clientWidth || 0);
+      const cssH = Math.round(c.clientHeight || 0);
+      if (cssW >= 120 && c.width !== cssW) c.width = cssW;
+      if (cssH >= 36 && c.height !== cssH) c.height = cssH;
       const g = c.getContext('2d');
       const w = c.width, h = c.height;
       g.clearRect(0, 0, w, h);
@@ -17909,8 +17960,8 @@ ${rulesSection}`;
       const c = document.getElementById(canvasId);
       if (!c) return null;
       const rect = c.getBoundingClientRect();
-      const w = Math.max(180, rect.width || 360);
-      const h = Math.max(120, rect.height || 215);
+      const w = Math.max(80, Math.floor(rect.width) || 360);
+      const h = Math.max(60, Math.floor(rect.height) || 215);
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       if (c.width !== Math.floor(w * dpr) || c.height !== Math.floor(h * dpr)) {
         c.width = Math.floor(w * dpr);
@@ -20311,15 +20362,15 @@ ${rulesSection}`;
       if (badgeEl) badgeEl.textContent = String(src).toUpperCase().slice(0, 14);
 
       bodyEl.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:8.5px; color:#ffb020;">
-          <span>src: ${escapeHtml(src)} · ${escapeHtml(item.category || 'general')}</span>
-          <span style="color:#71717a;">${escapeHtml(String(ts).slice(0, 16))}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:8px; color:#ffb020; flex-shrink:0; line-height:1.15;">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">src: ${escapeHtml(src)} · ${escapeHtml(item.category || 'general')}</span>
+          <span style="color:#71717a; flex-shrink:0;">${escapeHtml(String(ts).slice(0, 16))}</span>
         </div>
-        <div style="font-size:9.5px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(title)}</div>
-        <div style="font-size:8.6px; color:#a1a1aa; line-height:1.28; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${escapeHtml(snippet)}</div>
-        <div style="display:flex; gap:5px; margin-top:auto; padding-top:4px;">
-          <button type="button" class="tactical-mini-btn" onclick="toggleBrainDrawer('right', true)">Abrir Inspetor</button>
-          <button type="button" class="tactical-mini-btn" onclick="exportCrossIdeHandoffUI()">Handoff.md</button>
+        <div style="font-size:9px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; line-height:1.25;">${escapeHtml(title)}</div>
+        <div style="font-size:8px; color:#a1a1aa; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0;">${escapeHtml(snippet)}</div>
+        <div style="display:flex; gap:5px; margin-top:auto; padding-top:2px; flex-shrink:0;">
+          <button type="button" class="tactical-mini-btn" style="padding:1.5px 6px; font-size:8px;" onclick="toggleBrainDrawer('right', true)">Abrir Inspetor</button>
+          <button type="button" class="tactical-mini-btn" style="padding:1.5px 6px; font-size:8px;" onclick="exportCrossIdeHandoffUI()">Handoff.md</button>
         </div>
       `;
     }

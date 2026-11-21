@@ -96,7 +96,12 @@ def _format_model_display(
             ver, rest = m_gem.group(1), m_gem.group(2) or ""
             if not rest:
                 return f"Gemini {ver}"
-            tokens = [t for t in rest.split("-") if t]
+            tokens = [
+                t for t in rest.split("-")
+                if t and t not in ("neon", "hydrogen", "tiered", "helium", "lithium", "carbon", "cobalt")
+            ]
+            if not tokens:
+                return f"Gemini {ver} (High)" if ("tiered" in low or "hydrogen" in low) else f"Gemini {ver}"
             if tokens and tokens[-1] in ("high", "low", "medium"):
                 tier_word = tokens.pop().capitalize()
                 core = " ".join(t.capitalize() for t in tokens)
