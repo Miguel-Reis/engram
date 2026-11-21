@@ -12,6 +12,119 @@ from orbit_engine import OrbitEngine
 from runtime_detector import detect_runtime_profile, record_runtime_session
 from swarm_engine import SwarmEngine
 
+_GENERIC_DISAMBIG_FILENAMES = frozenset(
+    {
+        "route.ts",
+        "page.tsx",
+        "layout.tsx",
+        "index.ts",
+        "index.js",
+        "index.tsx",
+        "main.py",
+        "mod.rs",
+        "init.py",
+        "__init__.py",
+        "types.ts",
+        "utils.ts",
+        "config.ts",
+        "styles.css",
+        "globals.css",
+        "package.json",
+    }
+)
+
+_REJECTED_WS_FILE_EXTS = (
+    ".ps1",
+    ".html",
+    ".htm",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".json",
+    ".md",
+    ".txt",
+    ".bat",
+    ".sh",
+    ".css",
+)
+
+_REJECTED_OS_DIRS = frozenset(
+    {
+        "roaming",
+        "appdata",
+        "temp",
+        "tmp",
+        "desktop",
+        "downloads",
+        "users",
+    }
+)
+
+
+def _is_rejected_workspace_name(ws_name: str) -> bool:
+    """Rejeita nomes de ficheiros únicos ou diretórios genéricos de SO como workspace."""
+    low = str(ws_name or "").strip().lower()
+    if not low:
+        return True
+    if low in _REJECTED_OS_DIRS:
+        return True
+    if low.endswith(_REJECTED_WS_FILE_EXTS):
+        return True
+    return False
+
+
+def _format_disambiguated_filename(target_file: str) -> str:
+    """Desambigua nomes genéricos (route.ts, index.ts, main.py, etc.) com a pasta pai (parent/route.ts)."""
+    tf_norm = str(target_file or "").replace("\\", "/").rstrip("/")
+    bname = os.path.basename(tf_norm)
+    if not bname:
+        return ""
+    if bname.lower() in _GENERIC_DISAMBIG_FILENAMES:
+        parent = os.path.basename(os.path.dirname(tf_norm).rstrip("/"))
+        if parent and not parent.endswith(":"):
+            return f"{parent}/{bname}"
+    return bname
+
+
+def _derive_file_workspace(target_file: str, fallback_ws: str, db: BrainDB) -> str:
+    """Infere o workspace real de um ficheiro evitando poluição por nomes de ficheiros ou pastas de SO."""
+    tf_norm = str(target_file or "").replace("\\", "/")
+    tf_low = tf_norm.lower()
+    safe_fallback = (
+        "global" if _is_rejected_workspace_name(fallback_ws) else (fallback_ws or "global").strip().lower()
+    )
+
+    if "/scratch/" in tf_low:
+        parts = [p for p in tf_low.split("/scratch/")[-1].split("/") if p]
+        if len(parts) >= 2 and not _is_rejected_workspace_name(parts[0]):
+            return parts[0]
+        return safe_fallback
+
+    if "/desktop/" in tf_low:
+        parts = [p for p in tf_low.split("/desktop/")[-1].split("/") if p]
+        if len(parts) >= 2 and not _is_rejected_workspace_name(parts[0]):
+            return parts[0]
+        return safe_fallback
+
+    cur_dir = os.path.dirname(tf_norm)
+    for _ in range(4):
+        if not cur_dir or cur_dir.endswith(":"):
+            break
+        try:
+            norm_dir = db.normalize_workspace(cur_dir)
+        except Exception:
+            break
+        if norm_dir and norm_dir != "global" and not _is_rejected_workspace_name(norm_dir):
+            return norm_dir
+        parent_dir = os.path.dirname(cur_dir.rstrip("/"))
+        if not parent_dir or parent_dir == cur_dir:
+            break
+        cur_dir = parent_dir
+
+    return safe_fallback
+
 
 def clean_system_envelope(text: str) -> str:
     """Remove cabeçalhos e tags de sistema (<SYSTEM_MESSAGE>, [Message] timestamp=..., <USER_REQUEST>, [BRAIN_MEMORY])."""
@@ -227,32 +340,17 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                 ).strip('"').replace("\\\\", "/")
                 desc = str(args.get("Description") or args.get("Instruction") or "Atualização de código").strip('"')[:160]
                 if target_file and "/brain/" not in target_file:
-                    bname = os.path.basename(target_file)
+                    tf_norm = target_file.replace("\\", "/")
+                    bname = os.path.basename(tf_norm)
                     # 1. Ignorar ficheiros temporários/scratch não notáveis
                     if any(x in bname.lower() for x in ("verify_", "tmp_", "temp_")):
                         continue
 
-                    # 2. Inferir workspace real do ficheiro (file_ws)
-                    tf_norm = target_file.replace("\\", "/")
-                    tf_low = tf_norm.lower()
-                    file_ws = workspace
-                    if "/scratch/" in tf_low:
-                        parts = tf_low.split("/scratch/")[-1].split("/")
-                        if parts and parts[0]:
-                            file_ws = parts[0]
-                    elif "/desktop/" in tf_low:
-                        parts = tf_low.split("/desktop/")[-1].split("/")
-                        if parts and parts[0]:
-                            file_ws = parts[0]
-                    else:
-                        try:
-                            norm_dir = db.normalize_workspace(os.path.dirname(target_file))
-                            if norm_dir and norm_dir != "global":
-                                file_ws = norm_dir
-                        except Exception:
-                            file_ws = workspace
+                    # 2. Inferir workspace real do ficheiro (rejeitando nomes de ficheiro e pastas de SO)
+                    file_ws = _derive_file_workspace(tf_norm, workspace, db)
+                    display_bname = _format_disambiguated_filename(tf_norm) or bname
 
-                    topic_key = f"Ficheiro {bname} ({file_ws})"
+                    topic_key = f"Ficheiro {display_bname} ({file_ws})"
                     fact_val = f"Path: {tf_norm} — Última edição: {desc}"
 
                     if not db.passes_notability_gate(topic_key, fact_val, "code_change"):
@@ -260,10 +358,10 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
 
                     # Apenas anexa aos ficheiros modificados do workspace atual se for local (ou se workspace for global)
                     if file_ws == workspace or workspace == "global":
-                        if bname not in modified_files:
-                            modified_files.append(bname)
+                        if display_bname not in modified_files:
+                            modified_files.append(display_bname)
                         if desc:
-                            completed_actions.append(f"{bname}: {desc}")
+                            completed_actions.append(f"{display_bname}: {desc}")
 
                     with db._connect() as conn:
                         existing = conn.execute(
@@ -281,7 +379,7 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
                                 fact=fact_val,
                                 workspace=file_ws,
                                 category="code_change",
-                                tags=f"{bname} {file_ws} file edit",
+                                tags=f"{bname} {display_bname} {file_ws} file edit",
                                 importance=3,
                             )
                             harvested_count += 1
@@ -400,6 +498,8 @@ def handle_stop(raw_stdin: str, host_hint: str = "auto") -> Dict[str, Any]:
 
         db = BrainDB()
         ws = db.normalize_workspace(raw_ws)
+        if _is_rejected_workspace_name(ws):
+            ws = "global"
         if ws == "global":
             resolved_ws = resolve_smart_active_workspace(db, "", conv_id)
             if resolved_ws and resolved_ws != "global":

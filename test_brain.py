@@ -1645,14 +1645,50 @@ def run_all_tests() -> None:
 
         tac_ov = build_tactical_overview_payload(v91_db, workspace=tmp_v91_ws)
         assert tac_ov["ok"] is True and len(tac_ov["system_matrix"]["cells"]) == 24 and len(tac_ov["ticker_items"]) >= 6, f"Tactical overview inválido: {tac_ov}"
-        assert {"brain_distill_rules", "brain_ingest_note", "brain_export_handoff"}.issubset(tool_names), f"Tools MCP #26-#28 em falta: {tool_names}"
+        assert {"brain_distill_rules", "brain_ingest_note", "brain_export_handoff", "brain_db_maintenance"}.issubset(tool_names), f"Tools MCP #26-#29 em falta: {tool_names}"
+
+        # 36. Engram v9.2 Turbo & Hygiene — Zero-WMI OS info, XHigh Router, DPAPI secret protection, DB Auto-TTL/Maintenance, Collision-Safe Harvest & Global Brain Filter
+        from runtime_detector import _detect_os_info, classify_model_profile, plan_swarm_model_matrix
+        from brain_harvest import _format_disambiguated_filename, _is_rejected_workspace_name
+        from orbit_engine import OrbitEngine as _OrbitV92
+
+        t0_os = time.perf_counter()
+        os_fam, os_disp = _detect_os_info()
+        os_ms = (time.perf_counter() - t0_os) * 1000.0
+        assert os_fam and os_disp and os_ms < 25.0, f"_detect_os_info lento ou inválido ({os_ms:.2f}ms): {(os_fam, os_disp)}"
+
+        cls_xh = classify_model_profile("gemini-4-neon-xhigh")
+        assert cls_xh["model_display"] == "Gemini 4 (XHigh)" and cls_xh["model_tier"] == "frontier_high" and cls_xh["is_local_model"] is False, f"Classificação XHigh falhou: {cls_xh}"
+
+        mat_v92 = plan_swarm_model_matrix("auditar segurança", platform_id="antigravity", db=v91_db)
+        assert mat_v92["lanes"]["SCOUT"]["recommended_model"] == "flash_lite" and "Neon" not in mat_v92["directive_line"] and "-100%" not in mat_v92["directive_line"], f"Router v9.2 falhou: {mat_v92}"
+
+        # Verificar encriptação DPAPI/obf no SQLite para telegram_bot_token
+        with v91_db._connect() as _c92:
+            raw_tok_row = _c92.execute("SELECT value FROM brain_meta WHERE key = 'telegram_bot_token'").fetchone()
+        assert raw_tok_row and "SECRET_TOKEN" not in str(raw_tok_row[0]) and str(raw_tok_row[0]).startswith(("dpapi:", "obf:")), f"Token Telegram não encriptado no SQLite: {raw_tok_row}"
+
+        # Verificar DB Health & Maintenance
+        h92 = v91_db.get_db_health()
+        assert h92["ok"] is True and h92["total_size_mb"] >= 0, f"get_db_health inválido: {h92}"
+        m92 = v91_db.run_db_maintenance(vacuum=True, purge_test_ws=True)
+        assert m92["ok"] is True and m92["vacuumed"] is True, f"run_db_maintenance falhou: {m92}"
+
+        # Verificar colisão de ficheiros e filtro de ruído Global Brain
+        assert _format_disambiguated_filename("C:/proj/app/api/users/route.ts") == "users/route.ts", "Desambiguação de route.ts falhou"
+        assert _is_rejected_workspace_name("tune_realtek_admin.ps1") is True and _is_rejected_workspace_name("roaming") is True
+        assert _OrbitV92._is_raw_file_path_noise("Ficheiro meter.html", "Ficheiro do projeto shadowmeter2 em [path-local]") is True
+        assert _OrbitV92._is_raw_file_path_noise("Segurança XSS", "Usar sempre escapeHtml em atributos onclick para evitar XSS") is False
+
+        for v92_ui_tok in ('id="dbMaintenancePanel"', 'id="dbHealthSummaryBox"', 'id="dbMaintenanceResultBox"', "function refreshDbHealthUI(", "function runDbMaintenanceUI("):
+            assert v92_ui_tok in html_content, f"Token UI v9.2 em falta em index.html: {v92_ui_tok}"
     finally:
         _v91_shutil.rmtree(tmp_v91_dir, ignore_errors=True)
         vault_tmp = os.path.join(repo_dir, ".brain_vault", tmp_v91_ws)
         if os.path.isdir(vault_tmp):
             _v91_shutil.rmtree(vault_tmp, ignore_errors=True)
 
-    print("[PASS] Pack Completo v6.0..v9.1 Studio OS (Amber Tactical 3D Córtex, Nightly Rule Distiller, Telegram/Voice Intake, Cross-IDE HANDOFF.md & 28 MCP Tools) OK")
+    print("[PASS] Pack Completo v6.0..v9.2 Studio OS (Turbo Warm Hook, Zero-WMI, XHigh Router, DPAPI, DB Auto-TTL/VACUUM, Tactical 3D & 29 MCP Tools) OK")
 
 
 if __name__ == "__main__":

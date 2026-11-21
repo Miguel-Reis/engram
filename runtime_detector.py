@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import os
-import platform
 import re
 import sys
 import threading
@@ -50,7 +49,11 @@ _LOCAL_MODEL_MARKERS = (
 
 _LOCAL_SIZE_SUFFIX_RE = re.compile(r":\d+(?:\.\d+)?b\b", re.IGNORECASE)
 _FAST_SMALL_RE = re.compile(r"(?:^|[-_:/.\s()])(?:flash|mini|haiku|lite|nano|spark)(?:$|[-_:/.\s()])", re.IGNORECASE)
-_FRONTIER_HIGH_RE = re.compile(r"(?:^|[-_:/.\s()])(?:opus|high|ultra|thinking|pro-high|o3|o4)(?:$|[-_:/.\s()])", re.IGNORECASE)
+_FRONTIER_HIGH_RE = re.compile(
+    r"(?:^|[-_:/.\s()])(?:opus|xhigh|x-high|extra-high|high|ultra|thinking|pro-high|o3|o4)(?:$|[-_:/.\s()])",
+    re.IGNORECASE,
+)
+_CLOUD_MODEL_PREFIX_RE = re.compile(r"^(?:gemini|claude|gpt)[\s\-_.]", re.IGNORECASE)
 _PARAM_BILLIONS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*b\b", re.IGNORECASE)
 _SETTINGS_CHANGE_RE = re.compile(
     r"<USER_SETTINGS_CHANGE>\s*The user changed setting\s+[`'\"]?Model Selection[`'\"]?\s+from\s+.*?\s+to\s+[`'\"]?([^\n<`'\"]+?)[`'\"]?(?:\.(?=\s|$|<)|(?=<)|$)",
@@ -80,30 +83,42 @@ def _format_model_display(
         return "Auto-Detected Model"
     low = raw.lower()
 
-    # Gemini formatting: e.g. gemini-4-neon-high -> Gemini 4 (High)
+    # Gemini formatting: e.g. gemini-4-neon-high -> Gemini 4 (High), Gemini 4 Neon (XHigh) -> Gemini 4 (XHigh)
     if model_family == "gemini":
+        gem_norm = re.sub(r"\b(?:extra[\s-]+high|x[\s-]+high)\b", "xhigh", low)
         m_neon = re.match(
-            r"^gemini-(\d+(?:\.\d+)?)-neon(?:-(high|low|medium|pro|flash|lite))?$",
-            low,
+            r"^gemini-(\d+(?:\.\d+)?)-neon(?:-(xhigh|high|low|medium|ultra|pro|flash|lite))?$",
+            gem_norm,
         )
         if m_neon:
             ver, mod = m_neon.group(1), m_neon.group(2)
+            if mod == "xhigh":
+                return f"Gemini {ver} (XHigh)"
             if mod:
                 return f"Gemini {ver} ({mod.capitalize()})"
             return f"Gemini {ver}"
-        m_gem = re.match(r"^gemini-(\d+(?:\.\d+)?)(?:-(.+))?$", low)
+        m_gem = re.match(r"^gemini[\s-]+(\d+(?:\.\d+)?)(?:[\s-]+(.+))?$", gem_norm)
         if m_gem:
             ver, rest = m_gem.group(1), m_gem.group(2) or ""
             if not rest:
                 return f"Gemini {ver}"
+            rest_clean = rest.replace("(", " ").replace(")", " ")
+            codenames = {"neon", "hydrogen", "tiered", "helium", "lithium", "carbon", "cobalt"}
             tokens = [
-                t for t in rest.split("-")
-                if t and t not in ("neon", "hydrogen", "tiered", "helium", "lithium", "carbon", "cobalt")
+                t for t in re.split(r"[\s\-_]+", rest_clean)
+                if t and t not in codenames
             ]
             if not tokens:
-                return f"Gemini {ver} (High)" if ("tiered" in low or "hydrogen" in low) else f"Gemini {ver}"
-            if tokens and tokens[-1] in ("high", "low", "medium"):
-                tier_word = tokens.pop().capitalize()
+                return f"Gemini {ver} (High)" if ("tiered" in gem_norm or "hydrogen" in gem_norm) else f"Gemini {ver}"
+            tier_map = {
+                "xhigh": "XHigh",
+                "high": "High",
+                "ultra": "Ultra",
+                "medium": "Medium",
+                "low": "Low",
+            }
+            if tokens and tokens[-1] in tier_map:
+                tier_word = tier_map[tokens.pop()]
                 core = " ".join(t.capitalize() for t in tokens)
                 return f"Gemini {ver} {core} ({tier_word})".replace("  ", " ").strip()
             return f"Gemini {ver} {' '.join(t.capitalize() for t in tokens)}".strip()
@@ -211,6 +226,19 @@ def _estimate_pricing(model_family: str, model_tier: str, is_local_model: bool) 
     return {"input": 1.25, "output": 5.00, "cache_read": 0.30}
 
 
+def _is_explicit_cloud_model(model_raw: str) -> bool:
+    low = (model_raw or "").strip().lower()
+    if not low:
+        return False
+    if _CLOUD_MODEL_PREFIX_RE.match(low):
+        return True
+    if low in ("opus", "sonnet", "haiku", "o1", "o3", "o4"):
+        return True
+    if any(k in low for k in ("gpt-", "gpt4", "gpt5", "codex", "o1-", "o3-", "o4-")):
+        return True
+    return False
+
+
 def classify_model_profile(
     model_raw: str,
     is_local_hint: bool = False,
@@ -227,7 +255,8 @@ def classify_model_profile(
     m_param = _PARAM_BILLIONS_RE.search(low)
     param_billions: Optional[float] = float(m_param.group(1)) if m_param else None
 
-    is_local_model = bool(
+    explicit_cloud = _is_explicit_cloud_model(norm_raw)
+    is_local_model = False if explicit_cloud else bool(
         is_local_hint
         or prov_low in ("ollama", "lmstudio", "llamacpp", "vllm", "jan")
         or any(marker in low for marker in _LOCAL_MODEL_MARKERS)
@@ -526,18 +555,65 @@ def build_platform_topology(
     return f"MCP ({m_label}) ➔ Single-Pass AST + Pagoda"
 
 
-def _detect_os_info() -> tuple[str, str]:
+_CACHED_OS_INFO: Optional[Dict[str, str]] = None
+
+
+def _compute_os_info_cached() -> Dict[str, str]:
+    """Zero-WMI OS detection cached once at module level (<0.01ms after first call)."""
+    global _CACHED_OS_INFO
+    if _CACHED_OS_INFO is not None:
+        return _CACHED_OS_INFO
+
     if sys.platform.startswith("win"):
         os_plat = "windows"
+        try:
+            wv = sys.getwindowsversion()
+            if wv.major == 10 and wv.build >= 22000:
+                os_rel = "Windows-11"
+            elif wv.major == 10:
+                os_rel = "Windows-10"
+            else:
+                os_rel = f"Windows-{wv.major}.{wv.minor}"
+        except Exception:
+            os_rel = "Windows"
+        arch = (
+            os.environ.get("PROCESSOR_ARCHITECTURE")
+            or os.environ.get("PROCESSOR_ARCHITEW6432")
+            or "AMD64"
+        )
     elif sys.platform == "darwin":
         os_plat = "macos"
+        try:
+            u = os.uname()
+            os_rel = f"macOS-{u.release}"
+            arch = u.machine
+        except Exception:
+            os_rel = "macOS"
+            arch = ""
     else:
         os_plat = "linux"
-    try:
-        os_rel = platform.platform(terse=True)
-    except Exception:
-        os_rel = os_plat
-    return os_plat, os_rel
+        try:
+            u = os.uname()
+            os_rel = f"Linux-{u.release.split('-')[0]}"
+            arch = u.machine
+        except Exception:
+            os_rel = "Linux"
+            arch = ""
+
+    _CACHED_OS_INFO = {
+        "os_name": os_plat,
+        "os_family": os_plat,
+        "os_platform": os_plat,
+        "os_release": os_rel,
+        "os_display": os_rel,
+        "arch": arch,
+    }
+    return _CACHED_OS_INFO
+
+
+def _detect_os_info() -> tuple[str, str]:
+    info = _compute_os_info_cached()
+    return info["os_platform"], info["os_release"]
 
 
 def _normalize_host_hint(host_hint: str) -> str:
@@ -825,10 +901,7 @@ def detect_runtime_profile(
 
     if (
         detection_source in ("payload", "transcript_step", "transcript_settings", "db_session", "config_claude")
-        and (
-            model_raw.lower().startswith(("gemini-", "claude-", "gpt-"))
-            or model_raw.lower() in ("opus", "sonnet", "haiku")
-        )
+        and _is_explicit_cloud_model(model_raw)
     ):
         is_local_hint = False
         provider_hint = ""
@@ -1171,10 +1244,14 @@ def _get_loaded_local_model_name(
     if isinstance(local_rt, dict):
         primary = local_rt.get("primary_loaded_local_model")
         if isinstance(primary, dict) and primary.get("name"):
-            return str(primary["name"]).strip()
+            cand = str(primary["name"]).strip()
+            if cand and not _is_explicit_cloud_model(cand):
+                return cand
 
     if profile.get("is_local_model") and profile.get("model_raw"):
-        return str(profile["model_raw"]).strip()
+        cand = str(profile["model_raw"]).strip()
+        if cand and not _is_explicit_cloud_model(cand):
+            return cand
     return ""
 
 
@@ -1243,15 +1320,29 @@ def _score_and_route_role(
     else:
         tier = "pro"
 
-    if quota_zone == "RED" and is_security_context and tier == "lite":
-        tier = "fast"
+    # Enforce deterministic lane invariants per policy & quota pressure
+    if role_norm in _LITE_ROLES and effective_policy in ("auto", "balanced", "economy"):
+        tier = "lite"
+    elif role_norm in _FAST_ROLES:
+        if effective_policy == "economy":
+            tier = "lite"
+        elif effective_policy in ("auto", "balanced"):
+            if quota_zone == "RED" and not (is_security_context or blast_norm == "CRITICAL"):
+                tier = "lite"
+            else:
+                tier = "fast"
+    elif role_norm in _FRONTIER_ROLES:
+        if effective_policy == "economy":
+            tier = "fast"
+        else:
+            if tier in ("lite", "fast"):
+                tier = "inherit"
+            if effective_policy == "quality" and (is_security_context or blast_norm in ("HIGH", "CRITICAL")):
+                tier = "pro"
 
     use_local = False
     local_name = ""
-    if local_candidate and (
-        effective_policy == "local_first"
-        or (effective_policy in ("auto", "balanced") and quota_zone == "RED")
-    ):
+    if local_candidate and not _is_explicit_cloud_model(local_candidate) and effective_policy == "local_first":
         use_local = True
         local_name = local_candidate
 
@@ -1260,7 +1351,8 @@ def _score_and_route_role(
     codex_param = _TIER_TO_PLATFORM_MODEL["codex_cli"][tier]
     plat_map = _TIER_TO_PLATFORM_MODEL.get(host, _TIER_TO_PLATFORM_MODEL["generic_mcp"])
     platform_model = local_name if use_local else plat_map[tier]
-    savings_pct = 100 if use_local else _TIER_SAVINGS_PCT[tier]
+    raw_savings = 95 if use_local else _TIER_SAVINGS_PCT[tier]
+    savings_pct = max(0, min(95, int(raw_savings)))
 
     reason_pt = (
         f"role={role_norm} · score={score}/100 · tier={tier} · "
@@ -1372,8 +1464,14 @@ def plan_swarm_model_matrix(
             local_candidate=local_candidate,
         )
 
-    avg_savings = int(
-        round(sum(int(r.get("estimated_cost_savings_pct") or 0) for r in lanes.values()) / max(1, len(lanes)))
+    avg_savings = max(
+        0,
+        min(
+            95,
+            int(
+                round(sum(int(r.get("estimated_cost_savings_pct") or 0) for r in lanes.values()) / max(1, len(lanes)))
+            ),
+        ),
     )
     m_scout = lanes["SCOUT"]["recommended_model"]
     m_api = lanes["API"]["recommended_model"]
@@ -1383,7 +1481,7 @@ def plan_swarm_model_matrix(
 
     directive_line = (
         f"🤖[SWARM_MODEL_ROUTER|policy={effective_policy}|quota={quota_zone}|host={host}]: "
-        f"SCOUT={m_scout} | UI/API/TESTS={m_api} | ARCH/SEC={arch_sec_lbl} (-{avg_savings}% quota)"
+        f"SCOUT={m_scout} | UI/API/TESTS={m_api} | ARCH/SEC={arch_sec_lbl} (save {avg_savings}% quota)"
     )
 
     return {
@@ -1393,6 +1491,7 @@ def plan_swarm_model_matrix(
         "quota_zone": quota_zone,
         "quota_remaining_pct": quota_rem,
         "avg_cost_savings_pct": avg_savings,
+        "avg_savings_pct": avg_savings,
         "lanes": lanes,
         "directive_line": directive_line,
     }

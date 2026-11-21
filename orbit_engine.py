@@ -1663,7 +1663,7 @@ class OrbitEngine:
             # -----------------------------------------------------------------
             by_target: Dict[str, List[Dict[str, Any]]] = {}
             for m in mems:
-                if m.get("category") == "learned_rule":
+                if m.get("category") in ("learned_rule", "code_change", "file_edit"):
                     continue
                 txt = f"{m.get('topic', '')} {m.get('fact', '')}"
                 found_files = file_pattern.findall(txt)
@@ -1695,11 +1695,21 @@ class OrbitEngine:
 
             # Se o projeto tinha poucas memórias agrupadas mas ainda não gerou regra neste ciclo, sintetizar axioma de topo
             if new_rules_created == 0 and mems:
-                best_m = mems[0]
-                fallback_axiom = f"[{best_m.get('topic', 'Core')[:28]}] {str(best_m.get('fact', ''))[:88]}"
-                if fallback_axiom not in distilled_axioms:
-                    distilled_axioms.insert(0, fallback_axiom)
-                    new_rules_created += 1
+                non_file_mems = [
+                    m for m in mems
+                    if m.get("category") not in ("code_change", "file_edit")
+                    and not self._is_raw_file_path_noise(
+                        str(m.get("topic") or ""),
+                        str(m.get("fact") or ""),
+                        str(m.get("category") or ""),
+                    )
+                ]
+                if non_file_mems:
+                    best_m = non_file_mems[0]
+                    fallback_axiom = f"[{best_m.get('topic', 'Core')[:28]}] {str(best_m.get('fact', ''))[:88]}"
+                    if fallback_axiom not in distilled_axioms:
+                        distilled_axioms.insert(0, fallback_axiom)
+                        new_rules_created += 1
 
             distilled_axioms = distilled_axioms[:6]
 
@@ -1796,18 +1806,43 @@ class OrbitEngine:
                     ws,
                 ),
             )
-            conn.execute(
-                """
-                INSERT INTO self_learn_events (workspace, event_type, title, detail, iq_delta)
-                VALUES (?, 'evolution_cycle', ?, ?, ?);
-                """,
-                (
-                    ws,
-                    f"🧬 Ciclo de Auto-Melhoria #{prev_cycles} Concluído ({ws})",
-                    evo_summary,
-                    iq_gain,
-                ),
-            )
+            should_log_event = True
+            if not force and new_rules_created == 0 and healed_duplicates == 0:
+                last_evo = conn.execute(
+                    """
+                    SELECT created_at
+                    FROM self_learn_events
+                    WHERE LOWER(workspace) = ? AND event_type = 'evolution_cycle'
+                    ORDER BY id DESC
+                    LIMIT 1;
+                    """,
+                    (ws,),
+                ).fetchone()
+                if last_evo and last_evo["created_at"]:
+                    try:
+                        dt_last = datetime.datetime.fromisoformat(
+                            str(last_evo["created_at"]).replace("Z", "+00:00")
+                        )
+                        if dt_last.tzinfo is not None:
+                            dt_last = dt_last.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+                        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                        if (now_utc - dt_last).total_seconds() < 3600:
+                            should_log_event = False
+                    except Exception:
+                        pass
+            if should_log_event:
+                conn.execute(
+                    """
+                    INSERT INTO self_learn_events (workspace, event_type, title, detail, iq_delta)
+                    VALUES (?, 'evolution_cycle', ?, ?, ?);
+                    """,
+                    (
+                        ws,
+                        f"🧬 Ciclo de Auto-Melhoria #{prev_cycles} Concluído ({ws})",
+                        evo_summary,
+                        iq_gain,
+                    ),
+                )
 
         updated_status = self.get_self_learn_status(workspace=ws)
         return {
@@ -1883,6 +1918,65 @@ class OrbitEngine:
             return True
         return False
 
+    @staticmethod
+    def _is_raw_file_path_noise(topic: str, fact: str, category: str = "") -> bool:
+        """
+        Exclui inventários brutos de caminhos/ficheiros (ex.: 'Ficheiro do projeto ...',
+        'Ficheiro modificado ...', 'Path: [path-local] — Última edição: ...', listagens de route.ts)
+        sem lição arquitetural/regra acionável para não poluir o GLOBAL_BRAIN Top-3.
+        """
+        cat_low = str(category or "").strip().lower()
+        if cat_low in ("file_edit", "code_change"):
+            return True
+        t_low = " ".join(str(topic or "").lower().split())
+        f_low = " ".join(str(fact or "").lower().split())
+        blob = f"{t_low} | {f_low}"
+
+        noise_markers = (
+            "ficheiro do projeto",
+            "ficheiro modificado",
+            "(modificado via ",
+            "última edição:",
+            "ultima edicao:",
+            "atualização de código",
+            "atualizacao de codigo",
+            "scout_shared_map",
+        )
+        if any(m in blob for m in noise_markers):
+            return True
+        if t_low.startswith("ficheiro ") or f_low.startswith("path:") or " path: " in f_low:
+            return True
+
+        has_path_local = "[path-local]" in blob
+        has_route_listing = bool(re.search(r"\broute\.ts\b", blob))
+        if has_path_local or has_route_listing:
+            stripped = re.sub(r"\[[^\]]+\]", " ", blob)
+            stripped = re.sub(
+                r"\b[a-z0-9_\-./\\]+\.(?:ts|tsx|js|jsx|py|rs|css|html|json|md|ps1)\b",
+                " ",
+                stripped,
+            )
+            stripped = re.sub(
+                r"\b(?:em|in|path|ficheiro|arquivo|file|files|projeto|project|modificado|edited|via|padr[aã]o consolidado)\b",
+                " ",
+                stripped,
+            )
+            stripped = re.sub(r"[^a-zà-öø-ÿ0-9_\-()\s]", " ", stripped)
+            meaningful_words = [w for w in stripped.split() if len(w) >= 3]
+            lesson_markers = (
+                "sempre", "nunca", "evitar", "usar ", "garantir", "validar", "corrig",
+                "soluç", "soluc", "causa", "erro", "bug", "always", "never", "avoid",
+                "ensure", "validate", "fix", "minmax", "overflow", "utf-8", "pragma",
+                "fts5", "timeout", "lock", "atomic", "security", "auth", "cache",
+                "regra", "rule",
+            )
+            has_lesson = any(lm in blob for lm in lesson_markers)
+            if not has_lesson and len(meaningful_words) < 6:
+                return True
+            if has_route_listing and not has_lesson:
+                return True
+        return False
+
     def synthesize_global_meta_brain(self, scan_transcripts: bool = True) -> Dict[str, Any]:
         """
         Unifica no Córtex Global ('global'):
@@ -1899,7 +1993,11 @@ class OrbitEngine:
 
         def _push_axiom(ax: str) -> None:
             clean_ax = " ".join(str(ax or "").split()).strip()
-            if len(clean_ax) < 16 or self._is_ephemeral_status_log("", clean_ax):
+            if (
+                len(clean_ax) < 16
+                or self._is_ephemeral_status_log("", clean_ax)
+                or self._is_raw_file_path_noise("", clean_ax)
+            ):
                 return
             norm_k = re.sub(r"[^a-z0-9]", "", clean_ax.lower())[:55]
             if norm_k not in seen_axioms:
@@ -1915,6 +2013,7 @@ class OrbitEngine:
                 int(r["id"])
                 for r in old_chat_rows
                 if self._is_ephemeral_status_log(str(r["topic"] or ""), str(r["fact"] or ""))
+                or self._is_raw_file_path_noise(str(r["topic"] or ""), str(r["fact"] or ""))
             ]
             if purge_ids:
                 ph = ",".join("?" for _ in purge_ids)
@@ -1931,6 +2030,8 @@ class OrbitEngine:
                 try:
                     pb = json.loads(r["learned_playbook_json"] or "[]")
                     for rule_txt in pb[:3]:
+                        if self._is_raw_file_path_noise("", str(rule_txt or "")):
+                            continue
                         sanitized = self._sanitize_foreign_paths_for_global(rule_txt, w_name, "global")
                         _push_axiom(f"[🌐 {w_name}] {sanitized}")
                 except Exception:
@@ -1951,7 +2052,7 @@ class OrbitEngine:
                 cat = str(m["category"] or "")
                 top_str = str(m["topic"] or "")
                 fact_raw = str(m["fact"] or "")
-                if self._is_ephemeral_status_log(top_str, fact_raw):
+                if self._is_ephemeral_status_log(top_str, fact_raw) or self._is_raw_file_path_noise(top_str, fact_raw, cat):
                     continue
                 fact_s = self._sanitize_foreign_paths_for_global(fact_raw, w_name, "global")
                 if cat == "bug_fix" or "bug" in top_str.lower():
@@ -2302,13 +2403,13 @@ class OrbitEngine:
         )
 
         def _add_candidate(score: float, text: str, origin_ws: str) -> None:
-            if self._is_ephemeral_status_log("", text):
+            if self._is_ephemeral_status_log("", text) or self._is_raw_file_path_noise("", text):
                 return
             if non_universal_re.search(text) and origin_ws != cur_ws:
                 return
             sanitized = self._sanitize_foreign_paths_for_global(text, origin_ws, cur_ws)
             clean = self._extract_clean_rule_payload(sanitized)
-            if len(clean) < 18:
+            if len(clean) < 18 or self._is_raw_file_path_noise("", clean):
                 return
             nk = re.sub(r"[^a-z0-9]", "", clean.lower())[:44]
             if nk in seen_norm:
@@ -2327,6 +2428,8 @@ class OrbitEngine:
                     pb = json.loads(r["learned_playbook_json"] or "[]")
                     ws_affinity = 1.6 if w_name in (cur_ws, "global", "global_self_learn") else 0.35
                     for idx, rule_txt in enumerate(pb[:4]):
+                        if self._is_raw_file_path_noise("", str(rule_txt or "")):
+                            continue
                         clean_r = self._extract_clean_rule_payload(rule_txt)
                         r_vec = self.db.compute_semantic_vector(clean_r)
                         sim = self.db.cosine_similarity(q_vec, r_vec)
@@ -2352,9 +2455,9 @@ class OrbitEngine:
                 cat = str(m["category"] or "")
                 tp_str = str(m["topic"] or "")
                 fc_str = str(m["fact"] or "")
-                if cat == "file_edit" or tp_str.lower().startswith("ficheiro ") or "(modificado via " in fc_str.lower():
+                if self._is_raw_file_path_noise(tp_str, fc_str, cat):
                     continue
-                if "scout_shared_map" in fc_str.lower() or tp_str.lower().startswith(("scout shared", "diretiva 3d")):
+                if tp_str.lower().startswith("diretiva 3d"):
                     continue
                 # Se for de outro projeto específico e for apenas resumo de página/feature, ignorar no Top-3 Universal
                 if w_name not in (cur_ws, "global", "global_self_learn") and cat not in ("learned_rule", "directive"):

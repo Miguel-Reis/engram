@@ -1450,6 +1450,47 @@ def brain_export_handoff(
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 
+@mcp.tool()
+def brain_db_maintenance(
+    vacuum: bool = True,
+    purge_test_ws: bool = False,
+) -> str:
+    """Runs Engram SQLite retention pruning, orphan edge cleanup, and optional VACUUM + test-workspace purge, returning JSON health & savings report.
+
+    Args:
+        vacuum: Whether to run SQLite VACUUM and WAL truncate checkpoint after pruning (default True)
+        purge_test_ws: Whether to purge temporary/test workspaces (e.g., test_*, tmp_*) from BrainDB (default False)
+    """
+    target_db = mcp.db or db
+    try:
+        before_health = target_db.get_db_health() if hasattr(target_db, "get_db_health") else {}
+        if hasattr(target_db, "run_db_maintenance"):
+            maint_res = target_db.run_db_maintenance(
+                vacuum=bool(vacuum),
+                purge_test_ws=bool(purge_test_ws),
+            )
+        else:
+            with target_db._connect() as conn:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                if vacuum:
+                    conn.execute("VACUUM;")
+            maint_res = {
+                "vacuumed": bool(vacuum),
+                "purge_test_ws": bool(purge_test_ws),
+                "fallback": True,
+            }
+        after_health = target_db.get_db_health() if hasattr(target_db, "get_db_health") else {}
+        res = {
+            "ok": True,
+            "maintenance": maint_res,
+            "health": after_health,
+            "before_health": before_health,
+        }
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc)}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
 TOOLS: List[Dict[str, Any]] = [t["schema"] for t in mcp._tools.values()]
 
 

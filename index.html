@@ -6028,6 +6028,42 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         </div>
       </div>
 
+      <!-- 🧹 DB Hygiene & Warm Hook Sidecar (v9.2) -->
+      <div class="studio-section-card" id="dbMaintenancePanel" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(16,185,129,0.34); background:rgba(6,14,18,0.82); border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; color:#34d399; font-family:var(--font-mono); letter-spacing:0.02em;">
+              🧹 DB Hygiene &amp; Warm Hook Sidecar
+            </span>
+            <span class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-family:var(--font-mono);">
+              SQLite WAL · Retention · Vacuum
+            </span>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="quick-ag-btn" onclick="refreshDbHealthUI()" style="font-family:var(--font-mono); font-size:10px;">
+              🔄 Atualizar Saúde BD
+            </button>
+            <button type="button" class="btn btn-primary" id="btnDbCompactVacuum" style="padding:4px 10px; font-size:10.5px; background:#047857; border-color:#10b981; color:#fff;" onclick="runDbMaintenanceUI(false)">
+              ⚡ Compactar &amp; Vacuum BD
+            </button>
+            <button type="button" class="btn" id="btnDbPurgeTestWs" style="padding:4px 10px; font-size:10.5px; background:rgba(245,158,11,0.15); border-color:rgba(245,158,11,0.45); color:#fde68a;" onclick="runDbMaintenanceUI(true)">
+              🧹 Limpar Workspaces Teste + Vacuum
+            </button>
+          </div>
+        </div>
+
+        <div id="dbHealthSummaryBox" style="background:#05090e; border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:8px 10px; margin-bottom:8px; font-family:var(--font-mono); font-size:10.5px; color:#cbd5e1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+            <span>⏳ A ler métricas de <code>brain.db</code> &amp; WAL...</span>
+            <span class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.4);">Warm Hook Fast-Path: READY (&lt;25ms)</span>
+          </div>
+        </div>
+
+        <div id="dbMaintenanceResultBox" style="background:#04070b; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:7px 9px; font-family:var(--font-mono); font-size:10px; color:#94a3b8;">
+          Pronto para compactar tabelas append-only, limpar arestas órfãs e executar <code>VACUUM</code> sem bloqueios.
+        </div>
+      </div>
+
       <!-- Time-Travel Memory Revisions & 1-Click Rollback -->
       <div class="studio-section-card" style="margin-top:10px; padding:9px 11px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -11945,6 +11981,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       loadMemoryRevisionsUI();
       refreshPagodaPanelUI();
       refreshRuntimeProfileUI(false);
+      refreshDbHealthUI();
       await refreshInspectorPreview();
     }
 
@@ -15517,6 +15554,147 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
           btn.disabled = false;
           btn.textContent = '🧠 Decidir Modelo';
         }
+      }
+    }
+
+    function _renderDbHealthSummaryBox(data) {
+      const box = document.getElementById('dbHealthSummaryBox');
+      if (!box) return;
+      if (!data || data.ok === false) {
+        box.innerHTML = `<div style="color:#fb7185; font-size:10px;">⚠️ Falha ao consultar saúde da BD: ${escapeHtml((data && data.error) || 'erro desconhecido')}</div>`;
+        return;
+      }
+
+      const dbMb = Number(data.db_size_mb ?? 0).toFixed(2);
+      const walMb = Number(data.wal_size_mb ?? 0).toFixed(2);
+      const totalMb = Number(data.total_size_mb ?? (Number(data.db_size_mb || 0) + Number(data.wal_size_mb || 0))).toFixed(2);
+      const bloatWarn = Boolean(data.bloat_warning);
+      const warmReady = data.warm_hook_ready !== false;
+      const counts = (data.table_counts && typeof data.table_counts === 'object') ? data.table_counts : {};
+      const topTables = Object.entries(counts)
+        .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+        .slice(0, 6);
+
+      const warmBadge = warmReady
+        ? `<span class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.4);">Warm Hook Fast-Path: READY (&lt;25ms)</span>`
+        : `<span class="rc-badge" style="font-size:9px; background:rgba(245,158,11,0.16); color:#fde68a; border:1px solid rgba(245,158,11,0.4);">Warm Hook Fast-Path: COLD</span>`;
+
+      const bloatBadge = bloatWarn
+        ? `<span class="rc-badge" style="font-size:9px; background:rgba(244,63,94,0.16); color:#fda4af; border:1px solid rgba(244,63,94,0.4);">⚠️ Bloat Warning</span>`
+        : `<span class="rc-badge" style="font-size:9px; background:rgba(56,189,248,0.14); color:#7dd3fc; border:1px solid rgba(56,189,248,0.35);">✅ Compacto</span>`;
+
+      const tablesHtml = topTables.length
+        ? topTables.map(([tbl, cnt]) => `<span class="tk-chip" style="font-size:9px; color:#cbd5e1; border-color:rgba(255,255,255,0.12);">${escapeHtml(String(tbl))}: <strong style="color:#6ee7b7;">${Number(cnt || 0).toLocaleString()}</strong></span>`).join(' ')
+        : `<span style="color:#64748b; font-size:9.5px;">Sem contagem de tabelas disponível.</span>`;
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span>brain.db: <strong style="color:#f8fafc;">${dbMb} MB</strong></span>
+            <span style="color:#64748b;">·</span>
+            <span>WAL: <strong style="color:#38bdf8;">${walMb} MB</strong></span>
+            <span style="color:#64748b;">·</span>
+            <span>Total: <strong style="color:#34d399;">${totalMb} MB</strong></span>
+            ${bloatBadge}
+          </div>
+          ${warmBadge}
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+          <span style="font-size:9px; color:#94a3b8; text-transform:uppercase;">Top Tabelas:</span>
+          ${tablesHtml}
+        </div>
+      `;
+    }
+
+    async function refreshDbHealthUI() {
+      try {
+        const res = await fetch('/api/db/health');
+        const data = await res.json();
+        _renderDbHealthSummaryBox(data);
+        return data;
+      } catch (err) {
+        const box = document.getElementById('dbHealthSummaryBox');
+        if (box) {
+          box.innerHTML = `<div style="color:#fb7185; font-size:10px;">⚠️ Erro de rede em /api/db/health: ${escapeHtml(err.message || String(err))}</div>`;
+        }
+        return null;
+      }
+    }
+
+    async function runDbMaintenanceUI(purgeTestWs = false) {
+      const btnCompact = document.getElementById('btnDbCompactVacuum');
+      const btnPurge = document.getElementById('btnDbPurgeTestWs');
+      const outBox = document.getElementById('dbMaintenanceResultBox');
+      if (btnCompact) btnCompact.disabled = true;
+      if (btnPurge) btnPurge.disabled = true;
+      if (outBox) {
+        outBox.innerHTML = `<span style="color:#6ee7b7;">⏳ A executar manutenção SQLite (prune + orphan cleanup + VACUUM${purgeTestWs ? ' + limpeza de workspaces de teste' : ''})...</span>`;
+      }
+
+      try {
+        const res = await fetch('/api/db/maintenance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vacuum: true, purge_test_ws: Boolean(purgeTestWs) })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          const errMsg = (data && data.error) || 'Falha na manutenção da base de dados';
+          if (outBox) {
+            outBox.innerHTML = `<span style="color:#fb7185;">❌ Erro: ${escapeHtml(String(errMsg))}</span>`;
+          }
+          showToast(`❌ Erro na manutenção BD: ${errMsg}`);
+          return;
+        }
+
+        const m = data.maintenance || {};
+        const h = data.health || {};
+        const beforeMb = m.before_mb ?? m.size_before_mb ?? m.total_before_mb;
+        const afterMb = m.after_mb ?? m.size_after_mb ?? m.total_after_mb ?? h.total_size_mb;
+        const savedMbRaw = m.saved_mb ?? m.mb_saved ?? m.reclaimed_mb ?? (
+          beforeMb != null && afterMb != null ? Math.max(0, Number(beforeMb) - Number(afterMb)) : 0
+        );
+        const savedMb = Number(savedMbRaw || 0).toFixed(3);
+
+        let rowsPruned = m.rows_pruned ?? m.pruned_rows ?? m.total_pruned ?? m.deleted_rows;
+        if (rowsPruned == null && m.pruned_by_table && typeof m.pruned_by_table === 'object') {
+          rowsPruned = Object.values(m.pruned_by_table).reduce((acc, v) => acc + Number(v || 0), 0);
+        }
+        rowsPruned = Number(rowsPruned || 0);
+
+        const beforeTxt = beforeMb != null ? `${Number(beforeMb).toFixed(2)} MB` : 'N/D';
+        const afterTxt = afterMb != null ? `${Number(afterMb).toFixed(2)} MB` : 'N/D';
+
+        if (outBox) {
+          outBox.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <span style="color:#34d399; font-weight:700;">✅ Manutenção concluída${purgeTestWs ? ' (Test WS limpos)' : ''}</span>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; color:#e2e8f0;">
+                <span>Antes: <strong>${escapeHtml(beforeTxt)}</strong></span>
+                <span>Depois: <strong style="color:#38bdf8;">${escapeHtml(afterTxt)}</strong></span>
+                <span>Poupado: <strong style="color:#34d399;">${escapeHtml(savedMb)} MB</strong></span>
+                <span>Linhas podadas: <strong style="color:#fbbf24;">${rowsPruned.toLocaleString()}</strong></span>
+              </div>
+            </div>
+          `;
+        }
+
+        if (data.health) {
+          _renderDbHealthSummaryBox(data.health);
+        } else {
+          await refreshDbHealthUI();
+        }
+        showToast(`🧹 Manutenção BD concluída: ${savedMb} MB poupados · ${rowsPruned} linhas podadas!`);
+        if (typeof fetchTacticalOverview === 'function') fetchTacticalOverview();
+        if (typeof fetchGraph === 'function') fetchGraph();
+      } catch (err) {
+        if (outBox) {
+          outBox.innerHTML = `<span style="color:#fb7185;">⚠️ Erro de rede em /api/db/maintenance: ${escapeHtml(err.message || String(err))}</span>`;
+        }
+        showToast(`⚠️ Erro de rede na manutenção BD: ${err.message || String(err)}`);
+      } finally {
+        if (btnCompact) btnCompact.disabled = false;
+        if (btnPurge) btnPurge.disabled = false;
       }
     }
 

@@ -1,18 +1,87 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
-from db_engine import BrainDB, ensure_dashboard_running
-from orbit_engine import OrbitEngine
-from runtime_detector import detect_runtime_profile, record_runtime_session
-from swarm_engine import SwarmEngine
-from voice_brain_engine import analyze_voice_input, process_voice_turn, resolve_spoken_code_targets
-
 MAX_EPHEMERAL_CHARS = 1350  # ~320 tokens max budget (inclui Scout Shared Map)
+_LOCAL_IMPORTS_LOADED = False
+
+
+def _ensure_local_imports() -> None:
+    """Lazy-load heavy SQLite/engine modules only when local hook execution is needed."""
+    global _LOCAL_IMPORTS_LOADED
+    if _LOCAL_IMPORTS_LOADED:
+        return
+    from db_engine import BrainDB, ensure_dashboard_running
+    from orbit_engine import OrbitEngine
+    from runtime_detector import detect_runtime_profile, record_runtime_session
+    from swarm_engine import SwarmEngine
+    from voice_brain_engine import analyze_voice_input, process_voice_turn, resolve_spoken_code_targets
+
+    globals().update(
+        {
+            "BrainDB": BrainDB,
+            "ensure_dashboard_running": ensure_dashboard_running,
+            "OrbitEngine": OrbitEngine,
+            "detect_runtime_profile": detect_runtime_profile,
+            "record_runtime_session": record_runtime_session,
+            "SwarmEngine": SwarmEngine,
+            "analyze_voice_input": analyze_voice_input,
+            "process_voice_turn": process_voice_turn,
+            "resolve_spoken_code_targets": resolve_spoken_code_targets,
+        }
+    )
+    _LOCAL_IMPORTS_LOADED = True
+
+
+if __name__ != "__main__":
+    _ensure_local_imports()
+
+
+def try_warm_server_pre_invoke(
+    raw_stdin: str,
+    host_hint: str = "auto",
+    timeout: float = 0.45,
+) -> Optional[str]:
+    """
+    Fast-path HTTP call to the warm dashboard server (/api/hook/pre-invoke).
+    Returns the serialized hook output string on HTTP 200 with a valid 'hook_output',
+    or None on any error/timeout/opt-out so the caller falls back cleanly.
+    """
+    if os.environ.get("ENGRAM_DISABLE_WARM_HOOK") == "1":
+        return None
+    if not raw_stdin or not raw_stdin.strip():
+        return None
+    url = os.environ.get("ENGRAM_WARM_HOOK_URL", "http://127.0.0.1:8765/api/hook/pre-invoke")
+    body = json.dumps({"raw_stdin": raw_stdin, "host_hint": host_hint}, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Origin": "http://127.0.0.1:8765",
+            "X-Engram-Hook": "1",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if getattr(resp, "status", 200) != 200:
+                return None
+            raw_resp = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(raw_resp)
+            if isinstance(data, dict) and isinstance(data.get("hook_output"), str) and data["hook_output"].strip():
+                return data["hook_output"]
+    except Exception:
+        return None
+    return None
 
 
 def resolve_transcript_path(payload: Dict[str, Any]) -> Optional[str]:
@@ -683,6 +752,9 @@ def build_ephemeral_context(
                     router_line = str((sm_res or {}).get("directive_line") or "")
                 except Exception:
                     router_line = ""
+            if router_line:
+                router_line = re.sub(r"\b(?:Neon|Hydrogen|Tiered)\s+", "", router_line)
+                router_line = re.sub(r"\(-100%\s+quota\)", "(save 95% quota)", router_line)
     reserved_for_suffix = (len(d_line) + 2 if d_line else 0) + (len(router_line) + 2 if router_line else 0)
 
     # 1. Stable Prefix: Checkpoint do Workspace
@@ -1132,31 +1204,64 @@ _IGNORED_GENERIC_WORKSPACES = (
 )
 
 
+def _is_generic_ws_input(raw_ws: str) -> bool:
+    s = (raw_ws or "").strip().strip('"').strip("'").replace("\\", "/").rstrip("/").lower()
+    if not s or s in ("global", "~", "."):
+        return True
+    home_norm = os.path.expanduser("~").replace("\\", "/").rstrip("/").lower()
+    if s == home_norm or s.endswith("/.gemini"):
+        return True
+    return False
+
+
+_BRAIN_MCP_PROMPT_KEYWORDS = (
+    "brain_mcp",
+    "engram",
+    "orbit_engine",
+    "web_dashboard",
+    "db_engine",
+    "brain_inject",
+    "brain_harvest",
+    "swarm_engine",
+    "runtime_detector",
+    "intake_handoff",
+    "rule_distiller",
+    "pagoda_fold",
+    "archify_engine",
+    "graphify_engine",
+    "voice_brain",
+    "skill_resolver",
+    "tactical 3d",
+    "tactical overview",
+    "server.py",
+    "brain global",
+    "self-learn",
+    "vault 6x",
+    "brain.db",
+    "swarm_model_router",
+)
+
+
 def resolve_smart_active_workspace(
-    db: BrainDB, user_query: str = "", conv_id: str = ""
+    db: "BrainDB", user_query: str = "", conv_id: str = ""
 ) -> str:
     """
-    v6.1 Smart Active-Repo Resolver:
+    v6.1+ Smart Active-Repo Resolver:
     Quando o IDE está sem workspace explícito (ws == 'global'), deteta automaticamente
     o projeto ativo real através de:
-      1. Keywords/ficheiros mencionados no prompt (ex.: brain_mcp, orbit_engine.py, web_dashboard.py)
+      1. Scoring de keywords/ficheiros/workspaces explicitamente referidos no prompt
       2. Último workspace registado na mesma conversation_id
-      3. Checkpoint ativo mais recente em checkpoints
+      3. Checkpoint ativo mais recente apenas para continuações curtas/vazias (evita drift para projetos antigos)
     """
+    _ensure_local_imports()
     q_low = (user_query or "").lower()
-    brain_keywords = (
-        "brain_mcp",
-        "orbit_engine",
-        "web_dashboard",
-        "db_engine",
-        "brain_inject",
-        "swarm_engine",
-        "brain global",
-        "self-learn",
-        "vault 6x",
-    )
-    if any(k in q_low for k in brain_keywords):
-        return "brain_mcp"
+
+    scores: Dict[str, float] = {}
+    for kw in _BRAIN_MCP_PROMPT_KEYWORDS:
+        if kw in q_low:
+            scores["brain_mcp"] = scores.get("brain_mcp", 0.0) + 12.0
+    if re.search(r"\b(?:engram|brain_mcp|brain)\b", q_low):
+        scores["brain_mcp"] = scores.get("brain_mcp", 0.0) + 10.0
 
     ignored_sql = ",".join(f"'{w}'" for w in _IGNORED_GENERIC_WORKSPACES)
     try:
@@ -1165,12 +1270,24 @@ def resolve_smart_active_workspace(
                 f"""
                 SELECT DISTINCT workspace FROM memories
                 WHERE LOWER(workspace) NOT IN ({ignored_sql})
+                UNION
+                SELECT DISTINCT workspace FROM checkpoints
+                WHERE LOWER(workspace) NOT IN ({ignored_sql})
                 """
             ).fetchall()
             for r in ws_rows:
                 cand = str(r["workspace"] or "").strip()
-                if len(cand) >= 3 and cand.lower() not in _IGNORED_GENERIC_WORKSPACES and cand.lower() in q_low:
-                    return cand
+                cand_low = cand.lower()
+                if len(cand_low) < 3 or cand_low in _IGNORED_GENERIC_WORKSPACES:
+                    continue
+                if re.search(rf"(?<![a-z0-9_]){re.escape(cand_low)}(?![a-z0-9_])", q_low):
+                    scores[cand] = scores.get(cand, 0.0) + 20.0
+                elif len(cand_low) >= 5 and cand_low in q_low:
+                    scores[cand] = scores.get(cand, 0.0) + 6.0
+
+            if scores:
+                best_ws = max(scores.items(), key=lambda kv: kv[1])[0]
+                return best_ws
 
             if conv_id and conv_id != "default":
                 row_conv = conn.execute(
@@ -1185,15 +1302,19 @@ def resolve_smart_active_workspace(
                 if row_conv and row_conv["workspace"]:
                     return str(row_conv["workspace"])
 
-            row_cp = conn.execute(
-                f"""
-                SELECT workspace FROM checkpoints
-                WHERE LOWER(workspace) NOT IN ({ignored_sql})
-                ORDER BY updated_at DESC, rowid DESC LIMIT 1
-                """
-            ).fetchone()
-            if row_cp and row_cp["workspace"]:
-                return str(row_cp["workspace"])
+            # Só recorrer ao último checkpoint global se o prompt for vazio ou confirmação explícita
+            # (impede workspace drift ex.: ws=shadowmeter em sessões novas sem workspace ativo)
+            q_clean = re.sub(r"[.!?,;:]+$", "", q_low).strip()
+            if not q_clean or q_clean in _MICRO_CONFIRMATION_WORDS:
+                row_cp = conn.execute(
+                    f"""
+                    SELECT workspace FROM checkpoints
+                    WHERE LOWER(workspace) NOT IN ({ignored_sql})
+                    ORDER BY updated_at DESC, rowid DESC LIMIT 1
+                    """
+                ).fetchone()
+                if row_cp and row_cp["workspace"]:
+                    return str(row_cp["workspace"])
     except Exception:
         pass
     return "brain_mcp"
@@ -1212,6 +1333,7 @@ def _format_hook_output(ephemeral_msg: str, is_claude_hook: bool) -> Dict[str, A
 
 
 def handle_pre_invocation(raw_stdin: str, host_hint: str = "auto") -> Dict[str, Any]:
+    _ensure_local_imports()
     t0 = time.perf_counter()
     ensure_dashboard_running()
     if not raw_stdin.strip():
@@ -1228,14 +1350,19 @@ def handle_pre_invocation(raw_stdin: str, host_hint: str = "auto") -> Dict[str, 
     if is_claude_hook:
         conv_id = str(payload.get("session_id") or payload.get("conversationId") or "claude_default")
         raw_ws = str(payload.get("cwd") or "global")
-        workspaces = [raw_ws] if raw_ws != "global" else []
+        workspaces = [raw_ws] if not _is_generic_ws_input(raw_ws) else []
     else:
         conv_id = str(payload.get("conversationId", "default"))
         workspaces = payload.get("workspacePaths") or []
         raw_ws = workspaces[0] if workspaces else "global"
 
     db = BrainDB()
-    ws = db.normalize_workspace(raw_ws)
+    if _is_generic_ws_input(raw_ws):
+        ws = "global"
+    else:
+        ws = db.normalize_workspace(raw_ws)
+        if ws in ("", "~", ".", ".gemini"):
+            ws = "global"
 
     transcript_path = resolve_transcript_path(payload)
     user_query, is_subagent, has_audio_media = extract_latest_user_request_with_media(transcript_path)
@@ -1432,8 +1559,21 @@ def main() -> None:
         )
         args, _ = parser.parse_known_args()
         raw_in = sys.stdin.read()
+        if not raw_in.strip():
+            print("{}")
+            return
+        warm_out = try_warm_server_pre_invoke(raw_in, host_hint=args.host)
+        if warm_out is not None:
+            sys.stdout.write(warm_out)
+            if not warm_out.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+            sys.exit(0)
+        _ensure_local_imports()
         result = handle_pre_invocation(raw_in, host_hint=args.host)
         print(json.dumps(result, ensure_ascii=False))
+    except SystemExit:
+        raise
     except Exception:
         # Fail-open: nunca bloquear o loop do IDE/CLI
         print("{}")

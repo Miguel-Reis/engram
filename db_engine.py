@@ -68,7 +68,8 @@ import threading
 import unicodedata
 
 _DB_INIT_LOCK = threading.Lock()
-_INITIALIZED_DBS: set[str] = set()
+_INITIALIZED_DB_PATHS: set[str] = set()
+_INITIALIZED_DBS = _INITIALIZED_DB_PATHS
 _WAL_CONFIGURED_DBS: set[str] = set()
 _THREAD_LOCAL = threading.local()
 
@@ -151,12 +152,15 @@ class BrainDB:
 
     def __init__(self, db_path: str = DEFAULT_DB_PATH) -> None:
         self.db_path = db_path
-        if self.db_path not in _INITIALIZED_DBS:
+        abs_path = os.path.abspath(self.db_path)
+        if abs_path not in _INITIALIZED_DB_PATHS or not os.path.exists(abs_path):
             with _DB_INIT_LOCK:
-                if self.db_path not in _INITIALIZED_DBS:
-                    os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+                if abs_path not in _INITIALIZED_DB_PATHS or not os.path.exists(abs_path):
+                    parent_dir = os.path.dirname(abs_path)
+                    if parent_dir:
+                        os.makedirs(parent_dir, exist_ok=True)
                     self._init_schema()
-                    _INITIALIZED_DBS.add(self.db_path)
+                    _INITIALIZED_DB_PATHS.add(abs_path)
 
     @contextlib.contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -988,13 +992,26 @@ class BrainDB:
                 if int(existing["h_lock"]) == 1 and resolved_lock == 0:
                     return row_id, False
                 old_fact_val = str(existing["fact"] or "")
-                if old_fact_val and old_fact_val != fact:
+                if old_fact_val.strip() and old_fact_val.strip() != fact.strip():
                     conn.execute(
                         """
                         INSERT INTO memory_revisions (memory_id, topic, old_fact, new_fact, changed_by)
                         VALUES (?, ?, ?, ?, ?);
                         """,
                         (row_id, topic, old_fact_val, fact, source_agent),
+                    )
+                    conn.execute(
+                        """
+                        DELETE FROM memory_revisions
+                        WHERE memory_id = ?
+                          AND id NOT IN (
+                              SELECT id FROM memory_revisions
+                              WHERE memory_id = ?
+                              ORDER BY id DESC
+                              LIMIT 10
+                          );
+                        """,
+                        (row_id, row_id),
                     )
                 conn.execute(
                     """
@@ -2840,6 +2857,297 @@ class BrainDB:
             "imported_memories": imported_mems,
             "updated_memories": updated_mems,
             "imported_checkpoints": imported_chks,
+        }
+
+    @staticmethod
+    def _measure_db_bytes(abs_path: str) -> Tuple[int, int, int]:
+        """Devolve (db_bytes, wal_bytes, total_bytes) para um ficheiro SQLite em disco."""
+        db_bytes = os.path.getsize(abs_path) if os.path.isfile(abs_path) else 0
+        wal_path = f"{abs_path}-wal"
+        wal_bytes = os.path.getsize(wal_path) if os.path.isfile(wal_path) else 0
+        return db_bytes, wal_bytes, db_bytes + wal_bytes
+
+    @staticmethod
+    def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+        row = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
+    def get_db_health(self) -> Dict[str, Any]:
+        """Inspeciona o tamanho físico (DB + WAL), contagem das tabelas principais e estado de bloat."""
+        abs_path = os.path.abspath(self.db_path)
+        db_bytes, wal_bytes, total_bytes = self._measure_db_bytes(abs_path)
+        db_size_mb = round(db_bytes / (1024 * 1024), 3)
+        wal_size_mb = round(wal_bytes / (1024 * 1024), 3)
+        total_size_mb = round(total_bytes / (1024 * 1024), 3)
+
+        table_counts: Dict[str, int] = {}
+        freelist_mb = 0.0
+        with self._connect() as conn:
+            tbl_rows = conn.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type='table'
+                  AND name NOT LIKE 'sqlite_%'
+                  AND name NOT LIKE '%_fts%'
+                ORDER BY name ASC;
+                """
+            ).fetchall()
+            raw_counts: Dict[str, int] = {}
+            for tr in tbl_rows:
+                tname = str(tr["name"])
+                try:
+                    c_row = conn.execute(f'SELECT COUNT(*) as c FROM "{tname}";').fetchone()
+                    raw_counts[tname] = int(c_row["c"]) if c_row else 0
+                except Exception:
+                    continue
+            table_counts = dict(
+                sorted(raw_counts.items(), key=lambda kv: kv[1], reverse=True)[:15]
+            )
+            try:
+                fl_row = conn.execute("PRAGMA freelist_count;").fetchone()
+                ps_row = conn.execute("PRAGMA page_size;").fetchone()
+                fl_cnt = int(fl_row[0]) if fl_row else 0
+                pg_sz = int(ps_row[0]) if ps_row else 4096
+                freelist_mb = (fl_cnt * pg_sz) / (1024 * 1024)
+            except Exception:
+                freelist_mb = 0.0
+
+        reasons: List[str] = []
+        if total_size_mb > 50.0:
+            reasons.append(f"total_size_mb={total_size_mb}")
+        if wal_size_mb > 10.0:
+            reasons.append(f"wal_size_mb={wal_size_mb}")
+        if freelist_mb > 5.0:
+            reasons.append(f"freelist_mb={round(freelist_mb, 2)}")
+        if table_counts.get("memory_revisions", 0) > 1000:
+            reasons.append(f"memory_revisions={table_counts['memory_revisions']}")
+        if table_counts.get("self_learn_events", 0) > 1000:
+            reasons.append(f"self_learn_events={table_counts['self_learn_events']}")
+        if table_counts.get("telemetry", 0) > 3000:
+            reasons.append(f"telemetry={table_counts['telemetry']}")
+        if table_counts.get("swarm_logs", 0) > 2000:
+            reasons.append(f"swarm_logs={table_counts['swarm_logs']}")
+        if table_counts.get("memory_edges", 0) > 10000:
+            reasons.append(f"memory_edges={table_counts['memory_edges']}")
+
+        bloat_warning = bool(reasons)
+        recommended_action = (
+            f"Run db.run_db_maintenance(vacuum=True) ({', '.join(reasons)})"
+            if bloat_warning
+            else "healthy — no maintenance needed"
+        )
+        return {
+            "ok": True,
+            "db_path": abs_path,
+            "db_size_mb": db_size_mb,
+            "wal_size_mb": wal_size_mb,
+            "total_size_mb": total_size_mb,
+            "table_counts": table_counts,
+            "bloat_warning": bloat_warning,
+            "recommended_action": recommended_action,
+        }
+
+    def run_db_maintenance(
+        self, vacuum: bool = True, purge_test_ws: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Executa manutenção segura com retenção deslizante por tabela, limpeza opcional de
+        workspaces de teste/fragmentados e compactação WAL + VACUUM sem bloquear leituras.
+        """
+        abs_path = os.path.abspath(self.db_path)
+        _, _, bytes_before = self._measure_db_bytes(abs_path)
+        rows_pruned: Dict[str, int] = {}
+        memories_mutated = 0
+
+        retention_limits: Tuple[Tuple[str, int], ...] = (
+            ("self_learn_events", 500),
+            ("swarm_logs", 1500),
+            ("telemetry", 2000),
+            ("agent_handoffs", 500),
+            ("ast_save_audits", 400),
+            ("pagoda_folds", 300),
+        )
+
+        with self._connect() as conn:
+            # 1. memory_revisions: remover órfãs (memórias apagadas) + manter apenas últimas 10 por memory_id
+            if self._table_exists(conn, "memory_revisions"):
+                cur_orph_rev = conn.execute(
+                    "DELETE FROM memory_revisions WHERE memory_id NOT IN (SELECT id FROM memories);"
+                )
+                cur = conn.execute(
+                    """
+                    DELETE FROM memory_revisions
+                    WHERE id IN (
+                        SELECT id FROM (
+                            SELECT id,
+                                   ROW_NUMBER() OVER (PARTITION BY memory_id ORDER BY id DESC) AS rn
+                            FROM memory_revisions
+                        )
+                        WHERE rn > 10
+                    );
+                    """
+                )
+                rows_pruned["memory_revisions"] = max(0, int(cur_orph_rev.rowcount or 0)) + max(0, int(cur.rowcount or 0))
+
+            # 2. Rolling retention por tabela de logs/auditoria/telemetria
+            for tbl, keep_n in retention_limits:
+                if self._table_exists(conn, tbl):
+                    cur = conn.execute(
+                        f"""
+                        DELETE FROM "{tbl}"
+                        WHERE id NOT IN (
+                            SELECT id FROM "{tbl}" ORDER BY id DESC LIMIT ?
+                        );
+                        """,
+                        (int(keep_n),),
+                    )
+                    rows_pruned[tbl] = max(0, int(cur.rowcount or 0))
+
+            # 3. Higienização de memory_edges (órfãs + teto de 8000 por peso/id)
+            if self._table_exists(conn, "memory_edges"):
+                cur_orphan = conn.execute(
+                    """
+                    DELETE FROM memory_edges
+                    WHERE source_id NOT IN (SELECT id FROM memories)
+                       OR target_id NOT IN (SELECT id FROM memories);
+                    """
+                )
+                pruned_edges = max(0, int(cur_orphan.rowcount or 0))
+                cnt_row = conn.execute("SELECT COUNT(*) as c FROM memory_edges;").fetchone()
+                if cnt_row and int(cnt_row["c"]) > 8000:
+                    cur_cap = conn.execute(
+                        """
+                        DELETE FROM memory_edges
+                        WHERE id NOT IN (
+                            SELECT id FROM memory_edges ORDER BY weight DESC, id DESC LIMIT 8000
+                        );
+                        """
+                    )
+                    pruned_edges += max(0, int(cur_cap.rowcount or 0))
+                rows_pruned["memory_edges"] = pruned_edges
+
+            # 4. Opcional: Purga de workspaces de teste/poluição + consolidação de aliases
+            if purge_test_ws:
+                cur_polluted = conn.execute(
+                    """
+                    DELETE FROM memories
+                    WHERE LOWER(workspace) IN ('test', 'tune_realtek_admin.ps1', 'planeamento.html', 'roaming')
+                       OR LOWER(workspace) LIKE '\\_engram\\_%' ESCAPE '\\'
+                       OR LOWER(workspace) LIKE '\\_smoke\\_%' ESCAPE '\\';
+                    """
+                )
+                purged_mems = max(0, int(cur_polluted.rowcount or 0))
+                memories_mutated += purged_mems
+                rows_pruned["polluted_test_memories"] = purged_mems
+
+                for aux_tbl in ("checkpoints", "self_learn_projects"):
+                    if self._table_exists(conn, aux_tbl):
+                        conn.execute(
+                            f"""
+                            DELETE FROM "{aux_tbl}"
+                            WHERE LOWER(workspace) IN ('test', 'tune_realtek_admin.ps1', 'planeamento.html', 'roaming')
+                               OR LOWER(workspace) LIKE '\\_engram\\_%' ESCAPE '\\'
+                               OR LOWER(workspace) LIKE '\\_smoke\\_%' ESCAPE '\\';
+                            """
+                        )
+
+                alias_groups: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+                    ("jarvis-cortex-os", ("jarvis_cortex_os", "project-jarvis", "jarvis")),
+                    ("shadowmeter2", ("pt.shadowhub.meter.v2", "shadowmeter")),
+                )
+                consolidated_dups = 0
+                for target_ws, aliases in alias_groups:
+                    ph = ",".join("?" for _ in aliases)
+                    # Remover duplicados em aliases cujo tópico já existe no workspace alvo
+                    cur_dup_target = conn.execute(
+                        f"""
+                        DELETE FROM memories
+                        WHERE LOWER(workspace) IN ({ph})
+                          AND LOWER(TRIM(topic)) IN (
+                              SELECT LOWER(TRIM(topic)) FROM memories WHERE LOWER(workspace) = ?
+                          );
+                        """,
+                        (*aliases, target_ws),
+                    )
+                    d1 = max(0, int(cur_dup_target.rowcount or 0))
+                    # Entre múltiplos aliases, manter apenas a linha de maior importância/mais recente por tópico
+                    cur_dup_self = conn.execute(
+                        f"""
+                        DELETE FROM memories
+                        WHERE LOWER(workspace) IN ({ph})
+                          AND id NOT IN (
+                              SELECT id FROM (
+                                  SELECT id,
+                                         ROW_NUMBER() OVER (
+                                             PARTITION BY LOWER(TRIM(topic))
+                                             ORDER BY importance DESC, id DESC
+                                         ) AS rn
+                                  FROM memories
+                                  WHERE LOWER(workspace) IN ({ph})
+                              )
+                              WHERE rn = 1
+                          );
+                        """,
+                        (*aliases, *aliases),
+                    )
+                    d2 = max(0, int(cur_dup_self.rowcount or 0))
+                    cur_upd = conn.execute(
+                        f"UPDATE OR IGNORE memories SET workspace = ? WHERE LOWER(workspace) IN ({ph});",
+                        (target_ws, *aliases),
+                    )
+                    u1 = max(0, int(cur_upd.rowcount or 0))
+                    cur_rem = conn.execute(
+                        f"DELETE FROM memories WHERE LOWER(workspace) IN ({ph});",
+                        aliases,
+                    )
+                    d3 = max(0, int(cur_rem.rowcount or 0))
+                    consolidated_dups += d1 + d2 + d3
+                    memories_mutated += d1 + d2 + u1 + d3
+
+                    for aux_tbl in ("checkpoints", "self_learn_projects"):
+                        if self._table_exists(conn, aux_tbl):
+                            conn.execute(
+                                f"UPDATE OR IGNORE \"{aux_tbl}\" SET workspace = ? WHERE LOWER(workspace) IN ({ph});",
+                                (target_ws, *aliases),
+                            )
+                            conn.execute(
+                                f"DELETE FROM \"{aux_tbl}\" WHERE LOWER(workspace) IN ({ph});",
+                                aliases,
+                            )
+
+                rows_pruned["consolidated_alias_duplicates"] = consolidated_dups
+                if memories_mutated > 0 and self._table_exists(conn, "memories_fts"):
+                    conn.execute("INSERT INTO memories_fts(memories_fts) VALUES('rebuild');")
+
+        vacuumed = False
+        if vacuum and os.path.isfile(abs_path):
+            vac_conn = sqlite3.connect(abs_path, timeout=30.0, isolation_level=None)
+            try:
+                vac_conn.execute("PRAGMA busy_timeout = 30000;")
+                vac_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                vac_conn.execute("VACUUM;")
+                vac_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+                vacuumed = True
+            finally:
+                vac_conn.close()
+
+        _, _, bytes_after = self._measure_db_bytes(abs_path)
+        mb_before = round(bytes_before / (1024 * 1024), 3)
+        mb_after = round(bytes_after / (1024 * 1024), 3)
+        mb_saved = round(max(0, bytes_before - bytes_after) / (1024 * 1024), 3)
+        return {
+            "ok": True,
+            "bytes_before": bytes_before,
+            "bytes_after": bytes_after,
+            "mb_before": mb_before,
+            "mb_after": mb_after,
+            "mb_saved": mb_saved,
+            "rows_pruned": rows_pruned,
+            "vacuumed": vacuumed,
+            "purged_test_ws": bool(purge_test_ws),
         }
 
 

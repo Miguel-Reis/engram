@@ -10,11 +10,15 @@ Provides:
 
 from __future__ import annotations
 
+import base64
+import ctypes
+import ctypes.wintypes
 import datetime
 import json
 import os
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -73,6 +77,133 @@ def _mask_token(token: str) -> str:
     if len(tok) <= 8:
         return "*" * len(tok)
     return f"{tok[:4]}...{tok[-4:]}"
+
+
+class _DPAPIBlob(ctypes.Structure):
+    _fields_ = [
+        ("cbData", ctypes.wintypes.DWORD),
+        ("pbData", ctypes.POINTER(ctypes.c_byte)),
+    ]
+
+
+_CRYPTPROTECT_UI_FORBIDDEN = 0x01
+
+
+def _dpapi_protect_bytes(raw_bytes: bytes) -> bytes:
+    crypt32 = ctypes.windll.crypt32
+    kernel32 = ctypes.windll.kernel32
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+    crypt32.CryptProtectData.argtypes = [
+        ctypes.POINTER(_DPAPIBlob),
+        ctypes.c_wchar_p,
+        ctypes.POINTER(_DPAPIBlob),
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.wintypes.DWORD,
+        ctypes.POINTER(_DPAPIBlob),
+    ]
+    crypt32.CryptProtectData.restype = ctypes.wintypes.BOOL
+
+    in_buf = ctypes.create_string_buffer(raw_bytes, len(raw_bytes))
+    blob_in = _DPAPIBlob(len(raw_bytes), ctypes.cast(in_buf, ctypes.POINTER(ctypes.c_byte)))
+    blob_out = _DPAPIBlob()
+    ok = crypt32.CryptProtectData(
+        ctypes.byref(blob_in),
+        "EngramSecret",
+        None,
+        None,
+        None,
+        _CRYPTPROTECT_UI_FORBIDDEN,
+        ctypes.byref(blob_out),
+    )
+    if not ok:
+        raise ctypes.WinError()
+    try:
+        return ctypes.string_at(blob_out.pbData, blob_out.cbData)
+    finally:
+        if blob_out.pbData:
+            kernel32.LocalFree(ctypes.cast(blob_out.pbData, ctypes.c_void_p))
+
+
+def _dpapi_unprotect_bytes(cipher_bytes: bytes) -> bytes:
+    crypt32 = ctypes.windll.crypt32
+    kernel32 = ctypes.windll.kernel32
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+    crypt32.CryptUnprotectData.argtypes = [
+        ctypes.POINTER(_DPAPIBlob),
+        ctypes.POINTER(ctypes.c_wchar_p),
+        ctypes.POINTER(_DPAPIBlob),
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.wintypes.DWORD,
+        ctypes.POINTER(_DPAPIBlob),
+    ]
+    crypt32.CryptUnprotectData.restype = ctypes.wintypes.BOOL
+
+    in_buf = ctypes.create_string_buffer(cipher_bytes, len(cipher_bytes))
+    blob_in = _DPAPIBlob(len(cipher_bytes), ctypes.cast(in_buf, ctypes.POINTER(ctypes.c_byte)))
+    blob_out = _DPAPIBlob()
+    ok = crypt32.CryptUnprotectData(
+        ctypes.byref(blob_in),
+        None,
+        None,
+        None,
+        None,
+        _CRYPTPROTECT_UI_FORBIDDEN,
+        ctypes.byref(blob_out),
+    )
+    if not ok:
+        raise ctypes.WinError()
+    try:
+        return ctypes.string_at(blob_out.pbData, blob_out.cbData)
+    finally:
+        if blob_out.pbData:
+            kernel32.LocalFree(ctypes.cast(blob_out.pbData, ctypes.c_void_p))
+
+
+def _protect_secret(plaintext: str) -> str:
+    """Encrypt a secret at rest using Windows DPAPI ('dpapi:<b64>') or portable 'obf:<b64>'."""
+    raw = str(plaintext or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith(("dpapi:", "obf:")):
+        raw = _unprotect_secret(raw)
+        if not raw:
+            return ""
+    raw_bytes = raw.encode("utf-8")
+    if sys.platform == "win32":
+        cipher = _dpapi_protect_bytes(raw_bytes)
+        return "dpapi:" + base64.b64encode(cipher).decode("ascii")
+    return "obf:" + base64.b64encode(raw_bytes).decode("ascii")
+
+
+def _unprotect_secret(stored: str) -> str:
+    """Transparently decrypt 'dpapi:...', 'obf:...', or legacy plaintext secrets."""
+    val = str(stored or "").strip()
+    if not val:
+        return ""
+    if val.startswith("dpapi:"):
+        b64 = val[6:].strip()
+        if not b64:
+            return ""
+        try:
+            cipher = base64.b64decode(b64.encode("ascii"))
+            if sys.platform == "win32":
+                return _dpapi_unprotect_bytes(cipher).decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+        return ""
+    if val.startswith("obf:"):
+        b64 = val[4:].strip()
+        if not b64:
+            return ""
+        try:
+            return base64.b64decode(b64.encode("ascii")).decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+    return val
 
 
 def ensure_intake_tables(db: Any) -> None:
@@ -262,10 +393,11 @@ def configure_telegram_bridge(
     enabled: Optional[bool] = None,
     poll_interval_sec: int = 15,
 ) -> Dict[str, Any]:
-    """Persist Telegram bridge configuration in brain_meta without ever returning the raw token."""
+    """Persist Telegram bridge configuration in brain_meta (token encrypted at rest via DPAPI)."""
     ensure_intake_tables(db)
     with db._connect() as conn:
-        existing_token = _get_meta(conn, "telegram_bot_token", "")
+        raw_stored_token = _get_meta(conn, "telegram_bot_token", "")
+        existing_token = _unprotect_secret(raw_stored_token)
         existing_chat_id = _get_meta(conn, "telegram_chat_id", "")
         existing_enabled = _get_meta(conn, "telegram_enabled", "0") == "1"
 
@@ -275,7 +407,9 @@ def configure_telegram_bridge(
         final_interval = max(5, min(3600, int(poll_interval_sec or 15)))
 
         if bot_token.strip():
-            _set_meta(conn, "telegram_bot_token", final_token)
+            _set_meta(conn, "telegram_bot_token", _protect_secret(final_token))
+        elif existing_token and not raw_stored_token.startswith(("dpapi:", "obf:")):
+            _set_meta(conn, "telegram_bot_token", _protect_secret(existing_token))
         if chat_id.strip():
             _set_meta(conn, "telegram_chat_id", final_chat_id)
         _set_meta(conn, "telegram_enabled", "1" if final_enabled else "0")
@@ -285,6 +419,7 @@ def configure_telegram_bridge(
         "ok": True,
         "token_configured": bool(final_token),
         "token_masked": _mask_token(final_token),
+        "token_encrypted": True,
         "chat_id": final_chat_id,
         "enabled": final_enabled,
         "poll_interval_sec": final_interval,
@@ -302,7 +437,7 @@ def poll_telegram_once(db: Any, workspace: str = "brain_mcp") -> Dict[str, Any]:
         ws = "brain_mcp"
 
     with db._connect() as conn:
-        token = _get_meta(conn, "telegram_bot_token", "").strip()
+        token = _unprotect_secret(_get_meta(conn, "telegram_bot_token", "")).strip()
         allowed_chat_id = _get_meta(conn, "telegram_chat_id", "").strip()
         enabled = _get_meta(conn, "telegram_enabled", "0") == "1"
         last_offset_raw = _get_meta(conn, "telegram_last_update_id", "0")
@@ -568,7 +703,7 @@ def get_intake_handoff_status(
     lim = max(1, min(100, int(limit or 10)))
 
     with db._connect() as conn:
-        token = _get_meta(conn, "telegram_bot_token", "")
+        token = _unprotect_secret(_get_meta(conn, "telegram_bot_token", "")).strip()
         chat_id = _get_meta(conn, "telegram_chat_id", "")
         enabled = _get_meta(conn, "telegram_enabled", "0") == "1"
         handoff_updated_at = _get_meta(conn, f"handoff_updated_at:{ws}", "")
@@ -624,6 +759,7 @@ def get_intake_handoff_status(
         "telegram_configured": bool(token.strip()),
         "telegram_enabled": enabled,
         "token_masked": _mask_token(token),
+        "token_encrypted": True,
         "chat_id": chat_id,
         "total_ingested": total_ingested,
         "recent_items": recent_items,

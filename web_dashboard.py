@@ -23,6 +23,10 @@ from auto_updater import (
     start_auto_update_daemon,
 )
 from brain_harvest import harvest_latest_turn
+try:
+    import brain_inject
+except Exception:
+    brain_inject = None  # type: ignore[assignment]
 from db_engine import BrainDB, seed_initial_memories
 import orbit_engine as _orbit_engine_mod
 from orbit_engine import OrbitEngine
@@ -1344,6 +1348,100 @@ def _safe_int(
     return res
 
 
+def _get_db_health_safe(db: BrainDB) -> Dict[str, Any]:
+    """Obtém métricas de saúde, tamanho SQLite+WAL e contagem de tabelas com fallback seguro."""
+    try:
+        health_fn = getattr(db, "get_db_health", None)
+        if callable(health_fn):
+            res = health_fn()
+            if isinstance(res, dict):
+                out = dict(res)
+                out.setdefault("ok", True)
+                out.setdefault("db_size_mb", 0.0)
+                out.setdefault("wal_size_mb", 0.0)
+                out.setdefault("total_size_mb", round(float(out["db_size_mb"]) + float(out["wal_size_mb"]), 3))
+                out.setdefault("table_counts", {})
+                out.setdefault("bloat_warning", False)
+                out["warm_hook_ready"] = True
+                return out
+    except Exception:
+        pass
+
+    db_path = str(getattr(db, "db_path", "") or "")
+    db_bytes = os.path.getsize(db_path) if db_path and os.path.isfile(db_path) else 0
+    wal_path = f"{db_path}-wal" if db_path else ""
+    wal_bytes = os.path.getsize(wal_path) if wal_path and os.path.isfile(wal_path) else 0
+    shm_path = f"{db_path}-shm" if db_path else ""
+    shm_bytes = os.path.getsize(shm_path) if shm_path and os.path.isfile(shm_path) else 0
+
+    db_size_mb = round(db_bytes / (1024.0 * 1024.0), 3)
+    wal_size_mb = round(wal_bytes / (1024.0 * 1024.0), 3)
+    total_size_mb = round((db_bytes + wal_bytes + shm_bytes) / (1024.0 * 1024.0), 3)
+    table_counts: Dict[str, int] = {}
+    try:
+        with db._connect() as conn:
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%';"
+            ).fetchall()
+            for r in rows:
+                tname = str(r["name"] if isinstance(r, dict) or hasattr(r, "keys") else r[0])
+                if not re.match(r"^[A-Za-z0-9_]+$", tname):
+                    continue
+                try:
+                    cnt_row = conn.execute(f'SELECT COUNT(*) FROM "{tname}";').fetchone()
+                    table_counts[tname] = int(cnt_row[0] if cnt_row else 0)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    bloat_warning = bool(
+        total_size_mb >= 50.0
+        or wal_size_mb >= 16.0
+        or table_counts.get("telemetry", 0) > 10000
+        or table_counts.get("injected_turns", 0) > 5000
+    )
+    return {
+        "ok": True,
+        "db_size_mb": db_size_mb,
+        "wal_size_mb": wal_size_mb,
+        "total_size_mb": total_size_mb,
+        "table_counts": table_counts,
+        "bloat_warning": bloat_warning,
+        "warm_hook_ready": True,
+    }
+
+
+def _run_db_maintenance_safe(
+    db: BrainDB,
+    vacuum: bool = True,
+    purge_test_ws: bool = False,
+) -> Dict[str, Any]:
+    """Executa manutenção e compactação do SQLite usando BrainDB.run_db_maintenance com fallback seguro."""
+    maint_fn = getattr(db, "run_db_maintenance", None)
+    if callable(maint_fn):
+        res = maint_fn(vacuum=bool(vacuum), purge_test_ws=bool(purge_test_ws))
+        return dict(res) if isinstance(res, dict) else {"result": res}
+
+    before_health = _get_db_health_safe(db)
+    with db._connect() as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+        if vacuum:
+            conn.execute("VACUUM;")
+    after_health = _get_db_health_safe(db)
+    before_mb = float(before_health.get("total_size_mb", 0.0) or 0.0)
+    after_mb = float(after_health.get("total_size_mb", 0.0) or 0.0)
+    return {
+        "before_mb": before_mb,
+        "after_mb": after_mb,
+        "saved_mb": round(max(0.0, before_mb - after_mb), 3),
+        "rows_pruned": 0,
+        "vacuumed": bool(vacuum),
+        "purge_test_ws": bool(purge_test_ws),
+        "fallback": True,
+    }
+
+
 class BrainDashboardHandler(BaseHTTPRequestHandler):
     timeout = 15.0
 
@@ -1417,6 +1515,13 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/health", "/api/health"):
             self._send_json({"status": "ok", "service": "engram-v9.0", "version": "9.1"})
+            return
+
+        if parsed.path == "/api/db/health":
+            try:
+                self._send_json(_get_db_health_safe(BrainDB()))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "warm_hook_ready": True}, 500)
             return
 
         if parsed.path in ("/", "/index.html"):
@@ -1937,10 +2042,19 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
         self._send_json({"error": "Not found"}, 404)
 
     def do_POST(self) -> None:
-        if not self._is_trusted_local_origin():
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/hook/pre-invoke":
+            client_ip = str(self.client_address[0] if self.client_address else "").strip()
+            is_warm_hook_local = (
+                str(self.headers.get("X-Engram-Hook") or "").strip() == "1"
+                and client_ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+            )
+            if not (self._is_trusted_local_origin() or is_warm_hook_local):
+                self._send_json({"error": "Origem cruzada não autorizada (CSRF Protection)"}, 403)
+                return
+        elif not self._is_trusted_local_origin():
             self._send_json({"error": "Origem cruzada não autorizada (CSRF Protection)"}, 403)
             return
-        parsed = urllib.parse.urlparse(self.path)
         raw_len = self.headers.get("Content-Length", "0")
         try:
             length = int(raw_len or 0)
@@ -1959,8 +2073,51 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             body = {}
 
+        if parsed.path == "/api/hook/pre-invoke":
+            try:
+                t0 = time.perf_counter()
+                inj_mod = brain_inject
+                if inj_mod is None:
+                    import brain_inject as inj_mod  # type: ignore[no-redef]
+                if isinstance(body, dict) and "raw_stdin" in body:
+                    raw_val = body.get("raw_stdin")
+                    raw_stdin = raw_val if isinstance(raw_val, str) else json.dumps(raw_val, ensure_ascii=False)
+                else:
+                    raw_stdin = body_raw
+                host_hint = (
+                    str(body.get("host") or body.get("host_hint") or "auto").strip() or "auto"
+                    if isinstance(body, dict)
+                    else "auto"
+                )
+                hook_res = inj_mod.handle_pre_invocation(raw_stdin, host_hint=host_hint)
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                out_str = json.dumps(hook_res if isinstance(hook_res, dict) else {}, ensure_ascii=False)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "hook_output": out_str,
+                        "elapsed_ms": round(elapsed_ms, 2),
+                        "warm": True,
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "hook_output": "{}", "error": str(exc), "warm": True}, 500)
+            return
+
         db = BrainDB()
         _GRAPH_PAYLOAD_CACHE.clear()
+
+        if parsed.path == "/api/db/maintenance":
+            try:
+                vacuum = bool(body.get("vacuum", True)) if isinstance(body, dict) else True
+                purge_test_ws = bool(body.get("purge_test_ws", False)) if isinstance(body, dict) else False
+                maint_res = _run_db_maintenance_safe(db, vacuum=vacuum, purge_test_ws=purge_test_ws)
+                health_res = _get_db_health_safe(db)
+                _GRAPH_PAYLOAD_CACHE.clear()
+                self._send_json({"ok": True, "maintenance": maint_res, "health": health_res})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
+            return
 
         if parsed.path == "/api/memories":
             topic = str(body.get("topic", "")).strip()
@@ -2800,6 +2957,7 @@ def start_self_learn_sentinel_daemon(interval_seconds: float = 90.0) -> None:
     def _sentinel_worker() -> None:
         first_boot = True
         last_distill_ts = 0.0
+        last_db_maint_ts = 0.0
         while True:
             time.sleep(3.0 if first_boot else max(15.0, float(interval_seconds)))
             first_boot = False
@@ -2836,6 +2994,16 @@ def start_self_learn_sentinel_daemon(interval_seconds: float = 90.0) -> None:
                                 sentinel_db, workspace="all", min_occurrences=2
                             )
                         last_distill_ts = now_ts
+                except Exception:
+                    pass
+
+                # Scheduled light DB maintenance once every 12 hours (43200.0s)
+                try:
+                    now_maint_ts = time.time()
+                    if now_maint_ts - last_db_maint_ts >= 43200.0:
+                        if hasattr(sentinel_db, "run_db_maintenance"):
+                            sentinel_db.run_db_maintenance(vacuum=False, purge_test_ws=False)
+                        last_db_maint_ts = now_maint_ts
                 except Exception:
                     pass
             except Exception:
