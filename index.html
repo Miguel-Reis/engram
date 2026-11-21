@@ -3083,7 +3083,7 @@
     }
 
     .tactical-widgets-grid {
-      flex: 0 0 228px;
+      flex: 0 0 206px;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       grid-template-rows: repeat(2, minmax(0, 1fr));
@@ -19113,15 +19113,16 @@ ${rulesSection}`;
         const theta = goldenAngle * idx;
         const dx = Math.cos(theta) * rad;
         const dz = Math.sin(theta) * rad;
-        const dy = y * 0.72;
+        const dy = y * 0.68;
         const mag = Math.hypot(dx, dy, dz) || 1;
         const dir = { x: dx / mag, y: dy / mag, z: dz / mag, color: tacticalColorForCategory(ck), key: ck };
         clusterDir[ck] = dir;
+        // Normalized 3D unit-space hubs (guaranteed safe against near-plane clipping at any screen resolution)
         tacticalClusterHubs.push({
           key: ck,
-          x: dir.x * 215,
-          y: dir.y * 215,
-          z: dir.z * 215,
+          x: dir.x * 0.95,
+          y: dir.y * 0.72,
+          z: dir.z * 0.75,
           color: dir.color
         });
       });
@@ -19134,17 +19135,17 @@ ${rulesSection}`;
         const h2 = tacticalHashStr(String(n.id || idx) + '_r');
         const h3 = tacticalHashStr(String(n.id || idx) + '_a');
 
-        // Multi-shell galactic distribution: wide Slide-3 constellation spread
+        // Normalized multi-shell galactic cloud: x in [-1.5, 1.5], y in [-0.85, 0.85], z in [-0.95, 0.95]
         const rawImp = Number(n.importance || 5);
         const imp = Math.min(10, Math.max(1, rawImp));
-        const shellBase = 55 + (10 - imp) * 22 + ((h % 100) / 100) * 185;
+        const shellBase = 0.20 + (10 - imp) * 0.052 + ((h % 100) / 100) * 0.42;
         const spreadAngle = ((h2 % 360) * Math.PI) / 180;
-        const spreadElev = (((h3 % 200) / 100) - 1) * 0.65;
+        const spreadElev = (((h3 % 200) / 100) - 1) * 0.34;
+        const jitterR = 0.16 + ((h % 37) / 37) * 0.22;
 
-        // Wide galactic ellipsoid so starfield fills the full dark stage
-        const px = (dir.x * shellBase + Math.cos(spreadAngle) * 95) * 1.48;
-        const py = (dir.y * shellBase * 0.72 + spreadElev * 105);
-        const pz = (dir.z * shellBase + Math.sin(spreadAngle) * 95) * 1.18;
+        const px = Math.max(-1.55, Math.min(1.55, (dir.x * shellBase + Math.cos(spreadAngle) * jitterR) * 1.28));
+        const py = Math.max(-0.88, Math.min(0.88, dir.y * shellBase * 0.78 + spreadElev));
+        const pz = Math.max(-0.92, Math.min(0.92, (dir.z * shellBase + Math.sin(spreadAngle) * jitterR) * 0.88));
 
         idToIndex.set(n.id, idx);
         return {
@@ -19179,27 +19180,32 @@ ${rulesSection}`;
         const si = idToIndex.get(l.source);
         const ti = idToIndex.get(l.target);
         if (si !== undefined && ti !== undefined && si !== ti) {
-          tacticalEdges3D.push({ s: si, t: ti, kind: l.kind || 'synapse' });
-          tacticalNodes3D[si].degree++;
-          tacticalNodes3D[ti].degree++;
+          const na = tacticalNodes3D[si];
+          const nb = tacticalNodes3D[ti];
+          const d3 = Math.hypot(na.x - nb.x, na.y - nb.y, na.z - nb.z);
+          if (d3 <= 1.45 || l.kind === 'causal_link') {
+            tacticalEdges3D.push({ s: si, t: ti, kind: l.kind || 'synapse' });
+            na.degree++;
+            nb.degree++;
+          }
         }
-        if (tacticalEdges3D.length >= 620) break;
+        if (tacticalEdges3D.length >= 280) break;
       }
 
-      // Ambient starlight dust for spatial depth even on small vaults
+      // Normalized ambient starlight dust for crisp galactic depth
       tacticalAmbientStars = [];
-      const ambientNeed = Math.max(85, 160 - tacticalNodes3D.length);
+      const ambientNeed = Math.max(120, 220 - Math.min(120, tacticalNodes3D.length));
       for (let i = 0; i < ambientNeed; i++) {
         const a = (i * goldenAngle) % (Math.PI * 2);
-        const z = ((i / ambientNeed) * 2 - 1) * 0.85;
+        const z = ((i / ambientNeed) * 2 - 1) * 0.82;
         const rxy = Math.sqrt(Math.max(0, 1 - z * z));
-        const dist = 95 + ((i * 53) % 195);
+        const dist = 0.35 + ((i * 53) % 100) / 100 * 0.92;
         tacticalAmbientStars.push({
-          x: Math.cos(a) * rxy * dist,
-          y: z * dist * 0.82,
-          z: Math.sin(a) * rxy * dist,
+          x: Math.cos(a) * rxy * dist * 1.25,
+          y: z * dist * 0.72,
+          z: Math.sin(a) * rxy * dist * 0.85,
           color: TACTICAL_COLORS[i % TACTICAL_COLORS.length],
-          size: 0.9 + (i % 3) * 0.45
+          size: 0.8 + (i % 3) * 0.4
         });
       }
 
@@ -19331,18 +19337,20 @@ ${rulesSection}`;
       tacticalAnimRunning = false;
     }
 
-    function projectTacticalPoint(x, y, z, cx, cy, cosY, sinY, cosP, sinP, fov, zoom) {
+    function projectTacticalPoint(x, y, z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, zoom) {
       const x1 = x * cosY - z * sinY;
       const z1 = x * sinY + z * cosY;
       const y2 = y * cosP - z1 * sinP;
       const z2 = y * sinP + z1 * cosP;
-      const depth = Math.max(80, fov + z2);
-      const scale = (fov / depth) * zoom;
+      // Camera fixed at safe normalized distance 3.6 so depth is ALWAYS in [2.0, 5.2] -> zero clipping at any resolution!
+      const camDist = 3.6;
+      const depth = Math.max(1.8, camDist + z2);
+      const persp = (camDist / depth) * zoom;
       return {
-        sx: cx + x1 * scale,
-        sy: cy + y2 * scale,
+        sx: cx + x1 * spanX * persp,
+        sy: cy + y2 * spanY * persp,
         rz: z2,
-        scale
+        scale: persp
       };
     }
 
@@ -19365,8 +19373,10 @@ ${rulesSection}`;
         return;
       }
 
-      const expectedW = Math.round(w * Math.min(window.devicePixelRatio || 1, 1.5));
-      if (Math.abs(tacCanvas.width - expectedW) > 4) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const expectedW = Math.round(w * dpr);
+      const expectedH = Math.round(h * dpr);
+      if (Math.abs(tacCanvas.width - expectedW) > 4 || Math.abs(tacCanvas.height - expectedH) > 4) {
         resizeTacticalCanvas();
       }
 
@@ -19379,7 +19389,7 @@ ${rulesSection}`;
       const ecoIdle = typeof isEcoGpuIdle === 'function' && isEcoGpuIdle();
       tacticalTick += ecoIdle ? 0.008 : 0.022;
       if (!tacticalDragging && !ecoIdle) {
-        tacticalCam.targetYaw += 0.0018;
+        tacticalCam.targetYaw += 0.0016;
       }
       tacticalCam.yaw += (tacticalCam.targetYaw - tacticalCam.yaw) * 0.14;
       tacticalCam.pitch += (tacticalCam.targetPitch - tacticalCam.pitch) * 0.14;
@@ -19389,56 +19399,58 @@ ${rulesSection}`;
       const sinY = Math.sin(tacticalCam.yaw);
       const cosP = Math.cos(tacticalCam.pitch);
       const sinP = Math.sin(tacticalCam.pitch);
-      const cx = w * 0.52;
-      const cy = h * 0.51;
-      const fov = Math.min(w, h) * 1.18;
+      const cx = w * 0.54;
+      const cy = h * 0.50;
+      const spanX = Math.min(w * 0.28, h * 0.92);
+      const spanY = h * 0.42;
 
       tctx.clearRect(0, 0, w, h);
 
       // 1. Subtle radial nebula backdrop & perspective orbital rings
-      const bgGrad = tctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(w, h) * 0.56);
-      bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.14)');
-      bgGrad.addColorStop(0.35, 'rgba(255, 59, 31, 0.05)');
+      const bgGrad = tctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(w, h) * 0.52);
+      bgGrad.addColorStop(0, 'rgba(255, 106, 0, 0.13)');
+      bgGrad.addColorStop(0.35, 'rgba(255, 59, 31, 0.04)');
       bgGrad.addColorStop(1, 'rgba(5, 6, 8, 0)');
       tctx.fillStyle = bgGrad;
       tctx.fillRect(0, 0, w, h);
 
       tctx.save();
-      tctx.strokeStyle = 'rgba(255, 106, 0, 0.10)';
+      tctx.strokeStyle = 'rgba(255, 106, 0, 0.09)';
       tctx.lineWidth = 1;
-      [0.32, 0.55, 0.80].forEach((rf, idx) => {
-        const rr = Math.min(w, h) * rf * 0.5 * tacticalCam.zoom;
+      [0.34, 0.58, 0.84].forEach((rf, idx) => {
+        const rrX = spanX * rf * 1.12 * tacticalCam.zoom;
+        const rrY = spanY * rf * (0.45 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.35) * tacticalCam.zoom;
         tctx.beginPath();
-        tctx.ellipse(cx, cy, rr * 1.18, rr * (0.42 + Math.abs(Math.sin(tacticalCam.pitch)) * 0.45), 0, 0, Math.PI * 2);
+        tctx.ellipse(cx, cy, Math.max(10, rrX), Math.max(6, rrY), 0, 0, Math.PI * 2);
         if (idx === 1) tctx.setLineDash([4, 6]);
         else tctx.setLineDash([]);
         tctx.stroke();
       });
       tctx.restore();
 
-      // 2. Project nodes and cluster hubs
+      // 2. Project nodes in safe normalized 3D space
       for (let i = 0; i < tacticalNodes3D.length; i++) {
         const n = tacticalNodes3D[i];
-        const p = projectTacticalPoint(n.x, n.y, n.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
+        const p = projectTacticalPoint(n.x, n.y, n.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
         n.sx = p.sx;
         n.sy = p.sy;
         n.rz = p.rz;
         n.scale = p.scale;
       }
 
-      // 3. Long radial filaments + real synapse edges with additive neon glow
+      // 3. Crisp radial filaments + synapse edges (clean source-over -> NEVER washes into yellow sheet!)
       tctx.save();
-      tctx.globalCompositeOperation = 'lighter';
+      tctx.globalCompositeOperation = 'source-over';
 
       for (let i = 0; i < tacticalClusterHubs.length; i++) {
         const hub = tacticalClusterHubs[i];
-        const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
+        const hp = projectTacticalPoint(hub.x, hub.y, hub.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
         const filGrad = tctx.createLinearGradient(cx, cy, hp.sx, hp.sy);
-        filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.24)');
-        filGrad.addColorStop(0.6, 'rgba(255, 106, 0, 0.08)');
+        filGrad.addColorStop(0, 'rgba(255, 176, 32, 0.28)');
+        filGrad.addColorStop(0.65, 'rgba(255, 106, 0, 0.10)');
         filGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
         tctx.strokeStyle = filGrad;
-        tctx.lineWidth = 1.15;
+        tctx.lineWidth = 0.9;
         tctx.beginPath();
         tctx.moveTo(cx, cy);
         tctx.lineTo(hp.sx, hp.sy);
@@ -19456,11 +19468,11 @@ ${rulesSection}`;
         if (!isFocusEdge && !matchFilter && tacticalFilter) continue;
 
         if (isFocusEdge) {
-          tctx.strokeStyle = 'rgba(255, 220, 140, 0.62)';
-          tctx.lineWidth = 1.35;
+          tctx.strokeStyle = 'rgba(255, 224, 150, 0.72)';
+          tctx.lineWidth = 1.25;
         } else {
-          tctx.strokeStyle = e.kind === 'causal_link' ? 'rgba(255, 106, 0, 0.22)' : 'rgba(255, 140, 26, 0.11)';
-          tctx.lineWidth = 0.7;
+          tctx.strokeStyle = e.kind === 'causal_link' ? 'rgba(255, 106, 0, 0.22)' : 'rgba(255, 140, 38, 0.12)';
+          tctx.lineWidth = 0.65;
         }
         tctx.beginPath();
         tctx.moveTo(a.sx, a.sy);
@@ -19471,37 +19483,36 @@ ${rulesSection}`;
       // Ambient starlight dust
       for (let i = 0; i < tacticalAmbientStars.length; i++) {
         const st = tacticalAmbientStars[i];
-        const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, cosY, sinY, cosP, sinP, fov, tacticalCam.zoom);
-        const alpha = Math.max(0.08, Math.min(0.45, 0.28 * sp.scale));
+        const sp = projectTacticalPoint(st.x, st.y, st.z, cx, cy, cosY, sinY, cosP, sinP, spanX, spanY, tacticalCam.zoom);
+        const alpha = Math.max(0.10, Math.min(0.42, 0.28 * sp.scale));
         tctx.fillStyle = st.color;
         tctx.globalAlpha = alpha;
         tctx.beginPath();
-        tctx.arc(sp.sx, sp.sy, Math.max(0.6, st.size * sp.scale), 0, Math.PI * 2);
+        tctx.arc(sp.sx, sp.sy, Math.max(0.6, Math.min(2.0, st.size * sp.scale)), 0, Math.PI * 2);
         tctx.fill();
       }
       tctx.globalAlpha = 1;
 
       // 4. Compact incandescent amber core (0, 0, 0) like Slide 3
       const pulse = 1 + Math.sin(tacticalTick * 1.9) * 0.08;
-      const coreR = 13 * tacticalCam.zoom * pulse;
-      const coreGrad = tctx.createRadialGradient(cx, cy, 1, cx, cy, coreR * 2.5);
+      const coreR = Math.max(9, Math.min(18, 12 * tacticalCam.zoom * pulse));
+      const coreGrad = tctx.createRadialGradient(cx, cy, 1, cx, cy, coreR * 2.4);
       coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-      coreGrad.addColorStop(0.20, 'rgba(255, 196, 80, 0.92)');
-      coreGrad.addColorStop(0.50, 'rgba(255, 106, 0, 0.42)');
+      coreGrad.addColorStop(0.22, 'rgba(255, 196, 80, 0.90)');
+      coreGrad.addColorStop(0.52, 'rgba(255, 106, 0, 0.36)');
       coreGrad.addColorStop(1, 'rgba(255, 59, 31, 0)');
       tctx.fillStyle = coreGrad;
       tctx.beginPath();
-      tctx.arc(cx, cy, coreR * 2.5, 0, Math.PI * 2);
+      tctx.arc(cx, cy, coreR * 2.4, 0, Math.PI * 2);
       tctx.fill();
 
-      tctx.strokeStyle = 'rgba(255, 176, 32, 0.45)';
+      tctx.strokeStyle = 'rgba(255, 176, 32, 0.42)';
       tctx.lineWidth = 1;
       tctx.beginPath();
       tctx.arc(cx, cy, coreR * 1.35, 0, Math.PI * 2);
       tctx.stroke();
 
-      // 5. Depth-sorted razor-sharp starry 3D nodes (switch back to source-over so colors never wash out to white blob!)
-      tctx.globalCompositeOperation = 'source-over';
+      // 5. Depth-sorted razor-sharp starry 3D nodes
       const sorted = tacticalNodes3D.slice().sort((a, b) => b.rz - a.rz);
       const godThreshold = Math.max(0, sorted.length - 12);
       for (let i = 0; i < sorted.length; i++) {
@@ -19510,14 +19521,14 @@ ${rulesSection}`;
         const isHov = tacticalHoveredNode3D && tacticalHoveredNode3D.id === n.id;
         const isSel = tacticalSelectedNodeId && tacticalSelectedNodeId === n.id;
         const isTopGod = i >= godThreshold && n.importance >= 8;
-        const depthAlpha = Math.max(0.28, Math.min(0.96, 0.72 - n.rz / 760));
+        const depthAlpha = Math.max(0.28, Math.min(0.96, 0.72 - n.rz * 0.32));
         const alpha = isHov || isSel ? 1 : (tacticalFilter && !isMatched ? 0.12 : depthAlpha);
-        const r = Math.max(1.0, Math.min(4.6, n.radius * n.scale * (isHov ? 1.7 : (isSel ? 1.5 : 1))));
+        const r = Math.max(1.1, Math.min(4.4, n.radius * n.scale * (isHov ? 1.65 : (isSel ? 1.45 : 1))));
 
         // Razor-thin radial filament to core for select top hubs & focused node
         if ((isTopGod || isHov || isSel) && alpha > 0.25) {
           tctx.strokeStyle = n.color;
-          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.16;
+          tctx.globalAlpha = isHov || isSel ? 0.55 : 0.18;
           tctx.lineWidth = isHov || isSel ? 1.0 : 0.55;
           tctx.beginPath();
           tctx.moveTo(cx, cy);
@@ -19530,7 +19541,7 @@ ${rulesSection}`;
           tctx.globalAlpha = alpha * (isHov || isSel ? 0.45 : 0.22);
           tctx.fillStyle = n.color;
           tctx.beginPath();
-          tctx.arc(n.sx, n.sy, r * 2.4, 0, Math.PI * 2);
+          tctx.arc(n.sx, n.sy, r * 2.3, 0, Math.PI * 2);
           tctx.fill();
         }
 
@@ -19550,7 +19561,7 @@ ${rulesSection}`;
       }
       tctx.restore();
 
-      // 6. Floating Tactical Callout Cards (hovered + top 3 DISTINCT god nodes, zero overlap)
+      // 6. Floating Tactical Callout Cards (hovered + up to 3 strictly non-overlapping distinct god nodes)
       const calloutCandidates = [];
       const seenIds = new Set();
       const seenTitleKeys = new Set();
@@ -19560,7 +19571,7 @@ ${rulesSection}`;
         seenTitleKeys.add(String(tacticalHoveredNode3D.label || '').toLowerCase().slice(0, 18));
       }
       const godSorted = tacticalNodes3D
-        .filter(n => matchesTacticalFilter(n) && n.sx > 220 && n.sx < w - 180 && n.sy > 46 && n.sy < h - 42)
+        .filter(n => matchesTacticalFilter(n) && n.sx > 224 && n.sx < w - 186 && n.sy > 46 && n.sy < h - 42 && Math.hypot(n.sx - cx, n.sy - cy) > 48)
         .sort((a, b) => (b.importance * 8 + b.degree * 3) - (a.importance * 8 + a.degree * 3));
 
       for (let i = 0; i < godSorted.length && calloutCandidates.length < 4; i++) {
@@ -19574,31 +19585,36 @@ ${rulesSection}`;
       }
 
       const occupiedBoxes = [
-        { x: 6, y: 6, w: 206, h: Math.min(h - 12, 230) }, // Legend overlay guard
-        { x: Math.max(0, w - 335), y: 6, w: 330, h: 42 }  // Top-right actions guard
+        { x: 6, y: 6, w: 208, h: Math.min(h - 12, 260) }, // Legend overlay guard
+        { x: Math.max(0, w - 340), y: 6, w: 334, h: 42 }  // Top-right actions guard
       ];
 
       tctx.save();
       tctx.font = '600 9.5px "JetBrains Mono", monospace';
       calloutCandidates.forEach((node, idx) => {
+        const isHovNode = !!(tacticalHoveredNode3D && tacticalHoveredNode3D.id === node.id);
         const boxW = 166;
         const boxH = 34;
         const offsets = [
-          { dx: 24, dy: -36 },
-          { dx: -boxW - 24, dy: -34 },
+          { dx: 24, dy: -38 },
+          { dx: -boxW - 24, dy: -36 },
           { dx: 24, dy: 16 },
           { dx: -boxW - 24, dy: 16 }
         ];
-        let bx = node.sx + offsets[idx % offsets.length].dx;
-        let by = node.sy + offsets[idx % offsets.length].dy;
-        bx = Math.max(216, Math.min(w - boxW - 10, bx));
-        by = Math.max(46, Math.min(h - boxH - 8, by));
+        let bx = Math.max(218, Math.min(w - boxW - 10, node.sx + offsets[idx % offsets.length].dx));
+        let by = Math.max(46, Math.min(h - boxH - 8, node.sy + offsets[idx % offsets.length].dy));
 
-        for (let attempt = 0; attempt < 4; attempt++) {
-          const hit = occupiedBoxes.some(ob => !(bx + boxW + 6 < ob.x || bx > ob.x + ob.w + 6 || by + boxH + 6 < ob.y || by > ob.y + ob.h + 6));
-          if (!hit) break;
-          by = Math.max(46, Math.min(h - boxH - 8, by + (attempt % 2 === 0 ? 38 : -38)));
+        let placed = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const hit = occupiedBoxes.some(ob => !(bx + boxW + 8 < ob.x || bx > ob.x + ob.w + 8 || by + boxH + 8 < ob.y || by > ob.y + ob.h + 8));
+          if (!hit) {
+            placed = true;
+            break;
+          }
+          by = Math.max(46, Math.min(h - boxH - 8, by + (attempt % 2 === 0 ? 40 : -40)));
         }
+        // Strictly skip overlapping ambient callouts so cards NEVER stack on top of each other
+        if (!placed && !isHovNode) return;
         occupiedBoxes.push({ x: bx, y: by, w: boxW, h: boxH });
 
         // Leader line
@@ -19612,8 +19628,8 @@ ${rulesSection}`;
         tctx.stroke();
 
         // Callout card
-        tctx.fillStyle = 'rgba(8, 9, 14, 0.90)';
-        tctx.strokeStyle = (tacticalHoveredNode3D && tacticalHoveredNode3D.id === node.id) ? '#ffffff' : 'rgba(255, 106, 0, 0.58)';
+        tctx.fillStyle = 'rgba(8, 9, 14, 0.92)';
+        tctx.strokeStyle = isHovNode ? '#ffffff' : 'rgba(255, 106, 0, 0.58)';
         tctx.lineWidth = 1;
         tctx.beginPath();
         tctx.roundRect(bx, by, boxW, boxH, 5);
