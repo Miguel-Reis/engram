@@ -1680,15 +1680,94 @@ def run_all_tests() -> None:
         assert _OrbitV92._is_raw_file_path_noise("Ficheiro meter.html", "Ficheiro do projeto shadowmeter2 em [path-local]") is True
         assert _OrbitV92._is_raw_file_path_noise("Segurança XSS", "Usar sempre escapeHtml em atributos onclick para evitar XSS") is False
 
-        for v92_ui_tok in ('id="dbMaintenancePanel"', 'id="dbHealthSummaryBox"', 'id="dbMaintenanceResultBox"', "function refreshDbHealthUI(", "function runDbMaintenanceUI("):
-            assert v92_ui_tok in html_content, f"Token UI v9.2 em falta em index.html: {v92_ui_tok}"
+        for v92_ui_tok in (
+            'id="dbMaintenancePanel"',
+            'id="dbHealthSummaryBox"',
+            'id="dbMaintenanceResultBox"',
+            "function refreshDbHealthUI(",
+            "function runDbMaintenanceUI(",
+            'id="v10CognitivePanel"',
+            'id="v10BackendBadge"',
+            'id="v10StatusBadges"',
+            'id="v10QueryInput"',
+            'id="v10AsOfInput"',
+            'id="v10CognitiveOutput"',
+            "function refreshV10CognitiveStatusUI(",
+            "function runV10HippoRagUI(",
+            "function runV10TemporalQueryUI(",
+            "function runV10IndexEmbeddingsUI(",
+            "function storeV10TemporalFactUI(",
+        ):
+            assert v92_ui_tok in html_content, f"Token UI v9.2/v10.0 em falta em index.html: {v92_ui_tok}"
+
+        # 37. Engram v10.0 — Bi-Temporal Knowledge Graph, HippoRAG PPR Multi-Hop, Local Neural Embeddings & 32 MCP Tools
+        from cognitive_v10_engine import (
+            compute_neural_embedding,
+            get_temporal_history,
+            get_v10_cognitive_status,
+            hipporag_ppr_retrieve,
+            index_neural_embeddings,
+            query_temporal_as_of,
+            store_temporal_fact,
+        )
+
+        assert {"brain_hipporag_search", "brain_temporal_fact", "brain_temporal_query"}.issubset(tool_names), f"Tools MCP #30-#32 em falta: {tool_names}"
+
+        # 37.1 Bi-Temporal Supersession + Time-Travel as_of
+        tf1 = store_temporal_fact(
+            v91_db,
+            topic="Nome Oficial do Projeto",
+            fact="O projeto chama-se antigravity-brain v8.",
+            workspace=tmp_v91_ws,
+            category="decision",
+            valid_from="2026-01-15T10:00:00Z",
+            auto_supersede=True,
+        )
+        tf2 = store_temporal_fact(
+            v91_db,
+            topic="Nome Oficial do Projeto",
+            fact="Renomeámos antigravity-brain para Engram v10 universal multi-IDE.",
+            workspace=tmp_v91_ws,
+            category="decision",
+            valid_from="2026-06-15T10:00:00Z",
+            auto_supersede=True,
+        )
+        assert tf1["ok"] and tf2["ok"] and tf1["memory_id"] in tf2["superseded_ids"], f"Supersessão bi-temporal falhou: {tf1}, {tf2}"
+        now_q = query_temporal_as_of(v91_db, query="Nome Oficial do Projeto", workspace=tmp_v91_ws)
+        past_q = query_temporal_as_of(v91_db, query="Nome Oficial do Projeto", workspace=tmp_v91_ws, as_of="2026-03-01")
+        assert any("Engram v10" in str(r.get("fact", "")) for r in now_q["results"]), f"Query temporal 'now' falhou: {now_q}"
+        assert any("antigravity-brain v8" in str(r.get("fact", "")) for r in past_q["results"]) and not any("Engram v10" in str(r.get("fact", "")) for r in past_q["results"]), f"Time-Travel as_of falhou: {past_q}"
+        hist_q = get_temporal_history(v91_db, memory_id=tf2["memory_id"], workspace=tmp_v91_ws)
+        assert hist_q["ok"] is True and len(hist_q.get("chain", [])) >= 2, f"Histórico temporal inválido: {hist_q}"
+
+        # 37.2 Bilingual 256-D Local Neural Embeddings
+        v_pt, _ = compute_neural_embedding("velocidade e latencia da base de dados", allow_network=False)
+        v_en, _ = compute_neural_embedding("SQLite database latency performance optimization", allow_network=False)
+        cos_bi = sum(a * b for a, b in zip(v_pt, v_en))
+        assert cos_bi >= 0.30, f"Cosine bilingue 256-D demasiado baixo: {cos_bi:.4f}"
+        idx_res = index_neural_embeddings(v91_db, workspace=tmp_v91_ws, limit=50, force=True)
+        assert idx_res["ok"] is True and idx_res["total_indexed"] >= 1 and idx_res["coverage_pct"] == 100.0, f"Indexação neural falhou: {idx_res}"
+
+        # 37.3 HippoRAG PPR 2-Hop Discovery (A -> B -> C sem sobreposição lexical entre A e C)
+        id_a, _ = v91_db.store_fact("Quantum Warp Injector", "Calibrar o injetor warp primario de plasma.", workspace=tmp_v91_ws, category="architecture", importance=8)
+        id_b, _ = v91_db.store_fact("Cryo Coolant Manifold", "Valvula criogenica central de regulacao termica.", workspace=tmp_v91_ws, category="architecture", importance=8)
+        id_c, _ = v91_db.store_fact("Titanium Gasket Seal", "Junta selada a titanio resistente a alta pressao.", workspace=tmp_v91_ws, category="architecture", importance=8)
+        v91_db.record_causal_edge(id_a, id_b, relation="DEPENDS_ON", weight=1.0)
+        v91_db.record_causal_edge(id_b, id_c, relation="DEPENDS_ON", weight=1.0)
+        index_neural_embeddings(v91_db, workspace=tmp_v91_ws, limit=50, force=False)
+        ppr_res = hipporag_ppr_retrieve(v91_db, query="Quantum Warp Injector plasma", workspace=tmp_v91_ws, top_k=6, hops=2)
+        ppr_ids = {r["id"]: r for r in ppr_res.get("results", [])}
+        assert ppr_res["ok"] is True and id_c in ppr_ids and ppr_ids[id_c]["is_multi_hop"] is True, f"HippoRAG PPR 2-hop não descobriu C: {ppr_res}"
+
+        v10_st = get_v10_cognitive_status(v91_db, workspace=tmp_v91_ws)
+        assert v10_st["ok"] is True and v10_st["bitemporal"]["superseded_facts"] >= 1 and v10_st["neural_embeddings"]["indexed_count"] >= 4, f"v10 status inválido: {v10_st}"
     finally:
         _v91_shutil.rmtree(tmp_v91_dir, ignore_errors=True)
         vault_tmp = os.path.join(repo_dir, ".brain_vault", tmp_v91_ws)
         if os.path.isdir(vault_tmp):
             _v91_shutil.rmtree(vault_tmp, ignore_errors=True)
 
-    print("[PASS] Pack Completo v6.0..v9.2 Studio OS (Turbo Warm Hook, Zero-WMI, XHigh Router, DPAPI, DB Auto-TTL/VACUUM, Tactical 3D & 29 MCP Tools) OK")
+    print("[PASS] Pack Completo v6.0..v10.0 Studio OS (Bi-Temporal Knowledge Graph, HippoRAG PPR Multi-Hop, Local Neural Embeddings, Warm Hook, Tactical 3D & 32 MCP Tools) OK")
 
 
 if __name__ == "__main__":

@@ -1527,6 +1527,37 @@ def handle_pre_invocation(raw_stdin: str, host_hint: str = "auto") -> Dict[str, 
         voice_context=voice_ctx,
         runtime_profile=runtime_profile,
     )
+    if (not micro_mode) and len(user_query) >= 24 and (not is_subagent):
+        try:
+            from cognitive_v10_engine import hipporag_ppr_retrieve
+
+            hippo_res = hipporag_ppr_retrieve(db, user_query, workspace=ws, top_k=3, hops=2)
+            existing_ids = {
+                m.get("id") for m in memories if isinstance(m, dict) and m.get("id") is not None
+            }
+            for r in (hippo_res or {}).get("results") or []:
+                if not isinstance(r, dict):
+                    continue
+                if r.get("is_multi_hop") is True and r.get("id") not in existing_ids:
+                    h_topic = compress_fact_telegraphic(
+                        str(r.get("topic") or r.get("title") or "Discovery"), 48
+                    )
+                    h_reason = compress_fact_telegraphic(
+                        str(r.get("path_reason") or r.get("hop_path") or r.get("reason") or "2-hop PPR"),
+                        72,
+                    )
+                    hippo_line = f"🧠[HIPPO_2HOP]: {h_topic} ({h_reason})"
+                    sep_len = 1 if ephemeral_msg else 0
+                    remaining = budget_chars - len(ephemeral_msg) - sep_len
+                    if remaining >= 32:
+                        if len(hippo_line) > remaining:
+                            hippo_line = hippo_line[: max(0, remaining - 3)].rstrip() + "..."
+                        ephemeral_msg = (
+                            f"{ephemeral_msg}\n{hippo_line}" if ephemeral_msg else hippo_line
+                        )
+                    break
+        except Exception:
+            pass
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
     injected_tokens = max(1, len(ephemeral_msg) // 4)
     estimated_saved = (

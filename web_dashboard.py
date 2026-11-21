@@ -1269,6 +1269,8 @@ def build_tactical_overview_payload(db: BrainDB, workspace: str = "all") -> Dict
         "GBRAIN AXES: ACTIVE",
         "PAGODA LSM: LOSSLESS",
         "ARCHIFY DELTA: READY",
+        "BI-TEMPORAL: ON",
+        "HIPPORAG PPR: READY",
         f"7-IDE BRIDGE: {connected_ides}/7",
         f"SWARM ROUTER: {routing_policy.upper()}",
         f"NIGHTLY RULES: {promoted_rules} PROMOTED",
@@ -2037,6 +2039,71 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body_bytes)))
             self.end_headers()
             self.wfile.write(body_bytes)
+            return
+
+        if parsed.path == "/api/v10/status":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            try:
+                from cognitive_v10_engine import get_v10_cognitive_status
+
+                self._send_json(get_v10_cognitive_status(BrainDB(), workspace=ws))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v10/hipporag":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            top_k = _safe_int(qs.get("top_k", ["8"])[0], default=8, min_v=1, max_v=50)
+            hops = _safe_int(qs.get("hops", ["2"])[0], default=2, min_v=1, max_v=4)
+            as_of = qs.get("as_of", [""])[0]
+            try:
+                from cognitive_v10_engine import hipporag_ppr_retrieve
+
+                self._send_json(
+                    hipporag_ppr_retrieve(
+                        BrainDB(),
+                        query=q,
+                        workspace=ws,
+                        top_k=top_k,
+                        hops=hops,
+                        as_of=as_of,
+                    )
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"ok": False, "error": str(exc), "query": q, "workspace": ws, "fallback": True},
+                    500,
+                )
+            return
+
+        if parsed.path == "/api/v10/temporal":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            as_of = qs.get("as_of", [""])[0]
+            inc_sup = str(qs.get("include_superseded", ["0"])[0]).strip().lower() in ("1", "true", "yes", "on")
+            limit = _safe_int(qs.get("limit", ["12"])[0], default=12, min_v=1, max_v=100)
+            try:
+                from cognitive_v10_engine import query_temporal_as_of
+
+                self._send_json(
+                    query_temporal_as_of(
+                        BrainDB(),
+                        query=q,
+                        workspace=ws,
+                        as_of=as_of,
+                        include_superseded=inc_sup,
+                        limit=limit,
+                    )
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"ok": False, "error": str(exc), "query": q, "workspace": ws, "fallback": True},
+                    500,
+                )
             return
 
         self._send_json({"error": "Not found"}, 404)
@@ -2908,6 +2975,64 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc), "workspace": ws}, 500)
             return
 
+        if parsed.path == "/api/v10/temporal/store":
+            data = body if isinstance(body, dict) else {}
+            topic = str(data.get("topic", "")).strip()
+            fact = str(data.get("fact", "")).strip()
+            if not topic or not fact:
+                self._send_json({"ok": False, "error": "topic and fact are required"}, 400)
+                return
+            ws = str(data.get("workspace", "brain_mcp")).strip() or "brain_mcp"
+            category = str(data.get("category", "decision")).strip() or "decision"
+            tags = str(data.get("tags", "")).strip()
+            importance = _safe_int(data.get("importance", 8), default=8, min_v=1, max_v=10)
+            valid_from = str(data.get("valid_from", "")).strip()
+            auto_supersede = bool(data.get("auto_supersede", True))
+            try:
+                from cognitive_v10_engine import get_v10_cognitive_status, store_temporal_fact
+
+                res = store_temporal_fact(
+                    db,
+                    topic=topic,
+                    fact=fact,
+                    workspace=ws,
+                    category=category,
+                    tags=tags,
+                    importance=importance,
+                    valid_from=valid_from,
+                    auto_supersede=auto_supersede,
+                )
+                _GRAPH_PAYLOAD_CACHE.clear()
+                status = get_v10_cognitive_status(db, workspace=ws)
+                out = dict(res) if isinstance(res, dict) else {"result": res}
+                out["ok"] = bool(out.get("ok", True))
+                out["result"] = res
+                out["status"] = status
+                self._send_json(out)
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v10/embeddings/index":
+            data = body if isinstance(body, dict) else {}
+            ws = str(data.get("workspace", "all")).strip() or "all"
+            limit = _safe_int(data.get("limit", 200), default=200, min_v=1, max_v=5000)
+            force = bool(data.get("force", False))
+            try:
+                from cognitive_v10_engine import get_v10_cognitive_status, index_neural_embeddings
+
+                res = index_neural_embeddings(db, workspace=ws, limit=limit, force=force)
+                _GRAPH_PAYLOAD_CACHE.clear()
+                status = get_v10_cognitive_status(db, workspace=ws)
+                out = dict(res) if isinstance(res, dict) else {"result": res}
+                out["ok"] = bool(out.get("ok", True))
+                out["result"] = res
+                out["status"] = status
+                self._send_json(out)
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
+            return
+
         self._send_json({"error": "Endpoint desconhecido"}, 404)
 
     def do_DELETE(self) -> None:
@@ -2922,6 +3047,71 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
             deleted = db.forget_fact(mem_id)
             self._send_json({"ok": deleted})
             return
+        if parsed.path == "/api/v10/status":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            try:
+                from cognitive_v10_engine import get_v10_cognitive_status
+
+                self._send_json(get_v10_cognitive_status(BrainDB(), workspace=ws))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v10/hipporag":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            top_k = _safe_int(qs.get("top_k", ["8"])[0], default=8, min_v=1, max_v=50)
+            hops = _safe_int(qs.get("hops", ["2"])[0], default=2, min_v=1, max_v=4)
+            as_of = qs.get("as_of", [""])[0]
+            try:
+                from cognitive_v10_engine import hipporag_ppr_retrieve
+
+                self._send_json(
+                    hipporag_ppr_retrieve(
+                        BrainDB(),
+                        query=q,
+                        workspace=ws,
+                        top_k=top_k,
+                        hops=hops,
+                        as_of=as_of,
+                    )
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"ok": False, "error": str(exc), "query": q, "workspace": ws, "fallback": True},
+                    500,
+                )
+            return
+
+        if parsed.path == "/api/v10/temporal":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            as_of = qs.get("as_of", [""])[0]
+            inc_sup = str(qs.get("include_superseded", ["0"])[0]).strip().lower() in ("1", "true", "yes", "on")
+            limit = _safe_int(qs.get("limit", ["12"])[0], default=12, min_v=1, max_v=100)
+            try:
+                from cognitive_v10_engine import query_temporal_as_of
+
+                self._send_json(
+                    query_temporal_as_of(
+                        BrainDB(),
+                        query=q,
+                        workspace=ws,
+                        as_of=as_of,
+                        include_superseded=inc_sup,
+                        limit=limit,
+                    )
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"ok": False, "error": str(exc), "query": q, "workspace": ws, "fallback": True},
+                    500,
+                )
+            return
+
         self._send_json({"error": "Not found"}, 404)
 
 

@@ -251,6 +251,8 @@ class BrainDB:
                 ("superseded_by", "INTEGER DEFAULT NULL"),
                 ("valid_from", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
                 ("valid_until", "TIMESTAMP DEFAULT NULL"),
+                ("valid_to", "TEXT DEFAULT NULL"),
+                ("invalidated_by", "INTEGER DEFAULT NULL"),
                 ("embedding_json", "TEXT DEFAULT '[]'"),
                 ("embedding_bq", "TEXT DEFAULT ''"),
                 ("source_agent", "TEXT DEFAULT 'system'"),
@@ -280,6 +282,9 @@ class BrainDB:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_memories_workspace ON memories(workspace);"
             )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memories_valid_to ON memories(workspace, valid_to);"
+            )
 
             # 1b. Tabela Ruflo Causal Memory Graph (agentdb_causal-edge)
             conn.execute(
@@ -290,11 +295,25 @@ class BrainDB:
                     target_id INTEGER NOT NULL,
                     relation TEXT DEFAULT 'evolves',
                     weight REAL DEFAULT 0.85,
+                    valid_from TEXT DEFAULT NULL,
+                    valid_to TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(source_id, target_id, relation)
                 );
                 """
             )
+            edge_cols = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(memory_edges);").fetchall()
+            }
+            for col_name, col_def in (
+                ("valid_from", "TEXT DEFAULT NULL"),
+                ("valid_to", "TEXT DEFAULT NULL"),
+            ):
+                if col_name not in edge_cols:
+                    conn.execute(
+                        f"ALTER TABLE memory_edges ADD COLUMN {col_name} {col_def};"
+                    )
 
             # 1c. Tabela Ruflo Agentic Copy-on-Write Branches (agenticow_branch)
             conn.execute(
@@ -1597,14 +1616,15 @@ class BrainDB:
                             FROM memories_fts
                             JOIN memories m ON m.id = memories_fts.rowid
                             WHERE memories_fts MATCH ?
+                              AND (? = 1 OR (m.superseded_by IS NULL AND (m.valid_to IS NULL OR m.valid_to = '')))
                             ORDER BY bm25_raw ASC
                             LIMIT ?;
                             """,
-                            (fts_query, max(n_results * 4, 20)),
+                            (fts_query, 1 if include_superseded else 0, max(n_results * 4, 20)),
                         ).fetchall()
                         for r in rows:
                             d = dict(r)
-                            if not include_superseded and d.get("superseded_by"):
+                            if not include_superseded and (d.get("superseded_by") or (d.get("valid_to") or "").strip()):
                                 continue
                             d["score"] = abs(float(d.get("bm25_raw", 0.0))) * 2.0
                             candidates[d["id"]] = d
@@ -1615,21 +1635,24 @@ class BrainDB:
             fallback_rows = conn.execute(
                 """
                 SELECT * FROM memories
-                WHERE workspace IN (?, 'global')
-                   OR category IN ('learned_rule', 'bug_fix', 'vault_clip', 'directive', 'preference')
-                   OR importance >= 5
+                WHERE (
+                    workspace IN (?, 'global')
+                    OR category IN ('learned_rule', 'bug_fix', 'vault_clip', 'directive', 'preference')
+                    OR importance >= 5
+                )
+                  AND (? = 1 OR (superseded_by IS NULL AND (valid_to IS NULL OR valid_to = '')))
                 ORDER BY CASE WHEN workspace = ? THEN 0 WHEN workspace = 'global' THEN 1 ELSE 2 END,
                          importance DESC, id DESC
                 LIMIT 45;
                 """,
-                (ws, ws),
+                (ws, 1 if include_superseded else 0, ws),
             ).fetchall()
 
             for r in fallback_rows:
                 rid = r["id"]
                 if rid not in candidates:
                     d = dict(r)
-                    if not include_superseded and d.get("superseded_by"):
+                    if not include_superseded and (d.get("superseded_by") or (d.get("valid_to") or "").strip()):
                         continue
                     d["score"] = 0.0
                     candidates[rid] = d
@@ -1677,7 +1700,7 @@ class BrainDB:
                 ph = ",".join("?" for _ in extra_ppr_ids)
                 for r in conn.execute(f"SELECT * FROM memories WHERE id IN ({ph});", extra_ppr_ids).fetchall():
                     d = dict(r)
-                    if not include_superseded and d.get("superseded_by"):
+                    if not include_superseded and (d.get("superseded_by") or (d.get("valid_to") or "").strip()):
                         continue
                     d["score"] = 0.0
                     rid = int(d["id"])

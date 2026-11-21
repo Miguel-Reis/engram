@@ -6028,6 +6028,94 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         </div>
       </div>
 
+      <!-- 🧬 Engram v10.0 — Bi-Temporal Graph, HippoRAG PPR & Neural Embeddings -->
+      <div id="v10CognitivePanel" class="studio-section-card" style="margin-top:12px; padding:12px; font-family:var(--font-mono);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; color:#34d399; letter-spacing:0.02em;">
+              🧬 Engram v10.0 · Bi-Temporal Graph + HippoRAG PPR + Neural Embeddings
+            </span>
+            <span id="v10BackendBadge" class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-family:var(--font-mono);">
+              256-D DENSE / STANDBY
+            </span>
+          </div>
+          <button type="button" class="quick-ag-btn" onclick="refreshV10CognitiveStatusUI()" style="font-family:var(--font-mono); font-size:10px;" title="Atualizar estado Bi-Temporal, HippoRAG PPR e Embeddings">
+            🔄 Estado v10.0
+          </button>
+        </div>
+
+        <!-- Live KPI Status Strip -->
+        <div id="v10StatusBadges" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; font-size:10px;">
+          <span class="tk-chip" style="background:#081014; border:1px solid rgba(16,185,129,0.28); color:#6ee7b7; padding:3px 8px; border-radius:6px;">
+            ⏳ A carregar métricas bi-temporais...
+          </span>
+        </div>
+
+        <!-- Action Bar 1 (Explorer) -->
+        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px;">
+          <input
+            type="text"
+            id="v10QueryInput"
+            class="search-input"
+            style="flex:1 1 240px; min-width:200px; font-family:var(--font-mono); font-size:10.5px; padding:5px 9px; background:#06080b; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+            placeholder="Query multi-hop ou evolução temporal (ex: arquitetura, quota, telegram)..."
+            onkeydown="if(event.keyCode===13) runV10HippoRagUI()"
+          />
+          <input
+            type="text"
+            id="v10AsOfInput"
+            class="search-input"
+            style="width:125px; flex:0 0 125px; font-family:var(--font-mono); font-size:10.5px; padding:5px 8px; background:#06080b; border:1px solid var(--border-strong); color:#fde68a; border-radius:6px;"
+            placeholder="as_of YYYY-MM-DD"
+            title="Filtro opcional de viagem no tempo (ex: 2026-04-01)"
+            onkeydown="if(event.keyCode===13) runV10TemporalQueryUI()"
+          />
+          <button type="button" class="btn btn-primary" id="btnV10HippoRag" style="padding:4px 10px; font-size:10.5px; background:#059669; border-color:#10b981; color:#fff; white-space:nowrap;" onclick="runV10HippoRagUI()">
+            🕸️ HippoRAG (PPR)
+          </button>
+          <button type="button" class="btn" id="btnV10TimeTravel" style="padding:4px 10px; font-size:10.5px; background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.42); color:#fde68a; white-space:nowrap;" onclick="runV10TemporalQueryUI()">
+            ⏳ Time-Travel
+          </button>
+          <button type="button" class="btn" id="btnV10IndexVec" style="padding:4px 10px; font-size:10.5px; background:rgba(56,189,248,0.14); border:1px solid rgba(56,189,248,0.42); color:#7dd3fc; white-space:nowrap;" onclick="runV10IndexEmbeddingsUI()">
+            ⚡ Indexar Vetores
+          </button>
+        </div>
+
+        <!-- Collapsible Quick Bi-Temporal Fact Writer -->
+        <details style="margin-bottom:8px; background:#080b10; border:1px solid rgba(255,255,255,0.08); border-radius:7px; padding:6px 9px;">
+          <summary style="cursor:pointer; font-size:10px; font-weight:700; color:#cbd5e1; user-select:none;">
+            ✍️ Gravar Facto Bi-Temporal Rápido (Auto-Supersede de Contradições)
+          </summary>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:7px;">
+            <input
+              type="text"
+              id="v10TempTopicInput"
+              class="search-input"
+              style="flex:1 1 160px; min-width:140px; font-family:var(--font-mono); font-size:10.5px; padding:5px 8px; background:#05070a; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+              placeholder="Tópico (ex: Arquitetura Auth)"
+            />
+            <input
+              type="text"
+              id="v10TempFactInput"
+              class="search-input"
+              style="flex:2 1 260px; min-width:200px; font-family:var(--font-mono); font-size:10.5px; padding:5px 8px; background:#05070a; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+              placeholder="Novo facto (contradizendo ou atualizando o anterior)..."
+              onkeydown="if(event.keyCode===13) storeV10TemporalFactUI()"
+            />
+            <button type="button" class="btn btn-primary" id="btnV10StoreTemporal" style="padding:4px 10px; font-size:10px; background:#047857; border-color:#10b981; color:#fff; white-space:nowrap;" onclick="storeV10TemporalFactUI()">
+              💾 Gravar Facto Bi-Temporal (Auto-Supersede)
+            </button>
+          </div>
+        </details>
+
+        <!-- Output Viewport -->
+        <div id="v10CognitiveOutput" style="max-height: 220px; overflow-y: auto; background:#06080b; border:1px solid var(--border); border-radius:7px; padding:8px 10px; font-size:10px; color:#cbd5e1;">
+          <div style="color:var(--text-muted); font-style:italic;">
+            Introduza uma query e clique em <strong style="color:#34d399;">🕸️ HippoRAG (PPR)</strong> para expansão multi-hop ou <strong style="color:#fbbf24;">⏳ Time-Travel</strong> para auditar factos ativos, superseded e cadeias <code style="color:#7dd3fc;">SUPERSEDES</code>.
+          </div>
+        </div>
+      </div>
+
       <!-- 🧹 DB Hygiene & Warm Hook Sidecar (v9.2) -->
       <div class="studio-section-card" id="dbMaintenancePanel" style="margin-top:10px; padding:10px 12px; border:1px solid rgba(16,185,129,0.34); background:rgba(6,14,18,0.82); border-radius:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
@@ -11982,6 +12070,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       refreshPagodaPanelUI();
       refreshRuntimeProfileUI(false);
       refreshDbHealthUI();
+      refreshV10CognitiveStatusUI();
       await refreshInspectorPreview();
     }
 
@@ -15695,6 +15784,385 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       } finally {
         if (btnCompact) btnCompact.disabled = false;
         if (btnPurge) btnPurge.disabled = false;
+      }
+    }
+
+    // =========================================================================
+    // ENGRAM v10.0 — BI-TEMPORAL GRAPH, HIPPORAG PPR & NEURAL EMBEDDINGS UI
+    // =========================================================================
+    function _getV10Workspace(forWrite = false) {
+      const wsSel = document.getElementById('inspWsSelect');
+      const raw = (wsSel && wsSel.value ? String(wsSel.value).trim() : '') || 'brain_mcp';
+      if (forWrite && (!raw || raw.toLowerCase() === 'all')) return 'brain_mcp';
+      return raw;
+    }
+
+    function _renderV10StatusStrip(data) {
+      const badgeEl = document.getElementById('v10BackendBadge');
+      const stripEl = document.getElementById('v10StatusBadges');
+      if (!data || data.ok === false) {
+        if (badgeEl) {
+          badgeEl.textContent = 'BACKEND OFFLINE';
+          badgeEl.style.background = 'rgba(244,63,94,0.14)';
+          badgeEl.style.color = '#fda4af';
+          badgeEl.style.borderColor = 'rgba(244,63,94,0.38)';
+        }
+        if (stripEl) {
+          stripEl.innerHTML = `<span class="tk-chip" style="background:#14090d; border:1px solid rgba(244,63,94,0.32); color:#fda4af; padding:3px 8px; border-radius:6px;">⚠️ ${escapeHtml((data && data.error) || 'Endpoint /api/v10/status indisponível')}</span>`;
+        }
+        return;
+      }
+
+      const temporal = data.temporal || data.bitemporal || {};
+      const embeddings = data.embeddings || data.neural_embeddings || data.vectors || {};
+      const activeCount = Number(
+        temporal.active_facts ?? temporal.active_count ?? data.active_facts ?? data.active_count ?? 0
+      );
+      const supersededCount = Number(
+        temporal.superseded_facts ?? temporal.superseded_count ?? data.superseded_facts ?? data.superseded_count ?? 0
+      );
+      const supersedesEdges = Number(
+        temporal.supersedes_edges ?? temporal.supersedes_count ?? data.supersedes_edges ?? data.supersedes_count ?? 0
+      );
+
+      const totalCount = Number(
+        embeddings.total ?? embeddings.total_count ?? data.total_facts ?? (activeCount + supersededCount)
+      );
+      const embeddedCount = Number(
+        embeddings.indexed ?? embeddings.embedded_count ?? embeddings.count ?? data.embedded_count ?? 0
+      );
+      const covPctRaw = embeddings.coverage_pct ?? data.coverage_pct ?? (
+        totalCount > 0 ? (embeddedCount / totalCount) * 100 : 0
+      );
+      const covPct = Math.min(100, Math.max(0, Number(covPctRaw || 0))).toFixed(1);
+
+      const backendRaw = String(
+        embeddings.backend || data.embedding_backend || data.backend || 'hash256'
+      );
+      const dimVal = Number(embeddings.dim || embeddings.dimensions || data.dim || 256);
+      const isNeural = /ollama|openai|nomic|bge|minilm|dense|neural|gemini|local/i.test(backendRaw) && !/hash/i.test(backendRaw);
+      const badgeTxt = `${dimVal}-D ${isNeural ? 'DENSE' : 'HYBRID'} / ${backendRaw.toUpperCase()}`;
+
+      if (badgeEl) {
+        badgeEl.textContent = badgeTxt;
+        if (isNeural) {
+          badgeEl.style.background = 'rgba(16,185,129,0.16)';
+          badgeEl.style.color = '#6ee7b7';
+          badgeEl.style.borderColor = 'rgba(16,185,129,0.42)';
+        } else {
+          badgeEl.style.background = 'rgba(245,158,11,0.14)';
+          badgeEl.style.color = '#fde68a';
+          badgeEl.style.borderColor = 'rgba(245,158,11,0.38)';
+        }
+      }
+
+      if (stripEl) {
+        stripEl.innerHTML = `
+          <span class="tk-chip" style="background:#07120e; border:1px solid rgba(16,185,129,0.32); color:#a7f3d0; padding:3px 8px; border-radius:6px;">
+            🟢 Ativos: <strong style="color:#34d399;">${activeCount.toLocaleString()}</strong>
+            <span style="color:#64748b;">vs.</span>
+            🟠 Superseded: <strong style="color:#fbbf24;">${supersededCount.toLocaleString()}</strong>
+          </span>
+          <span class="tk-chip" style="background:#100c06; border:1px solid rgba(245,158,11,0.32); color:#fde68a; padding:3px 8px; border-radius:6px;">
+            🔀 Arestas <code style="color:#fbbf24;">SUPERSEDES</code>: <strong>${supersedesEdges.toLocaleString()}</strong>
+          </span>
+          <span class="tk-chip" style="background:#071018; border:1px solid rgba(56,189,248,0.32); color:#bae6fd; padding:3px 8px; border-radius:6px;">
+            🧠 Neural Embeddings: <strong style="color:#38bdf8;">${escapeHtml(covPct)}%</strong>
+            <span style="color:#94a3b8;">(${embeddedCount.toLocaleString()}/${totalCount.toLocaleString()} · ${escapeHtml(backendRaw)})</span>
+          </span>
+        `;
+      }
+    }
+
+    async function refreshV10CognitiveStatusUI() {
+      try {
+        const res = await fetch('/api/v10/status?workspace=all');
+        const data = await res.json();
+        _renderV10StatusStrip(data);
+        return data;
+      } catch (err) {
+        _renderV10StatusStrip({ ok: false, error: err && err.message ? err.message : String(err) });
+        return null;
+      }
+    }
+
+    async function runV10HippoRagUI() {
+      const qEl = document.getElementById('v10QueryInput');
+      const asOfEl = document.getElementById('v10AsOfInput');
+      const outEl = document.getElementById('v10CognitiveOutput');
+      const btn = document.getElementById('btnV10HippoRag');
+      if (!outEl) return;
+
+      const q = (qEl ? qEl.value : '').trim();
+      const asOf = (asOfEl ? asOfEl.value : '').trim();
+      const ws = _getV10Workspace(false);
+      if (!q) {
+        showToast('Introduza uma query para pesquisa HippoRAG (PPR).');
+        if (qEl) qEl.focus();
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      outEl.innerHTML = '<div style="color:#34d399;">🕸️ A propagar Personalized PageRank (2-hop HippoRAG)...</div>';
+
+      try {
+        const url = `/api/v10/hipporag?q=${encodeURIComponent(q)}&workspace=${encodeURIComponent(ws)}&hops=2&as_of=${encodeURIComponent(asOf)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro HippoRAG: ${escapeHtml((data && data.error) || 'Falha na consulta')}</div>`;
+          return;
+        }
+
+        const hits = Array.isArray(data.results) ? data.results : (Array.isArray(data.hits) ? data.hits : (Array.isArray(data.memories) ? data.memories : []));
+        const metaHeader = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span style="color:#34d399; font-weight:700;">🕸️ HippoRAG PPR · ${hits.length} resultado(s)</span>
+            <span style="color:#94a3b8; font-size:9.5px;">ws: <strong style="color:#e2e8f0;">${escapeHtml(ws)}</strong>${asOf ? ` · as_of: <strong style="color:#fbbf24;">${escapeHtml(asOf)}</strong>` : ''}</span>
+          </div>
+        `;
+
+        if (hits.length === 0) {
+          outEl.innerHTML = metaHeader + '<div style="color:var(--text-muted); font-style:italic;">Nenhum nó alcançado para esta query/janela temporal.</div>';
+          return;
+        }
+
+        const rowsHtml = hits.map((item, idx) => {
+          const hopDist = Number(item.hop_distance ?? item.hops ?? item.hop ?? 0);
+          const isMultiHop = Boolean(item.multi_hop || item.is_multi_hop || item.via_ppr || hopDist > 0);
+          const pprRaw = item.ppr_score ?? item.ppr ?? item.score ?? 0;
+          const pprTxt = typeof pprRaw === 'number' ? pprRaw.toFixed(4) : String(pprRaw);
+          const pathReason = item.path_reason || item.reason || item.ppr_path || (isMultiHop ? 'Propagação causal/semântica PPR' : 'Seed direta BM25 + Embedding');
+          const hopBadge = isMultiHop
+            ? '<span class="rc-badge" style="font-size:8.5px; padding:1px 6px; background:rgba(245,158,11,0.18); color:#fbbf24; border:1px solid rgba(245,158,11,0.45); font-weight:800;">⚡ MULTI-HOP</span>'
+            : '<span class="rc-badge" style="font-size:8.5px; padding:1px 6px; background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.4); font-weight:700;">🎯 SEED</span>';
+
+          return `
+            <div style="background:#0a0f14; border:1px solid ${isMultiHop ? 'rgba(245,158,11,0.28)' : 'rgba(16,185,129,0.24)'}; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:3px;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="color:#64748b; font-weight:700;">#${idx + 1}</span>
+                  ${hopBadge}
+                  <strong style="color:#f8fafc;">${escapeHtml(item.topic || 'Sem tópico')}</strong>
+                  ${item.id != null ? `<span style="color:#64748b;">#${escapeHtml(String(item.id))}</span>` : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; font-size:9.5px;">
+                  <span style="color:#34d399;">PPR: <strong>${escapeHtml(pprTxt)}</strong></span>
+                  <span style="color:#fbbf24;">hop: <strong>${hopDist}</strong></span>
+                </div>
+              </div>
+              <div style="color:#cbd5e1; line-height:1.38; margin-bottom:3px;">${escapeHtml(item.fact || '')}</div>
+              <div style="color:#7dd3fc; font-size:9px;">↳ <strong>path_reason:</strong> ${escapeHtml(String(pathReason))}</div>
+            </div>
+          `;
+        }).join('');
+
+        outEl.innerHTML = metaHeader + rowsHtml;
+      } catch (err) {
+        outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v10/hipporag: ${escapeHtml(err && err.message ? err.message : String(err))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function runV10TemporalQueryUI() {
+      const qEl = document.getElementById('v10QueryInput');
+      const asOfEl = document.getElementById('v10AsOfInput');
+      const outEl = document.getElementById('v10CognitiveOutput');
+      const btn = document.getElementById('btnV10TimeTravel');
+      if (!outEl) return;
+
+      const q = (qEl ? qEl.value : '').trim();
+      const asOf = (asOfEl ? asOfEl.value : '').trim();
+      const ws = _getV10Workspace(false);
+
+      if (btn) btn.disabled = true;
+      outEl.innerHTML = '<div style="color:#fbbf24;">⏳ A consultar linha temporal Bi-Temporal e cadeia SUPERSEDES...</div>';
+
+      try {
+        const url = `/api/v10/temporal?q=${encodeURIComponent(q)}&workspace=${encodeURIComponent(ws)}&as_of=${encodeURIComponent(asOf)}&include_superseded=1`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro Time-Travel: ${escapeHtml((data && data.error) || 'Falha na consulta temporal')}</div>`;
+          return;
+        }
+
+        const facts = Array.isArray(data.results) ? data.results : (Array.isArray(data.facts) ? data.facts : (Array.isArray(data.memories) ? data.memories : []));
+        const chain = Array.isArray(data.supersedes_chain) ? data.supersedes_chain : (Array.isArray(data.evolution_chain) ? data.evolution_chain : (Array.isArray(data.chain) ? data.chain : []));
+
+        const headerHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+            <span style="color:#fbbf24; font-weight:700;">⏳ Bi-Temporal Time-Travel · ${facts.length} facto(s)</span>
+            <span style="color:#94a3b8; font-size:9.5px;">ws: <strong style="color:#e2e8f0;">${escapeHtml(ws)}</strong>${asOf ? ` · as_of: <strong style="color:#fbbf24;">${escapeHtml(asOf)}</strong>` : ' · snapshot: atual'}</span>
+          </div>
+        `;
+
+        const factsHtml = facts.length === 0
+          ? '<div style="color:var(--text-muted); font-style:italic; margin-bottom:6px;">Sem factos correspondentes nesta janela temporal.</div>'
+          : facts.map((f) => {
+            const validTo = f.valid_to || f.valid_until || '';
+            const isSuperseded = Boolean(f.superseded_by || f.is_superseded || f.status === 'superseded' || validTo);
+            const statusBadge = isSuperseded
+              ? `<span class="rc-badge" style="font-size:8.5px; padding:1px 6px; background:rgba(245,158,11,0.16); color:#fbbf24; border:1px solid rgba(245,158,11,0.42); font-weight:700;">SUPERSEDED${validTo ? ` (${escapeHtml(String(validTo).slice(0, 10))})` : ''}</span>`
+              : '<span class="rc-badge" style="font-size:8.5px; padding:1px 6px; background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.42); font-weight:700;">ACTIVE</span>';
+            const validFrom = f.valid_from || f.created_at || '';
+            return `
+              <div style="background:${isSuperseded ? '#110d07' : '#07120e'}; border:1px solid ${isSuperseded ? 'rgba(245,158,11,0.28)' : 'rgba(16,185,129,0.28)'}; border-radius:6px; padding:6px 8px; margin-bottom:5px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:3px;">
+                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    ${statusBadge}
+                    <strong style="color:${isSuperseded ? '#fcd34d' : '#f8fafc'}; ${isSuperseded ? 'text-decoration:line-through; opacity:0.82;' : ''}">${escapeHtml(f.topic || 'Sem tópico')}</strong>
+                    ${f.id != null ? `<span style="color:#64748b;">#${escapeHtml(String(f.id))}</span>` : ''}
+                  </div>
+                  <span style="color:#94a3b8; font-size:9px;">
+                    ${validFrom ? `valid_from: ${escapeHtml(String(validFrom).slice(0, 19))}` : ''}
+                    ${f.superseded_by ? ` · ➔ #${escapeHtml(String(f.superseded_by))}` : ''}
+                  </span>
+                </div>
+                <div style="color:${isSuperseded ? '#d6b67b' : '#cbd5e1'}; ${isSuperseded ? 'text-decoration:line-through; opacity:0.85;' : ''} line-height:1.38;">${escapeHtml(f.fact || '')}</div>
+              </div>
+            `;
+          }).join('');
+
+        let chainHtml = '';
+        if (chain.length > 0) {
+          const stepsHtml = chain.map((edge) => {
+            if (typeof edge === 'string') return `<span style="color:#7dd3fc;">${escapeHtml(edge)}</span>`;
+            const srcId = edge.from_id ?? edge.source_id ?? edge.new_id ?? '?';
+            const dstId = edge.to_id ?? edge.target_id ?? edge.old_id ?? '?';
+            const rel = edge.relation || 'SUPERSEDES';
+            const label = edge.topic || edge.summary || '';
+            return `<span class="tk-chip" style="background:#081018; border:1px solid rgba(56,189,248,0.3); color:#bae6fd; padding:2px 6px; border-radius:5px;">#${escapeHtml(String(srcId))} <strong style="color:#fbbf24;">${escapeHtml(rel)}</strong> #${escapeHtml(String(dstId))}${label ? ` · ${escapeHtml(label)}` : ''}</span>`;
+          }).join(' ');
+          chainHtml = `
+            <div style="margin-top:6px; padding-top:6px; border-top:1px dashed rgba(245,158,11,0.28);">
+              <div style="color:#7dd3fc; font-weight:700; font-size:9.5px; margin-bottom:4px;">🔀 Cadeia de Evolução SUPERSEDES (${chain.length}):</div>
+              <div style="display:flex; flex-wrap:wrap; gap:5px;">${stepsHtml}</div>
+            </div>
+          `;
+        }
+
+        outEl.innerHTML = headerHtml + factsHtml + chainHtml;
+      } catch (err) {
+        outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v10/temporal: ${escapeHtml(err && err.message ? err.message : String(err))}</div>`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function runV10IndexEmbeddingsUI() {
+      const btn = document.getElementById('btnV10IndexVec');
+      const outEl = document.getElementById('v10CognitiveOutput');
+      const ws = _getV10Workspace(false);
+      if (btn) btn.disabled = true;
+      if (outEl) {
+        outEl.innerHTML = '<div style="color:#7dd3fc;">⚡ A indexar embeddings neurais para memórias sem vetor denso...</div>';
+      }
+
+      try {
+        const res = await fetch('/api/v10/embeddings/index', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace: ws, limit: 500 })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          const errMsg = (data && data.error) || 'Falha ao indexar embeddings';
+          if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro ao indexar vetores: ${escapeHtml(errMsg)}</div>`;
+          showToast(`❌ Erro ao indexar vetores: ${errMsg}`);
+          return;
+        }
+
+        const indexed = Number(data.indexed ?? data.updated ?? data.count ?? 0);
+        const backend = data.backend || data.embedding_backend || 'dense';
+        const dim = Number(data.dim || data.dimensions || 256);
+
+        await refreshV10CognitiveStatusUI();
+        showToast(`⚡ ${indexed} vetor(es) ${dim}-D (${backend}) indexados!`);
+        if (outEl) {
+          outEl.innerHTML = `
+            <div style="color:#34d399; font-weight:700; margin-bottom:4px;">✅ Indexação Neural Concluída</div>
+            <div style="color:#cbd5e1;">
+              Vetores indexados: <strong style="color:#38bdf8;">${indexed}</strong> · Dimensão: <strong>${dim}-D</strong> · Backend: <strong style="color:#6ee7b7;">${escapeHtml(String(backend))}</strong> · Workspace: <strong>${escapeHtml(ws)}</strong>
+            </div>
+          `;
+        }
+      } catch (err) {
+        if (outEl) {
+          outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v10/embeddings/index: ${escapeHtml(err && err.message ? err.message : String(err))}</div>`;
+        }
+        showToast(`⚠️ Erro ao indexar vetores: ${err && err.message ? err.message : String(err)}`);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function storeV10TemporalFactUI() {
+      const topicEl = document.getElementById('v10TempTopicInput');
+      const factEl = document.getElementById('v10TempFactInput');
+      const outEl = document.getElementById('v10CognitiveOutput');
+      const btn = document.getElementById('btnV10StoreTemporal');
+
+      const topic = (topicEl ? topicEl.value : '').trim();
+      const fact = (factEl ? factEl.value : '').trim();
+      const ws = _getV10Workspace(true);
+
+      if (!topic || !fact) {
+        showToast('Preencha o tópico e o facto bi-temporal antes de gravar.');
+        if (!topic && topicEl) topicEl.focus();
+        else if (factEl) factEl.focus();
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      if (outEl) {
+        outEl.innerHTML = '<div style="color:#34d399;">💾 A gravar facto bi-temporal com deteção Auto-Supersede...</div>';
+      }
+
+      try {
+        const res = await fetch('/api/v10/temporal/store', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, fact, workspace: ws, auto_supersede: true })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          const errMsg = (data && data.error) || 'Falha ao gravar facto bi-temporal';
+          if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro: ${escapeHtml(errMsg)}</div>`;
+          showToast(`❌ Erro ao gravar facto: ${errMsg}`);
+          return;
+        }
+
+        const newId = data.id ?? data.memory_id ?? data.fact_id ?? '?';
+        const supList = Array.isArray(data.superseded_ids) ? data.superseded_ids : (Array.isArray(data.superseded) ? data.superseded : []);
+        const supCount = Number(data.superseded_count ?? supList.length ?? 0);
+
+        if (factEl) factEl.value = '';
+        if (topicEl) topicEl.value = '';
+
+        showToast(`💾 Facto #${newId} gravado! Auto-Supersede: ${supCount} antigo(s) invalidado(s).`);
+        if (outEl) {
+          outEl.innerHTML = `
+            <div style="color:#34d399; font-weight:700; margin-bottom:4px;">✅ Facto Bi-Temporal Gravado (#${escapeHtml(String(newId))})</div>
+            <div style="color:#cbd5e1; margin-bottom:4px;">
+              <strong>${escapeHtml(topic)}</strong>: ${escapeHtml(fact)}
+            </div>
+            <div style="color:${supCount > 0 ? '#fbbf24' : '#94a3b8'}; font-size:9.5px;">
+              🔀 Auto-Supersede: <strong>${supCount}</strong> facto(s) anterior(es) invalidado(s)${supList.length > 0 ? ` (${escapeHtml(supList.map((id) => '#' + id).join(', '))})` : ''}.
+            </div>
+          `;
+        }
+
+        await refreshV10CognitiveStatusUI();
+        if (typeof fetchGraph === 'function') await fetchGraph();
+      } catch (err) {
+        if (outEl) {
+          outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v10/temporal/store: ${escapeHtml(err && err.message ? err.message : String(err))}</div>`;
+        }
+        showToast(`⚠️ Erro ao gravar facto bi-temporal: ${err && err.message ? err.message : String(err)}`);
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 

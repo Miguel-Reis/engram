@@ -51,6 +51,8 @@ class StdioMCPServer:
         "brain_explain_ranking",
         "brain_runtime_info",
         "brain_route_agent_model",
+        "brain_hipporag_search",
+        "brain_temporal_query",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -1488,6 +1490,114 @@ def brain_db_maintenance(
         }
     except Exception as exc:
         res = {"ok": False, "error": str(exc)}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_hipporag_search(
+    query: str,
+    workspace: str = "all",
+    top_k: int = 8,
+    hops: int = 2,
+    as_of: str = "",
+) -> str:
+    """Performs HippoRAG Personalized PageRank (PPR) multi-hop memory retrieval across the Engram knowledge graph, optionally scoped to a bi-temporal point-in-time.
+
+    Args:
+        query: Search query or conceptual question for multi-hop graph retrieval
+        workspace: Workspace scope or 'all' (default 'all')
+        top_k: Maximum number of ranked results to return (default 8)
+        hops: Maximum graph traversal hop depth for PPR expansion (default 2)
+        as_of: Optional ISO-8601 timestamp for bi-temporal point-in-time filtering (default '')
+    """
+    target_db = mcp.db or db
+    try:
+        from cognitive_v10_engine import hipporag_ppr_retrieve
+
+        res = hipporag_ppr_retrieve(
+            target_db,
+            query=query,
+            workspace=workspace,
+            top_k=max(1, int(top_k)),
+            hops=max(1, int(hops)),
+            as_of=as_of,
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_temporal_fact(
+    topic: str,
+    fact: str,
+    workspace: str = "brain_mcp",
+    category: str = "decision",
+    tags: str = "",
+    importance: int = 8,
+    auto_supersede: bool = True,
+) -> str:
+    """Stores a bi-temporal fact in Engram v10.0 with valid_from tracking and optional automatic supersession of prior conflicting facts on the same topic.
+
+    Args:
+        topic: Concise topic title for the bi-temporal fact
+        fact: Actionable fact content to store
+        workspace: Target workspace identifier (default 'brain_mcp')
+        category: Memory category such as 'decision', 'architecture', or 'bug' (default 'decision')
+        tags: Space- or comma-separated tags (default '')
+        importance: Importance score from 1 to 10 (default 8)
+        auto_supersede: Whether to automatically supersede active prior facts on the same topic (default True)
+    """
+    target_db = mcp.db or db
+    try:
+        from cognitive_v10_engine import store_temporal_fact
+
+        res = store_temporal_fact(
+            target_db,
+            topic=topic,
+            fact=fact,
+            workspace=workspace,
+            category=category,
+            tags=tags,
+            importance=int(importance),
+            auto_supersede=bool(auto_supersede),
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "topic": topic, "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_temporal_query(
+    query: str = "",
+    workspace: str = "all",
+    as_of: str = "",
+    include_superseded: bool = False,
+    limit: int = 10,
+) -> str:
+    """Queries Engram v10.0 bi-temporal facts as of an optional point-in-time timestamp, with control over superseded history visibility.
+
+    Args:
+        query: Optional text query to filter temporal facts (default '')
+        workspace: Workspace scope or 'all' (default 'all')
+        as_of: Optional ISO-8601 timestamp for point-in-time snapshot (default '')
+        include_superseded: Whether to include superseded historical versions (default False)
+        limit: Maximum number of temporal facts to return (default 10)
+    """
+    target_db = mcp.db or db
+    try:
+        from cognitive_v10_engine import query_temporal_as_of
+
+        res = query_temporal_as_of(
+            target_db,
+            query=query,
+            workspace=workspace,
+            as_of=as_of,
+            include_superseded=bool(include_superseded),
+            limit=max(1, int(limit)),
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 
