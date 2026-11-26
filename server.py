@@ -53,6 +53,7 @@ class StdioMCPServer:
         "brain_route_agent_model",
         "brain_hipporag_search",
         "brain_temporal_query",
+        "brain_neural_search",
     }
     DESTRUCTIVE_TOOLS = {"forget_fact"}
 
@@ -1598,6 +1599,91 @@ def brain_temporal_query(
         )
     except Exception as exc:
         res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_neural_search(
+    query: str,
+    workspace: str = "all",
+    top_k: int = 6,
+    rerank: bool = True,
+) -> str:
+    """Runs 4-layer Local Neural Cortex retrieval (ONNX Bi-Encoder, sqlite-vec, Cross-Encoder Reranker, Personal MLP, and Neural Intent Head).
+
+    Args:
+        query: Search query or question for neural semantic retrieval
+        workspace: Workspace scope or 'all' (default 'all')
+        top_k: Maximum number of ranked results to return (default 6)
+        rerank: Whether to apply Cross-Encoder reranking on top candidates (default True)
+    """
+    target_db = mcp.db or db
+    try:
+        from neural_cortex_engine import neural_retrieve_and_rerank
+
+        res = neural_retrieve_and_rerank(
+            target_db,
+            query=query,
+            workspace=workspace,
+            top_k=max(1, int(top_k)),
+            use_cross_encoder=bool(rerank),
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "query": query, "workspace": workspace}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_neural_train(
+    epochs: int = 40,
+    hebbian_sync: bool = True,
+) -> str:
+    """Trains the Personal Online Neural MLP ranker on local brain.db history and reinforces Hebbian synapse weights.
+
+    Args:
+        epochs: Number of online training epochs over local feedback/access history (default 40)
+        hebbian_sync: Whether to synchronize learned weights with Hebbian memory edges (default True)
+    """
+    target_db = mcp.db or db
+    try:
+        from neural_cortex_engine import train_personal_neural_ranker
+
+        res = train_personal_neural_ranker(
+            target_db,
+            epochs=max(1, int(epochs)),
+            hebbian_sync=bool(hebbian_sync),
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "epochs": epochs}
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@mcp.tool()
+def brain_neural_feedback(
+    memory_id: int,
+    useful: bool = True,
+    query: str = "",
+) -> str:
+    """Records explicit positive or negative usefulness feedback on a memory for continuous online neural learning.
+
+    Args:
+        memory_id: Numeric ID of the memory receiving feedback
+        useful: True if the memory was helpful, False otherwise (default True)
+        query: Optional query context associated with the retrieval (default '')
+    """
+    target_db = mcp.db or db
+    try:
+        from neural_cortex_engine import record_neural_feedback
+
+        res = record_neural_feedback(
+            target_db,
+            memory_id=int(memory_id),
+            useful=bool(useful),
+            query=query,
+            source="mcp",
+        )
+    except Exception as exc:
+        res = {"ok": False, "error": str(exc), "memory_id": memory_id}
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 

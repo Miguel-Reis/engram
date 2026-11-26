@@ -4,11 +4,11 @@
 
 **Universal AI Memory, Bi-Temporal Knowledge Graph & Autonomous Swarm OS**
 
-[![Version](https://img.shields.io/badge/version-v10.0-ff6a00?style=flat-square)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v11.0-ff6a00?style=flat-square)](docs/CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)](requirements.txt)
-[![Dependencies](https://img.shields.io/badge/dependencies-zero%20external-10b981?style=flat-square)](docs/ARCHITECTURE.md)
-[![MCP Tools](https://img.shields.io/badge/MCP%20tools-32-ffb020?style=flat-square)](docs/API_AND_MCP.md)
-[![Tests](https://img.shields.io/badge/test%20suites-37%2F37%20passing-10b981?style=flat-square)](test_brain.py)
+[![Dependencies](https://img.shields.io/badge/core-zero%20deps%20%2B%20optional%20ONNX-10b981?style=flat-square)](docs/ARCHITECTURE.md)
+[![MCP Tools](https://img.shields.io/badge/MCP%20tools-35-ffb020?style=flat-square)](docs/API_AND_MCP.md)
+[![Tests](https://img.shields.io/badge/test%20suites-38%2F38%20passing-10b981?style=flat-square)](test_brain.py)
 [![Platforms](https://img.shields.io/badge/IDEs-7%20supported-8b5cf6?style=flat-square)](docs/MULTI_PLATFORM_SWARM.md)
 
 *Every fact sourced · One shared memory across every AI IDE & agent · Bi-temporal recall · Zero external cloud dependencies.*
@@ -40,7 +40,8 @@ flowchart LR
 
 | Pillar | What It Does | Deep Dive |
 |---|---|---|
-| **Bi-Temporal Graph & HippoRAG (v10.0)** | Tracks `valid_from` / `valid_to` / `SUPERSEDES` with point-in-time `as_of` Time-Travel, **2-hop Personalized PageRank**, and offline **256-D / Ollama** embeddings. | [Cognitive v10.0 →](docs/COGNITIVE_V10.md) |
+| **Local Neural Cortex (v11.0)** | 4-layer local neural stack: **ONNX Multilingual Bi-Encoder** (`paraphrase-multilingual-MiniLM-L12-v2`) + **`sqlite-vec` C SIMD** + **Cross-Encoder Reranker** + **Personal Online NumPy MLP** (`12→24→12→1`) + **Intent & Correction Heads**. | [Cognitive & Neural →](docs/COGNITIVE_V10.md) |
+| **Bi-Temporal Graph & HippoRAG (v10.0)** | Tracks `valid_from` / `valid_to` / `SUPERSEDES` with point-in-time `as_of` Time-Travel, **2-hop Personalized PageRank**, and offline **256-D / Ollama** embeddings. | [Cognitive & Neural →](docs/COGNITIVE_V10.md) |
 | **Warm Hook Sidecar & DB Auto-TTL (v9.2)** | In-process warm HTTP hook fast-path, zero-WMI OS detection, automatic retention pruning (`VACUUM`), collision-safe file harvesting, and Windows **DPAPI** secret encryption. | [Architecture →](docs/ARCHITECTURE.md) |
 | **7-IDE Bridge & Autonomous Router** | Detects active IDE, OS, cloud model & local LLMs (`Ollama`, `LM Studio`, `vLLM`, `llama.cpp`), dynamically routes Swarm lanes under 5h quota pressure, and exports `HANDOFF.md`. | [Multi-IDE & Swarm →](docs/MULTI_PLATFORM_SWARM.md) |
 | **Nightly Rules & Telegram/Voice Intake** | Distills recurring session corrections into canonical `AGENTS.md` rules automatically and routes voice/Telegram notes directly into Markdown Vault dossiers or Kanban tasks. | [Multi-IDE & Swarm →](docs/MULTI_PLATFORM_SWARM.md) |
@@ -100,6 +101,7 @@ engram/
 ├── brain_harvest.py          # Stop hook + collision-safe file harvest + correction signal capture
 ├── db_engine.py              # SQLite WAL, FTS5 BM25, LSH 128-D, Auto-TTL & VACUUM maintenance
 ├── cognitive_v10_engine.py   # Bi-Temporal Graph, HippoRAG PPR Multi-Hop & Local Neural Embeddings
+├── neural_cortex_engine.py   # v11.0 4-Layer Neural Cortex (ONNX, sqlite-vec, Personal NumPy MLP, Intent/Correction)
 ├── runtime_detector.py       # Zero-WMI OS/IDE/Cloud/Local VRAM detection & Swarm Model Router
 ├── rule_distiller_engine.py  # Nightly Correction -> Canonical Rule Distiller
 ├── intake_handoff_engine.py  # DPAPI Telegram/Voice Intake + Cross-IDE HANDOFF.md exporter

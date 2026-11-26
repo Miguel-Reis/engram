@@ -228,13 +228,29 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
 
     # Hook zero-LLM: deteta correções do utilizador no prompt e regista para o Nightly Rule Distiller
     if turn_user_prompt and not is_subagent:
+        matched_regex = False
         try:
             from rule_distiller_engine import detect_correction_signal, record_correction
 
             if detect_correction_signal(turn_user_prompt):
+                matched_regex = True
                 record_correction(db, turn_user_prompt, workspace=workspace, source="harvest_hook")
         except Exception:
             pass
+        if (not matched_regex) and len(turn_user_prompt) >= 24:
+            try:
+                from neural_cortex_engine import classify_neural_correction
+                from rule_distiller_engine import record_correction
+
+                nc = classify_neural_correction(turn_user_prompt, threshold=0.52)
+                if (
+                    isinstance(nc, dict)
+                    and nc.get("is_correction") is True
+                    and float(nc.get("correction_prob", 0.0) or 0.0) >= 0.68
+                ):
+                    record_correction(db, turn_user_prompt, workspace=workspace, source="neural_harvest")
+            except Exception:
+                pass
 
     turn_steps = steps[last_user_idx:]
     harvested_count = 0

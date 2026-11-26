@@ -831,9 +831,22 @@ def get_temporal_history(
 # Pillar 2 — Local Neural Embeddings (Ollama / sqlite-vec / 256-D Fallback)
 # ---------------------------------------------------------------------------
 
+def _check_v11_onnx_status() -> Tuple[bool, bool]:
+    """Check `fastembed` availability and warm ONNX Bi-Encoder state without network I/O."""
+    onnx_fastembed_available = importlib.util.find_spec("fastembed") is not None
+    onnx_bi_encoder_ready = False
+    try:
+        import neural_cortex_engine as _nce
+        onnx_bi_encoder_ready = bool(getattr(_nce, "_BI_ENCODER_READY", False))
+    except Exception:
+        onnx_bi_encoder_ready = False
+    return onnx_fastembed_available, onnx_bi_encoder_ready
+
+
 def detect_local_embedding_backend(force_refresh: bool = False) -> Dict[str, Any]:
     """
-    Probe local Ollama (60s TTL cache, 180ms timeout) and `sqlite_vec` availability.
+    Probe local Ollama (60s TTL cache, 180ms timeout), `sqlite_vec`, and
+    Engram v11.0 `fastembed` ONNX readiness without triggering network downloads.
     Falls back cleanly to deterministic 256-D bilingual embeddings when offline.
     """
     now = time.monotonic()
@@ -843,9 +856,14 @@ def detect_local_embedding_backend(force_refresh: bool = False) -> Dict[str, Any
         and cached is not None
         and (now - float(_EMBED_BACKEND_CACHE.get("ts", 0.0))) < _BACKEND_CACHE_TTL_SEC
     ):
-        return dict(cached)
+        out = dict(cached)
+        onnx_avail, onnx_ready = _check_v11_onnx_status()
+        out["onnx_fastembed_available"] = onnx_avail
+        out["onnx_bi_encoder_ready"] = onnx_ready
+        return out
 
     sqlite_vec_available = importlib.util.find_spec("sqlite_vec") is not None
+    onnx_fastembed_available, onnx_bi_encoder_ready = _check_v11_onnx_status()
     found_models: List[str] = []
 
     try:
@@ -874,6 +892,8 @@ def detect_local_embedding_backend(force_refresh: bool = False) -> Dict[str, Any
             "dims": dims,
             "ollama_embed_models": found_models,
             "sqlite_vec_available": sqlite_vec_available,
+            "onnx_fastembed_available": onnx_fastembed_available,
+            "onnx_bi_encoder_ready": onnx_bi_encoder_ready,
         }
     else:
         result = {
@@ -882,6 +902,8 @@ def detect_local_embedding_backend(force_refresh: bool = False) -> Dict[str, Any
             "dims": 256,
             "ollama_embed_models": [],
             "sqlite_vec_available": sqlite_vec_available,
+            "onnx_fastembed_available": onnx_fastembed_available,
+            "onnx_bi_encoder_ready": onnx_bi_encoder_ready,
         }
 
     _EMBED_BACKEND_CACHE["ts"] = now

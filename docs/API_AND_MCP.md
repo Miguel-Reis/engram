@@ -1,10 +1,10 @@
-# API & 32 MCP Tools Reference
+# API & 35 MCP Tools Reference
 
 ← [Back to README](../README.md)
 
 ---
 
-## 1. MCP Tools (`server.py` — 32 Stdio Tools)
+## 1. MCP Tools (`server.py` — 35 Stdio Tools)
 
 ### Core Memory & Checkpoints (`#1–#5`)
 | # | Tool | Description |
@@ -14,6 +14,13 @@
 | 3 | `forget_fact` | Delete a memory by ID. |
 | 4 | `save_checkpoint` | Save a compact workspace checkpoint for instant session resume. |
 | 5 | `brain_stats` | Memory counts, injection latency, and estimated token savings. |
+
+### Local Neural Cortex v11.0 (`#33–#35`)
+| # | Tool | Description |
+|---:|---|---|
+| 33 | `brain_neural_search` | 4-layer neural search (ONNX Bi-Encoder + `sqlite-vec` + Cross-Encoder + Personal MLP + Intent/Correction head). |
+| 34 | `brain_neural_train` | Train Personal Online NumPy MLP (`12→24→12→1`) on `brain.db` + Hebbian synapse reinforcement. |
+| 35 | `brain_neural_feedback` | Record explicit thumbs-up / thumbs-down feedback (`useful=True/False`) for online learning. |
 
 ### Engram v10.0 Cognitive Memory (`#30–#32`)
 | # | Tool | Description |
@@ -69,6 +76,8 @@ All mutating endpoints (`POST`/`DELETE`) enforce localhost `Origin`/`Referer` va
 | **Health & Hooks** | `GET /api/health`, `GET /api/db/health` | Service status, DB + WAL MB, table counts, Warm Hook readiness |
 | | `POST /api/hook/pre-invoke` | Warm in-process `PreInvocation` hook fast-path (`X-Engram-Hook: 1`) |
 | | `POST /api/db/maintenance` | Trigger retention pruning, orphan cleanup, `VACUUM` & optional test purge |
+| **Neural v11.0** | `GET /api/v11/neural/status`, `GET /api/v11/neural/search` | 4-layer neural cortex status, loss curve, feature weights & neural reranked search |
+| | `POST /api/v11/neural/train`, `POST /api/v11/neural/feedback`, `POST /api/v11/neural/warmup` | Train Personal MLP + Hebbian sync, log `👍/👎` feedback, or load ONNX models + `sqlite-vec` |
 | **Cognitive v10.0** | `GET /api/v10/status` | Bi-temporal counts, HippoRAG graph stats & neural embedding coverage |
 | | `GET /api/v10/hipporag?q=...&hops=2&as_of=...` | Multi-hop Personalized PageRank retrieval |
 | | `GET /api/v10/temporal?q=...&as_of=...` | Point-in-time Time-Travel query & `SUPERSEDES` lineage |

@@ -1266,9 +1266,8 @@ def build_tactical_overview_payload(db: BrainDB, workspace: str = "all") -> Dict
     )
     handoff_status = "SYNCED" if (voice_intake.get("handoff") or {}).get("path") else "READY"
     ticker_items = [
+        "NEURAL CORTEX: v11",
         "GBRAIN AXES: ACTIVE",
-        "PAGODA LSM: LOSSLESS",
-        "ARCHIFY DELTA: READY",
         "BI-TEMPORAL: ON",
         "HIPPORAG PPR: READY",
         f"7-IDE BRIDGE: {connected_ides}/7",
@@ -1276,6 +1275,7 @@ def build_tactical_overview_payload(db: BrainDB, workspace: str = "all") -> Dict
         f"NIGHTLY RULES: {promoted_rules} PROMOTED",
         f"TELEGRAM INTAKE: {tg_status}",
         f"HANDOFF.MD: {handoff_status}",
+        "PAGODA LSM: LOSSLESS",
     ]
 
     latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
@@ -1348,6 +1348,33 @@ def _safe_int(
     if max_v is not None and res > max_v:
         res = max_v
     return res
+
+
+def _safe_float(
+    val: Any,
+    default: float = 0.0,
+    min_v: Optional[float] = None,
+    max_v: Optional[float] = None,
+) -> float:
+    try:
+        res = default if val is None or val == "" else float(val)
+    except (ValueError, TypeError):
+        res = default
+    if min_v is not None and res < min_v:
+        res = min_v
+    if max_v is not None and res > max_v:
+        res = max_v
+    return res
+
+
+def _safe_bool(val: Any, default: bool = False) -> bool:
+    if val is None or val == "":
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return bool(val)
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 
 def _get_db_health_safe(db: BrainDB) -> Dict[str, Any]:
@@ -2097,6 +2124,46 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                         as_of=as_of,
                         include_superseded=inc_sup,
                         limit=limit,
+                    )
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"ok": False, "error": str(exc), "query": q, "workspace": ws, "fallback": True},
+                    500,
+                )
+            return
+
+        if parsed.path == "/api/v11/neural/status":
+            qs = urllib.parse.parse_qs(parsed.query)
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            try:
+                from neural_cortex_engine import get_neural_cortex_status
+
+                self._send_json(get_neural_cortex_status(BrainDB(), workspace=ws))
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v11/neural/search":
+            qs = urllib.parse.parse_qs(parsed.query)
+            q = qs.get("q", [""])[0]
+            ws = qs.get("workspace", ["all"])[0] or "all"
+            top_k = _safe_int(qs.get("top_k", ["6"])[0], default=6, min_v=1, max_v=50)
+            rerank = _safe_bool(qs.get("rerank", ["1"])[0], default=True)
+            mlp = _safe_bool(qs.get("mlp", ["1"])[0], default=True)
+            as_of = qs.get("as_of", [""])[0]
+            try:
+                from neural_cortex_engine import neural_retrieve_and_rerank
+
+                self._send_json(
+                    neural_retrieve_and_rerank(
+                        BrainDB(),
+                        query=q,
+                        workspace=ws,
+                        top_k=top_k,
+                        use_cross_encoder=rerank,
+                        use_mlp=mlp,
+                        as_of=as_of,
                     )
                 )
             except Exception as exc:
@@ -3033,6 +3100,56 @@ class BrainDashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc), "workspace": ws, "fallback": True}, 500)
             return
 
+        if parsed.path == "/api/v11/neural/train":
+            data = body if isinstance(body, dict) else {}
+            epochs = _safe_int(data.get("epochs", 40), default=40, min_v=1, max_v=500)
+            lr = _safe_float(data.get("lr", 0.015), default=0.015, min_v=1e-5, max_v=1.0)
+            hebbian_sync = _safe_bool(data.get("hebbian_sync", True), default=True)
+            try:
+                from neural_cortex_engine import get_neural_cortex_status, train_personal_neural_ranker
+
+                res = train_personal_neural_ranker(db, epochs=epochs, lr=lr, hebbian_sync=hebbian_sync)
+                _GRAPH_PAYLOAD_CACHE.clear()
+                status = get_neural_cortex_status(db)
+                self._send_json({"ok": True, "training": res, "status": status})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v11/neural/feedback":
+            data = body if isinstance(body, dict) else {}
+            memory_id = _safe_int(data.get("memory_id"), default=0, min_v=0)
+            if memory_id <= 0:
+                self._send_json({"ok": False, "error": "memory_id is required"}, 400)
+                return
+            useful = _safe_bool(data.get("useful", True), default=True)
+            query = str(data.get("query", "") or "").strip()
+            source = str(data.get("source", "ui") or "ui").strip() or "ui"
+            try:
+                from neural_cortex_engine import get_neural_cortex_status, record_neural_feedback
+
+                res = record_neural_feedback(db, memory_id=memory_id, useful=useful, query=query, source=source)
+                status = get_neural_cortex_status(db)
+                self._send_json({"ok": True, "feedback": res, "status": status})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "fallback": True}, 500)
+            return
+
+        if parsed.path == "/api/v11/neural/warmup":
+            data = body if isinstance(body, dict) else {}
+            load_reranker = _safe_bool(data.get("load_reranker", True), default=True)
+            index_limit = _safe_int(data.get("index_limit", 2000), default=2000, min_v=0, max_v=20000)
+            try:
+                from neural_cortex_engine import get_neural_cortex_status, warmup_neural_models
+
+                res = warmup_neural_models(db=db, load_reranker=load_reranker, index_limit=index_limit)
+                _GRAPH_PAYLOAD_CACHE.clear()
+                status = get_neural_cortex_status(db)
+                self._send_json({"ok": True, "warmup": res, "status": status})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc), "fallback": True}, 500)
+            return
+
         self._send_json({"error": "Endpoint desconhecido"}, 404)
 
     def do_DELETE(self) -> None:
@@ -3187,12 +3304,18 @@ def start_self_learn_sentinel_daemon(interval_seconds: float = 90.0) -> None:
                 except Exception:
                     pass
 
-                # Scheduled light DB maintenance once every 12 hours (43200.0s)
+                # Scheduled light DB maintenance & gentle neural ranker retraining once every 12 hours (43200.0s)
                 try:
                     now_maint_ts = time.time()
                     if now_maint_ts - last_db_maint_ts >= 43200.0:
                         if hasattr(sentinel_db, "run_db_maintenance"):
                             sentinel_db.run_db_maintenance(vacuum=False, purge_test_ws=False)
+                        try:
+                            from neural_cortex_engine import train_personal_neural_ranker
+
+                            train_personal_neural_ranker(sentinel_db, epochs=25, hebbian_sync=True)
+                        except Exception:
+                            pass
                         last_db_maint_ts = now_maint_ts
                 except Exception:
                     pass

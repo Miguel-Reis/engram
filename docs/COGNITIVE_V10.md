@@ -53,3 +53,18 @@ Stored as compact packed `float32` blobs in SQLite table `memory_neural_embeddin
 - **Salience × Recency (`brain_explain_ranking`)**: Separates evergreen canonical truth (`CANONICAL_TRUTH`, zero time decay) from episodic Ebbinghaus time decay, with transparent BM25/LSH/PPR scoring breakdown.
 - **Local Skill Resolver (`skill_resolver_engine.py`)**: Indexes all local `SKILL.md` files across installed plugins in `~1ms` warm, rescuing skills omitted from context budgets (`brain_resolve_skill`).
 - **Compiled Vault Dossiers (`.brain_vault/<workspace>/*.md`)**: Two-zone Markdown dossiers (`Compiled Truth` + `Chronological Timeline`) with automated bidirectional `[[wiki-links]]` verification.
+
+---
+
+## 5. Local Neural Cortex v11.0 (`neural_cortex_engine.py`)
+
+Engram v11.0 adds a **4-layer local neural stack** running warm in server memory (with automatic zero-download offline fallback):
+
+1. **Layer 1 — Multilingual ONNX Bi-Encoder + `sqlite-vec` C SIMD (`vec_memories`)**:
+   - Uses `fastembed` (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, `384-D`, 50+ languages including PT-PT ⇄ EN-EN) indexed into a native `sqlite-vec` `vec0` virtual table for `<2ms` SIMD KNN search (with automatic NumPy matrix-multiply & `256-D` fallback).
+2. **Layer 2 — Cross-Encoder Neural Reranker**:
+   - Reranks Top candidates via `Xenova/ms-marco-MiniLM-L-6-v2` ONNX sigmoid logits (or calibrated lexical-bilinear fallback) to keep injected context surgical.
+3. **Layer 3 — Personal Online 2-Layer MLP (`12 → 24 → 12 → 1`, Pure NumPy)**:
+   - Trains on your own `brain.db` history (`pinned`, `importance`, `access_count`, `superseded`, and explicit `👍/👎` UI/MCP feedback) in **`~30ms`** using Adam + L2 regularization, extracts gradient feature importances (`mean(|∂ŷ/∂x|)`), and reinforces co-active `memory_edges` via **Hebbian learning**.
+4. **Layer 4 — Neural Intent Router & Semantic Correction Detector**:
+   - Reuses the Bi-Encoder vector (`<0.2ms` extra) to classify 6 engineering intents (`architecture_design`, `bug_debugging`, `ui_frontend`, `security_audit`, `quick_lookup`, `micro_confirmation`) and detect subtle natural-language user corrections in `brain_harvest.py`.

@@ -1486,6 +1486,15 @@ def handle_pre_invocation(raw_stdin: str, host_hint: str = "auto") -> Dict[str, 
         clean_search_q = f"{clean_search_q} {' '.join(res_files)}".strip()
 
     memories = pinned_rows + db.search_memories(query=clean_search_q, workspace=ws, n_results=8)
+    if (not micro_mode) and len(memories) >= 2:
+        try:
+            from neural_cortex_engine import score_candidates_mlp
+
+            reranked_memories = score_candidates_mlp(db, memories, target_workspace=ws)
+            if isinstance(reranked_memories, list) and reranked_memories:
+                memories = reranked_memories
+        except Exception:
+            pass
     scout_map = ""
     try:
         scout_map = swarm_eng.get_latest_scout_map(ws)

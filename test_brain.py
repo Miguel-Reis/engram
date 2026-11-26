@@ -1761,13 +1761,69 @@ def run_all_tests() -> None:
 
         v10_st = get_v10_cognitive_status(v91_db, workspace=tmp_v91_ws)
         assert v10_st["ok"] is True and v10_st["bitemporal"]["superseded_facts"] >= 1 and v10_st["neural_embeddings"]["indexed_count"] >= 4, f"v10 status inválido: {v10_st}"
+
+        # 38. Engram v11.0 — Local Neural Cortex (ONNX/Dense Bi-Encoder + sqlite-vec + Cross-Encoder + Personal NumPy MLP + Intent/Correction Heads + 35 MCP Tools)
+        os.environ["ENGRAM_NEURAL_OFFLINE"] = "1"
+        try:
+            from neural_cortex_engine import (
+                classify_neural_correction,
+                classify_neural_intent,
+                get_neural_cortex_status,
+                index_onnx_vectors,
+                neural_retrieve_and_rerank,
+                record_neural_feedback,
+                train_personal_neural_ranker,
+            )
+
+            assert {"brain_neural_search", "brain_neural_train", "brain_neural_feedback"}.issubset(tool_names), f"Tools MCP #33-#35 em falta: {tool_names}"
+
+            v11_idx = index_onnx_vectors(v91_db, workspace=tmp_v91_ws, limit=50, force=True)
+            assert v11_idx["ok"] is True and v11_idx["total_indexed"] >= 4, f"Indexação vetorial v11 falhou: {v11_idx}"
+
+            fb_res = record_neural_feedback(v91_db, memory_id=id_a, useful=True, query="Quantum Warp Injector", source="test")
+            assert fb_res["ok"] is True and fb_res["useful"] is True, f"Feedback neural falhou: {fb_res}"
+
+            tr_res = train_personal_neural_ranker(v91_db, epochs=35, lr=0.015, hebbian_sync=True)
+            assert tr_res["ok"] is True and tr_res["final_loss"] < tr_res["initial_loss"] and len(tr_res["loss_history"]) == 35, f"Treino MLP pessoal falhou: {tr_res}"
+            assert abs(sum(tr_res["feature_importances"].values()) - 100.0) <= 1.5, f"Feature importances inválidos: {tr_res['feature_importances']}"
+
+            int_res = classify_neural_intent("fix SQLite lock crash bug traceback exception")
+            assert int_res["ok"] is True and int_res["intent"] == "bug_debugging", f"Classificador de intenção neural falhou: {int_res}"
+
+            cor_pos = classify_neural_correction("prefiro sempre manter as funções separadas em módulos curtos, não metas tudo num ficheiro")
+            cor_neg = classify_neural_correction("qual é a versão do python instalada?")
+            assert cor_pos["is_correction"] is True and cor_neg["is_correction"] is False, f"Detetor semântico de correções falhou: pos={cor_pos}, neg={cor_neg}"
+
+            nr_res = neural_retrieve_and_rerank(v91_db, query="Quantum Warp Injector plasma", workspace=tmp_v91_ws, top_k=5, use_cross_encoder=True, use_mlp=True)
+            assert nr_res["ok"] is True and nr_res["mlp_trained"] is True and len(nr_res["results"]) >= 1, f"Pipeline neural 4 camadas falhou: {nr_res}"
+
+            v11_st = get_neural_cortex_status(v91_db, workspace=tmp_v91_ws)
+            assert v11_st["ok"] is True and v11_st["personal_mlp"]["trained"] is True and v11_st["bi_encoder"]["indexed_vectors"] >= 4, f"Status v11 inválido: {v11_st}"
+
+            for v11_ui_tok in (
+                'id="v11NeuralCortexPanel"',
+                'id="v11NeuralBackendBadge"',
+                'id="v11NeuralStatusStrip"',
+                'id="v11LossCurveBox"',
+                'id="v11FeatureWeightsBox"',
+                'id="v11NeuralQueryInput"',
+                'id="v11NeuralOutput"',
+                "function refreshV11NeuralStatusUI(",
+                "function warmupNeuralCortexUI(",
+                "function trainPersonalNeuralRankerUI(",
+                "function runV11NeuralSearchUI(",
+                "function sendV11NeuralFeedbackUI(",
+            ):
+                assert v11_ui_tok in html_content, f"Token UI v11.0 em falta em index.html: {v11_ui_tok}"
+        finally:
+            os.environ.pop("ENGRAM_NEURAL_OFFLINE", None)
     finally:
         _v91_shutil.rmtree(tmp_v91_dir, ignore_errors=True)
         vault_tmp = os.path.join(repo_dir, ".brain_vault", tmp_v91_ws)
         if os.path.isdir(vault_tmp):
             _v91_shutil.rmtree(vault_tmp, ignore_errors=True)
 
-    print("[PASS] Pack Completo v6.0..v10.0 Studio OS (Bi-Temporal Knowledge Graph, HippoRAG PPR Multi-Hop, Local Neural Embeddings, Warm Hook, Tactical 3D & 32 MCP Tools) OK")
+    print("[PASS] Pack Completo v6.0..v11.0 Studio OS (Local Neural Cortex ONNX + sqlite-vec + Personal MLP + Intent/Correction Heads, Bi-Temporal, HippoRAG & 35 MCP Tools) OK")
 
 
 if __name__ == "__main__":

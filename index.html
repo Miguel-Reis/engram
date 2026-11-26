@@ -6028,6 +6028,84 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         </div>
       </div>
 
+      <!-- 🧠 Engram v11.0 — Local Neural Cortex (ONNX + sqlite-vec + Personal MLP) -->
+      <div id="v11NeuralCortexPanel" class="studio-section-card" style="margin-top:12px; padding:12px; font-family:var(--font-mono); border-color:rgba(16,185,129,0.35);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; color:#34d399; letter-spacing:0.02em;">
+              🧠 Engram v11.0 · Local Neural Cortex (ONNX + sqlite-vec + Personal MLP)
+            </span>
+            <span id="v11NeuralBackendBadge" class="rc-badge" style="font-size:9px; background:rgba(16,185,129,0.14); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); font-family:var(--font-mono);">
+              ONNX 384-D · MLP STANDBY
+            </span>
+          </div>
+          <button type="button" class="quick-ag-btn" onclick="refreshV11NeuralStatusUI()" style="font-family:var(--font-mono); font-size:10px;" title="Atualizar estado das 4 camadas neurais locais">
+            🔄 Estado v11.0
+          </button>
+        </div>
+
+        <!-- Live 4-Layer Status Strip -->
+        <div id="v11NeuralStatusStrip" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; font-size:10px;">
+          <span class="tk-chip" style="background:#081014; border:1px solid rgba(16,185,129,0.28); color:#6ee7b7; padding:3px 8px; border-radius:6px;">
+            ⏳ A ler estado das 4 camadas neurais (ONNX · sqlite-vec · MLP · Intent)...
+          </span>
+        </div>
+
+        <!-- Action Controls -->
+        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px;">
+          <button type="button" class="btn btn-primary" id="btnV11Warmup" style="padding:5px 11px; font-size:10.5px; background:#047857; border-color:#10b981; color:#fff; white-space:nowrap;" onclick="warmupNeuralCortexUI()">
+            🔥 Carregar ONNX + Indexar sqlite-vec
+          </button>
+          <button type="button" class="btn" id="btnV11TrainMlp" style="padding:5px 11px; font-size:10.5px; background:rgba(245,158,11,0.16); border:1px solid rgba(245,158,11,0.45); color:#fde68a; white-space:nowrap;" onclick="trainPersonalNeuralRankerUI()">
+            🧠 Treinar Rede Neural Pessoal (MLP)
+          </button>
+        </div>
+
+        <!-- Live Neural Visualizer (2-column compact visual grid) -->
+        <div id="v11NeuralMetricsViz" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin:8px 0;">
+          <div style="background:#060a0f; border:1px solid rgba(16,185,129,0.24); border-radius:7px; padding:8px 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:9.5px; font-weight:700; color:#6ee7b7; letter-spacing:0.03em;">
+              <span>📉 PERSONAL MLP · LOSS CURVE</span>
+              <span id="v11LossMetaLbl" style="color:#94a3b8; font-weight:400;">0 epochs</span>
+            </div>
+            <div id="v11LossCurveBox" style="min-height:72px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:9.5px;">
+              Sem histórico de treino ainda.
+            </div>
+          </div>
+          <div style="background:#060a0f; border:1px solid rgba(245,158,11,0.24); border-radius:7px; padding:8px 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:9.5px; font-weight:700; color:#fde68a; letter-spacing:0.03em;">
+              <span>⚖️ LEARNED FEATURE WEIGHTS</span>
+              <span id="v11WeightsMetaLbl" style="color:#94a3b8; font-weight:400;">Top 6</span>
+            </div>
+            <div id="v11FeatureWeightsBox" style="min-height:72px; display:flex; flex-direction:column; justify-content:center; gap:4px; color:var(--text-muted); font-size:9.5px;">
+              A aguardar pesos aprendidos do MLP...
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive 4-Layer Neural Search & Online Feedback Bar -->
+        <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px;">
+          <input
+            type="text"
+            id="v11NeuralQueryInput"
+            class="search-input"
+            style="flex:1 1 260px; min-width:200px; font-family:var(--font-mono); font-size:10.5px; padding:5px 9px; background:#06080b; border:1px solid var(--border-strong); color:#f1f5f9; border-radius:6px;"
+            placeholder="Pesquisa neural 4 camadas (ex: bloqueio escrita base de dados, quota 5h)..."
+            onkeydown="if(event.keyCode===13) runV11NeuralSearchUI()"
+          />
+          <button type="button" class="btn btn-primary" id="btnV11NeuralSearch" style="padding:5px 11px; font-size:10.5px; background:#059669; border-color:#10b981; color:#fff; white-space:nowrap;" onclick="runV11NeuralSearchUI()">
+            🔍 Neural Search + Rerank
+          </button>
+        </div>
+
+        <!-- Results Viewport -->
+        <div id="v11NeuralOutput" style="max-height:240px; overflow-y:auto; background:#05080c; border:1px solid var(--border); border-radius:7px; padding:8px 10px; font-size:10px; color:#cbd5e1;">
+          <div style="color:var(--text-muted); font-style:italic;">
+            Use <strong style="color:#34d399;">🔥 Carregar ONNX + Indexar sqlite-vec</strong> para aquecer o córtex local ou pesquise diretamente com <strong style="color:#6ee7b7;">🔍 Neural Search + Rerank</strong> e dê feedback <strong style="color:#fde68a;">👍/👎</strong> em 1 clique.
+          </div>
+        </div>
+      </div>
+
       <!-- 🧬 Engram v10.0 — Bi-Temporal Graph, HippoRAG PPR & Neural Embeddings -->
       <div id="v10CognitivePanel" class="studio-section-card" style="margin-top:12px; padding:12px; font-family:var(--font-mono);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
@@ -12070,6 +12148,7 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
       refreshPagodaPanelUI();
       refreshRuntimeProfileUI(false);
       refreshDbHealthUI();
+      refreshV11NeuralStatusUI();
       refreshV10CognitiveStatusUI();
       await refreshInspectorPreview();
     }
@@ -16163,6 +16242,491 @@ Links: [[orbit_engine.py]] · [[AGENTS.md]]</pre>
         showToast(`⚠️ Erro ao gravar facto bi-temporal: ${err && err.message ? err.message : String(err)}`);
       } finally {
         if (btn) btn.disabled = false;
+      }
+    }
+
+    // =========================================================================
+    // ENGRAM v11.0 — LOCAL NEURAL CORTEX (ONNX + SQLITE-VEC + PERSONAL MLP) UI
+    // =========================================================================
+    function _v11RenderLossCurve(lossHistory, meta = {}) {
+      const box = document.getElementById('v11LossCurveBox');
+      const metaLbl = document.getElementById('v11LossMetaLbl');
+      const raw = Array.isArray(lossHistory) ? lossHistory : [];
+      const pts = raw.map((v, i) => {
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        if (v && typeof v === 'object') {
+          const val = Number(v.loss ?? v.val ?? v.y);
+          if (Number.isFinite(val)) return val;
+        }
+        return null;
+      }).filter((v) => v !== null);
+
+      const epochs = Number(meta.epochs ?? pts.length ?? 0);
+      if (metaLbl) {
+        const lastLoss = pts.length > 0 ? pts[pts.length - 1].toFixed(4) : (meta.loss != null ? Number(meta.loss).toFixed(4) : '--');
+        metaLbl.textContent = `${epochs} ep · loss ${lastLoss}`;
+      }
+      if (!box) return;
+      if (pts.length === 0) {
+        box.innerHTML = '<div style="color:var(--text-muted); font-style:italic; text-align:center;">Treine a Rede Neural Pessoal (MLP) para plotar a curva de loss.</div>';
+        return;
+      }
+
+      const w = 260;
+      const h = 68;
+      const padX = 8;
+      const padY = 9;
+      const minV = Math.min(...pts);
+      const maxV = Math.max(...pts);
+      const span = maxV - minV > 1e-6 ? (maxV - minV) : 1;
+
+      const coords = pts.map((v, idx) => {
+        const x = pts.length === 1
+          ? w / 2
+          : padX + (idx / (pts.length - 1)) * (w - padX * 2);
+        const norm = (v - minV) / span;
+        const y = pts.length === 1
+          ? h / 2
+          : (h - padY) - norm * (h - padY * 2);
+        return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), v };
+      });
+
+      const polyPts = coords.length === 1
+        ? `${padX},${coords[0].y} ${w - padX},${coords[0].y}`
+        : coords.map((c) => `${c.x},${c.y}`).join(' ');
+      const firstPt = coords[0];
+      const lastPt = coords[coords.length - 1];
+      const areaPts = coords.length === 1
+        ? `${padX},${h - 2} ${padX},${coords[0].y} ${w - padX},${coords[0].y} ${w - padX},${h - 2}`
+        : `${firstPt.x},${h - 2} ${polyPts} ${lastPt.x},${h - 2}`;
+
+      box.innerHTML = `
+        <div style="width:100%;">
+          <svg viewBox="0 0 ${w} ${h}" width="100%" height="68" preserveAspectRatio="none" style="display:block; overflow:visible;">
+            <defs>
+              <linearGradient id="v11LossAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.38" />
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.02" />
+              </linearGradient>
+            </defs>
+            <line x1="${padX}" y1="${padY}" x2="${w - padX}" y2="${padY}" stroke="rgba(148,163,184,0.14)" stroke-dasharray="2 3" />
+            <line x1="${padX}" y1="${h - padY}" x2="${w - padX}" y2="${h - padY}" stroke="rgba(148,163,184,0.14)" stroke-dasharray="2 3" />
+            <polygon points="${areaPts}" fill="url(#v11LossAreaGrad)" />
+            <polyline points="${polyPts}" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px rgba(16,185,129,0.55));" />
+            <circle cx="${firstPt.x}" cy="${firstPt.y}" r="2.6" fill="#fbbf24" />
+            <circle cx="${lastPt.x}" cy="${lastPt.y}" r="3.2" fill="#34d399" stroke="#052e16" stroke-width="1" />
+          </svg>
+          <div style="display:flex; justify-content:space-between; font-size:8.5px; color:#94a3b8; margin-top:2px;">
+            <span>start: <strong style="color:#fde68a;">${firstPt.v.toFixed(4)}</strong></span>
+            <span>min: <strong style="color:#6ee7b7;">${minV.toFixed(4)}</strong></span>
+            <span>final: <strong style="color:#34d399;">${lastPt.v.toFixed(4)}</strong></span>
+          </div>
+        </div>
+      `;
+    }
+
+    function _v11RenderFeatureWeights(featureWeights) {
+      const box = document.getElementById('v11FeatureWeightsBox');
+      const metaLbl = document.getElementById('v11WeightsMetaLbl');
+      if (!box) return;
+
+      let entries = [];
+      if (Array.isArray(featureWeights)) {
+        entries = featureWeights.map((item) => {
+          if (item && typeof item === 'object') {
+            return {
+              name: String(item.feature || item.name || item.key || 'feature'),
+              weight: Number(item.weight ?? item.importance ?? item.value ?? 0)
+            };
+          }
+          return null;
+        }).filter(Boolean);
+      } else if (featureWeights && typeof featureWeights === 'object') {
+        entries = Object.entries(featureWeights).map(([k, v]) => ({
+          name: String(k),
+          weight: Number(v || 0)
+        }));
+      }
+
+      entries = entries
+        .filter((e) => Number.isFinite(e.weight))
+        .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
+        .slice(0, 6);
+
+      if (metaLbl) {
+        metaLbl.textContent = entries.length > 0 ? `Top ${entries.length} features` : 'Standby';
+      }
+
+      if (entries.length === 0) {
+        box.innerHTML = '<div style="color:var(--text-muted); font-style:italic; text-align:center;">Pesos neurais disponíveis após o treino MLP.</div>';
+        return;
+      }
+
+      const maxAbs = Math.max(...entries.map((e) => Math.abs(e.weight)), 0.0001);
+      box.innerHTML = entries.map((e) => {
+        const pct = Math.min(100, Math.max(4, Math.round((Math.abs(e.weight) / maxAbs) * 100)));
+        const isPos = e.weight >= 0;
+        const barGrad = isPos
+          ? 'linear-gradient(90deg, #059669, #34d399)'
+          : 'linear-gradient(90deg, #d97706, #fbbf24)';
+        const barGlow = isPos ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.45)';
+        const valCol = isPos ? '#6ee7b7' : '#fde68a';
+        const signStr = (isPos ? '+' : '') + e.weight.toFixed(3);
+        return `
+          <div style="display:grid; grid-template-columns: 108px 1fr 48px; align-items:center; gap:6px; font-size:9px;">
+            <span style="color:#cbd5e1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</span>
+            <div style="height:6px; background:#0b1118; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,0.06);">
+              <div style="width:${pct}%; height:100%; background:${barGrad}; box-shadow:0 0 7px ${barGlow}; border-radius:999px; transition:width 0.35s ease;"></div>
+            </div>
+            <span style="text-align:right; color:${valCol}; font-weight:700;">${escapeHtml(signStr)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function _v11RenderNeuralStatus(data) {
+      const badgeEl = document.getElementById('v11NeuralBackendBadge');
+      const stripEl = document.getElementById('v11NeuralStatusStrip');
+      if (!data || data.ok === false) {
+        if (badgeEl) {
+          badgeEl.textContent = 'NEURAL OFFLINE';
+          badgeEl.style.background = 'rgba(244,63,94,0.14)';
+          badgeEl.style.color = '#fda4af';
+          badgeEl.style.borderColor = 'rgba(244,63,94,0.38)';
+        }
+        if (stripEl) {
+          stripEl.innerHTML = `<span class="tk-chip" style="background:#14090d; border:1px solid rgba(244,63,94,0.32); color:#fda4af; padding:3px 8px; border-radius:6px;">⚠️ ${escapeHtml((data && data.error) || 'Endpoint /api/v11/neural/status indisponível')}</span>`;
+        }
+        return;
+      }
+
+      const bi = data.bi_encoder || data.layer1 || data.embeddings || {};
+      const vec = data.sqlite_vec || data.vector_index || {};
+      const cross = data.cross_encoder || data.layer2 || data.reranker || {};
+      const mlp = data.personal_mlp || data.mlp || data.layer3 || {};
+      const intent = data.intent_head || data.intent || data.layer4 || {};
+
+      const biDim = Number(bi.dim || bi.dimensions || data.dim || 384);
+      const biBackend = String(bi.backend || data.bi_encoder_backend || (bi.onnx_ready || bi.onnx_loaded ? 'ONNX' : 'Dense'));
+      const biIsOnnx = Boolean(bi.onnx_loaded || bi.onnx_ready || /onnx|minilm|bge/i.test(biBackend));
+      const vecAvailable = Boolean(vec.available ?? vec.enabled ?? vec.active ?? data.sqlite_vec_available);
+      const vecIndexed = Number(vec.indexed_count ?? vec.indexed ?? vec.vectors ?? data.indexed_vectors ?? 0);
+
+      const crossBackend = String(cross.backend || data.cross_encoder_backend || (cross.onnx_loaded || cross.onnx_ready ? 'ONNX Reranker' : 'Bilinear'));
+      const crossIsOnnx = Boolean(cross.onnx_loaded || cross.onnx_ready || /onnx|rerank/i.test(crossBackend));
+
+      const mlpEpochs = Number(mlp.epochs ?? mlp.last_epochs ?? data.mlp_epochs ?? 0);
+      const mlpAccRaw = mlp.accuracy ?? mlp.train_accuracy ?? mlp.acc ?? data.mlp_accuracy ?? 0;
+      const mlpAccPct = (Number(mlpAccRaw) <= 1 && Number(mlpAccRaw) > 0 ? Number(mlpAccRaw) * 100 : Number(mlpAccRaw || 0)).toFixed(1);
+      const lossHist = Array.isArray(mlp.loss_history) ? mlp.loss_history : (Array.isArray(data.loss_history) ? data.loss_history : []);
+      const mlpLossRaw = mlp.final_loss ?? mlp.loss ?? (lossHist.length > 0 ? lossHist[lossHist.length - 1] : null);
+      const mlpLossStr = mlpLossRaw != null && Number.isFinite(Number(mlpLossRaw)) ? Number(mlpLossRaw).toFixed(4) : '--';
+      const mlpReady = Boolean(mlp.trained || mlp.ready || mlpEpochs > 0 || lossHist.length > 0);
+
+      const intentClasses = Number(intent.num_intents ?? intent.classes_count ?? (Array.isArray(intent.intents) ? intent.intents.length : 6));
+      const feedbackCount = Number(intent.feedback_count ?? mlp.feedback_count ?? data.feedback_count ?? 0);
+
+      if (badgeEl) {
+        const l1Short = biIsOnnx ? `ONNX ${biDim}-D` : `DENSE ${biDim}-D`;
+        const mlpShort = mlpReady ? 'MLP READY' : 'MLP STANDBY';
+        badgeEl.textContent = `${l1Short} · ${mlpShort}`;
+        if (biIsOnnx && mlpReady) {
+          badgeEl.style.background = 'rgba(16,185,129,0.18)';
+          badgeEl.style.color = '#6ee7b7';
+          badgeEl.style.borderColor = 'rgba(16,185,129,0.45)';
+        } else {
+          badgeEl.style.background = 'rgba(245,158,11,0.14)';
+          badgeEl.style.color = '#fde68a';
+          badgeEl.style.borderColor = 'rgba(245,158,11,0.38)';
+        }
+      }
+
+      if (stripEl) {
+        stripEl.innerHTML = `
+          <span class="tk-chip" style="background:#07120e; border:1px solid rgba(16,185,129,0.34); color:#a7f3d0; padding:3px 8px; border-radius:6px;">
+            L1 Bi-Encoder: <strong style="color:#34d399;">${biIsOnnx ? `ONNX ${biDim}-D` : `Dense ${biDim}-D`}</strong>
+            <span style="margin-left:4px; padding:1px 5px; border-radius:4px; font-size:9px; background:${vecAvailable ? 'rgba(16,185,129,0.18)' : 'rgba(245,158,11,0.16)'}; color:${vecAvailable ? '#6ee7b7' : '#fde68a'}; border:1px solid ${vecAvailable ? 'rgba(16,185,129,0.38)' : 'rgba(245,158,11,0.35)'};">sqlite-vec · ${vecIndexed.toLocaleString()}</span>
+          </span>
+          <span class="tk-chip" style="background:#071018; border:1px solid rgba(56,189,248,0.32); color:#bae6fd; padding:3px 8px; border-radius:6px;">
+            L2 Cross-Encoder: <strong style="color:#38bdf8;">${crossIsOnnx ? 'ONNX Reranker' : 'Bilinear'}</strong>
+          </span>
+          <span class="tk-chip" style="background:#100c06; border:1px solid rgba(245,158,11,0.34); color:#fde68a; padding:3px 8px; border-radius:6px;">
+            L3 Personal MLP: <strong style="color:#fbbf24;">${mlpEpochs} ep · ${escapeHtml(mlpAccPct)}% · loss ${escapeHtml(mlpLossStr)}</strong>
+          </span>
+          <span class="tk-chip" style="background:#0c0914; border:1px solid rgba(168,85,247,0.34); color:#e9d5ff; padding:3px 8px; border-radius:6px;">
+            L4 Intent Head: <strong style="color:#c084fc;">${intentClasses} intents · ${feedbackCount} feedback</strong>
+          </span>
+        `;
+      }
+
+      _v11RenderLossCurve(lossHist, { epochs: mlpEpochs, loss: mlpLossRaw });
+      const weights = mlp.feature_weights || mlp.feature_importances || mlp.weights || data.feature_weights || data.feature_importances || {};
+      _v11RenderFeatureWeights(weights);
+    }
+
+    async function refreshV11NeuralStatusUI() {
+      try {
+        const res = await fetch('/api/v11/neural/status?workspace=all');
+        const data = await res.json();
+        _v11RenderNeuralStatus(data);
+        return data;
+      } catch (err) {
+        _v11RenderNeuralStatus({ ok: false, error: err && err.message ? err.message : String(err) });
+        return null;
+      }
+    }
+
+    async function warmupNeuralCortexUI() {
+      const btn = document.getElementById('btnV11Warmup');
+      const outEl = document.getElementById('v11NeuralOutput');
+      const ws = _getV10Workspace(false);
+      const origTxt = btn ? btn.textContent : '';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ A carregar ONNX + sqlite-vec...';
+      }
+      if (outEl) {
+        outEl.innerHTML = '<div style="color:#34d399;">🔥 A carregar modelos ONNX locais e a indexar vetores em <code>sqlite-vec</code>...</div>';
+      }
+
+      try {
+        const res = await fetch('/api/v11/neural/warmup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace: ws, index_all: true })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          const errMsg = (data && data.error) || 'Falha no warmup ONNX/sqlite-vec';
+          if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro Warmup: ${escapeHtml(errMsg)}</div>`;
+          showToast(`❌ Erro Warmup Neural: ${errMsg}`);
+          return null;
+        }
+
+        const indexed = Number(data.indexed_vectors ?? data.indexed ?? data.vectors_indexed ?? data.count ?? 0);
+        const latencyMs = Number(data.latency_ms ?? data.elapsed_ms ?? 0).toFixed(1);
+        const backend = data.backend || data.bi_encoder_backend || 'ONNX 384-D';
+        const vecMode = data.sqlite_vec_enabled || data.sqlite_vec ? 'sqlite-vec' : 'SQLite BLOB fallback';
+
+        showToast(`🔥 Warmup Neural: ${indexed} vetores (${backend} · ${vecMode}) em ${latencyMs}ms!`);
+        if (outEl) {
+          outEl.innerHTML = `
+            <div style="color:#34d399; font-weight:700; margin-bottom:4px;">✅ Córtex Neural Local Aquecido (${escapeHtml(String(backend))})</div>
+            <div style="color:#cbd5e1;">
+              Vetores indexados: <strong style="color:#6ee7b7;">${indexed.toLocaleString()}</strong> · Índice: <strong style="color:#38bdf8;">${escapeHtml(vecMode)}</strong> · Latência: <strong style="color:#fde68a;">${escapeHtml(latencyMs)} ms</strong>
+            </div>
+          `;
+        }
+        await refreshV11NeuralStatusUI();
+        return data;
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v11/neural/warmup: ${escapeHtml(msg)}</div>`;
+        showToast(`⚠️ Erro Warmup Neural: ${msg}`);
+        return null;
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = origTxt || '🔥 Carregar ONNX + Indexar sqlite-vec';
+        }
+      }
+    }
+
+    async function trainPersonalNeuralRankerUI() {
+      const btn = document.getElementById('btnV11TrainMlp');
+      const outEl = document.getElementById('v11NeuralOutput');
+      const ws = _getV10Workspace(false);
+      const origTxt = btn ? btn.textContent : '';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ A treinar Personal MLP...';
+      }
+      if (outEl) {
+        outEl.innerHTML = '<div style="color:#fde68a;">🧠 A treinar Rede Neural Pessoal (40 epochs) + reforço Hebbiano no grafo...</div>';
+      }
+
+      try {
+        const res = await fetch('/api/v11/neural/train', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epochs: 40, hebbian_sync: true, workspace: ws })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          const errMsg = (data && data.error) || 'Falha ao treinar Personal MLP';
+          if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro Treino MLP: ${escapeHtml(errMsg)}</div>`;
+          showToast(`❌ Erro ao treinar MLP: ${errMsg}`);
+          return null;
+        }
+
+        const lossHist = Array.isArray(data.loss_history) ? data.loss_history : [];
+        const epochs = Number(data.epochs ?? lossHist.length ?? 40);
+        const accRaw = data.accuracy ?? data.train_accuracy ?? 0;
+        const accPct = (Number(accRaw) <= 1 && Number(accRaw) > 0 ? Number(accRaw) * 100 : Number(accRaw || 0)).toFixed(1);
+        const finalLoss = data.final_loss ?? data.loss ?? (lossHist.length > 0 ? lossHist[lossHist.length - 1] : 0);
+        const hebbianEdges = Number(data.hebbian_edges_reinforced ?? data.hebbian_reinforced ?? data.edges_reinforced ?? 0);
+        const weights = data.feature_weights || data.feature_importances || data.weights || {};
+
+        _v11RenderLossCurve(lossHist, { epochs, loss: finalLoss });
+        _v11RenderFeatureWeights(weights);
+
+        showToast(`🧠 Personal MLP treinado (${epochs} ep · ${accPct}% acc · ${hebbianEdges} arestas Hebbian)!`);
+        if (outEl) {
+          outEl.innerHTML = `
+            <div style="color:#34d399; font-weight:700; margin-bottom:4px;">✅ Personal MLP Treinado &amp; Grafo Hebbiano Sincronizado</div>
+            <div style="color:#cbd5e1;">
+              Epochs: <strong style="color:#fde68a;">${epochs}</strong> · Accuracy: <strong style="color:#34d399;">${escapeHtml(accPct)}%</strong> · Final Loss: <strong style="color:#6ee7b7;">${Number(finalLoss || 0).toFixed(4)}</strong> · Arestas Hebbian reforçadas: <strong style="color:#38bdf8;">${hebbianEdges}</strong>
+            </div>
+          `;
+        }
+        await refreshV11NeuralStatusUI();
+        return data;
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        if (outEl) outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v11/neural/train: ${escapeHtml(msg)}</div>`;
+        showToast(`⚠️ Erro ao treinar MLP: ${msg}`);
+        return null;
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = origTxt || '🧠 Treinar Rede Neural Pessoal (MLP)';
+        }
+      }
+    }
+
+    async function runV11NeuralSearchUI() {
+      const qEl = document.getElementById('v11NeuralQueryInput');
+      const outEl = document.getElementById('v11NeuralOutput');
+      const btn = document.getElementById('btnV11NeuralSearch');
+      if (!outEl) return;
+
+      const q = (qEl ? qEl.value : '').trim();
+      const ws = _getV10Workspace(false);
+      if (!q) {
+        showToast('Introduza uma query para pesquisa neural de 4 camadas.');
+        if (qEl) qEl.focus();
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      outEl.innerHTML = '<div style="color:#34d399;">🧠 A executar pipeline neural 4 camadas (Bi-Encoder ➔ Cross-Encoder ➔ Personal MLP ➔ Intent Head)...</div>';
+
+      try {
+        const url = `/api/v11/neural/search?q=${encodeURIComponent(q)}&workspace=${encodeURIComponent(ws)}&top_k=6&rerank=1&mlp=1`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          outEl.innerHTML = `<div style="color:#fda4af;">❌ Erro Neural Search: ${escapeHtml((data && data.error) || 'Falha na pesquisa neural')}</div>`;
+          return null;
+        }
+
+        const intentObj = (data.intent && typeof data.intent === 'object') ? data.intent : {};
+        const detectedIntent = String(
+          intentObj.label || intentObj.intent || data.detected_intent || data.neural_intent || (typeof data.intent === 'string' ? data.intent : 'general_lookup')
+        );
+        const corrRaw = intentObj.correction_probability ?? data.correction_probability ?? data.correction_prob ?? 0;
+        const corrPct = (Number(corrRaw) <= 1 ? Number(corrRaw) * 100 : Number(corrRaw || 0)).toFixed(1);
+        const corrHigh = Number(corrPct) >= 50;
+
+        const hits = Array.isArray(data.results) ? data.results : (Array.isArray(data.hits) ? data.hits : (Array.isArray(data.memories) ? data.memories : []));
+        const headerHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span class="rc-badge" style="font-size:9px; padding:2px 7px; background:rgba(168,85,247,0.18); color:#e9d5ff; border:1px solid rgba(168,85,247,0.45); font-weight:700;">
+                🎯 Intent: ${escapeHtml(detectedIntent)}
+              </span>
+              <span class="rc-badge" style="font-size:9px; padding:2px 7px; background:${corrHigh ? 'rgba(245,158,11,0.18)' : 'rgba(16,185,129,0.14)'}; color:${corrHigh ? '#fde68a' : '#6ee7b7'}; border:1px solid ${corrHigh ? 'rgba(245,158,11,0.45)' : 'rgba(16,185,129,0.35)'}; font-weight:700;">
+                🛡️ Correction Prob: ${escapeHtml(corrPct)}%
+              </span>
+            </div>
+            <span style="color:#94a3b8; font-size:9.5px;">${hits.length} resultado(s) · ws: <strong style="color:#e2e8f0;">${escapeHtml(ws)}</strong></span>
+          </div>
+        `;
+
+        if (hits.length === 0) {
+          outEl.innerHTML = headerHtml + '<div style="color:var(--text-muted); font-style:italic;">Nenhuma memória relevante encontrada para esta consulta.</div>';
+          return data;
+        }
+
+        const rowsHtml = hits.map((item, idx) => {
+          const memId = item.id ?? item.memory_id ?? idx;
+          const memIdStr = String(memId);
+          const mlpVal = Number(item.mlp_score ?? item.score ?? item.final_score ?? 0).toFixed(3);
+          const cosVal = Number(item.cosine_score ?? item.neural_cosine ?? item.bi_score ?? 0).toFixed(3);
+          const rerankVal = Number(item.rerank_score ?? item.cross_score ?? item.cross_encoder_score ?? 0).toFixed(3);
+          return `
+            <div style="background:#0a0f14; border:1px solid rgba(16,185,129,0.24); border-radius:6px; padding:6px 8px; margin-bottom:5px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="color:#64748b; font-weight:700;">#${idx + 1}</span>
+                  <strong style="color:#f8fafc;">${escapeHtml(item.topic || 'Sem tópico')}</strong>
+                  <span style="color:#64748b;">#${escapeHtml(memIdStr)}</span>
+                  ${item.workspace ? `<span style="color:#7dd3fc; font-size:9px;">[${escapeHtml(item.workspace)}]</span>` : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:9px;">
+                  <span class="tk-chip" style="padding:1px 6px; border-radius:4px; background:rgba(245,158,11,0.14); border:1px solid rgba(245,158,11,0.38); color:#fde68a;">MLP: <strong>${escapeHtml(mlpVal)}</strong></span>
+                  <span class="tk-chip" style="padding:1px 6px; border-radius:4px; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.38); color:#6ee7b7;">Cosine: <strong>${escapeHtml(cosVal)}</strong></span>
+                  <span class="tk-chip" style="padding:1px 6px; border-radius:4px; background:rgba(56,189,248,0.14); border:1px solid rgba(56,189,248,0.38); color:#7dd3fc;">Rerank: <strong>${escapeHtml(rerankVal)}</strong></span>
+                </div>
+              </div>
+              <div style="color:#cbd5e1; line-height:1.38; margin-bottom:5px;">${escapeHtml(item.fact || '')}</div>
+              <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px;">
+                <button type="button" class="quick-ag-btn" data-mem-id="${escapeHtml(memIdStr)}" onclick="sendV11NeuralFeedbackUI(this.dataset.memId, true)" style="font-size:9.5px; padding:2px 8px; border-color:rgba(16,185,129,0.4); color:#6ee7b7;">
+                  👍 Útil
+                </button>
+                <button type="button" class="quick-ag-btn" data-mem-id="${escapeHtml(memIdStr)}" onclick="sendV11NeuralFeedbackUI(this.dataset.memId, false)" style="font-size:9.5px; padding:2px 8px; border-color:rgba(244,63,94,0.38); color:#fda4af;">
+                  👎 Ruído
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        outEl.innerHTML = headerHtml + rowsHtml;
+        return data;
+      } catch (err) {
+        outEl.innerHTML = `<div style="color:#fda4af;">⚠️ Erro de rede em /api/v11/neural/search: ${escapeHtml(err && err.message ? err.message : String(err))}</div>`;
+        return null;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function sendV11NeuralFeedbackUI(memoryId, useful) {
+      const qEl = document.getElementById('v11NeuralQueryInput');
+      const q = (qEl ? qEl.value : '').trim();
+      const ws = _getV10Workspace(false);
+      const parsedId = /^\d+$/.test(String(memoryId)) ? Number(memoryId) : memoryId;
+
+      try {
+        const res = await fetch('/api/v11/neural/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memory_id: parsedId,
+            useful: Boolean(useful),
+            query: q,
+            workspace: ws
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data || data.ok === false) {
+          showToast(`❌ Erro ao gravar feedback neural: ${(data && data.error) || 'Falha'}`);
+          return null;
+        }
+
+        showToast(
+          useful
+            ? '👍 Feedback gravado! Clique em Treinar MLP para atualizar pesos.'
+            : '👎 Ruído gravado! Clique em Treinar MLP para atualizar pesos.'
+        );
+        await refreshV11NeuralStatusUI();
+        return data;
+      } catch (err) {
+        showToast(`⚠️ Erro de rede ao gravar feedback: ${err && err.message ? err.message : String(err)}`);
+        return null;
       }
     }
 

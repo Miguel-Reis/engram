@@ -1,7 +1,7 @@
 {
   "name": "Engram — Universal AI Memory & Swarm OS",
-  "version": "10.0.0",
-  "description": "Local-first Zero-Round-Trip Cognitive Memory & Swarm OS: Bi-Temporal Knowledge Graph (Graphiti/Zep), HippoRAG Personalized PageRank Multi-Hop, Offline Local Neural Embeddings (Ollama/sqlite-vec/256-D), Warm Hook HTTP Fast-Path, Auto-TTL SQLite Hygiene, DPAPI Secret Encryption, Amber Tactical 3D Free-Flight Cortex, Autonomous Swarm Model Router, 7-IDE Cross-OS Bridge & 32 MCP Tools.",
+  "version": "11.0.0",
+  "description": "Local-first Zero-Round-Trip Neural Cortex & Swarm OS: 4-Layer Local Neural Stack (ONNX Multilingual Bi-Encoder + sqlite-vec C SIMD + Cross-Encoder Reranker + Personal Online NumPy MLP + Intent/Correction Heads), Bi-Temporal Knowledge Graph (Graphiti/Zep), HippoRAG PPR Multi-Hop, Warm Hook HTTP Fast-Path, Auto-TTL SQLite Hygiene, DPAPI Encryption, Amber Tactical 3D Free-Flight Cortex & 35 MCP Tools.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

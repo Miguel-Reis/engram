@@ -4,6 +4,15 @@
 
 ---
 
+## `v11.0` — Local Neural Cortex
+- **4-Layer Local Neural Stack (`neural_cortex_engine.py`)**:
+  - **Layer 1**: Multilingual ONNX Bi-Encoder (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, `384-D` via `fastembed`) + native **`sqlite-vec` (`vec0`)** C SIMD vector search with zero-download `256-D`/NumPy fallback.
+  - **Layer 2**: Cross-Encoder Neural Reranker (`Xenova/ms-marco-MiniLM-L-6-v2` ONNX + bilinear fallback).
+  - **Layer 3**: **Personal Online 2-Layer MLP (`12 → 24 → 12 → 1`, 625 params, Adam in pure NumPy)** trained on local `brain.db` usage + `👍/👎` feedback, gradient feature-importance extraction, and Hebbian synapse weight reinforcement.
+  - **Layer 4**: Neural Intent Classifier (6 engineering intents) + Bilingual Semantic Correction Detector integrated into `brain_harvest.py`.
+- **5 New REST Endpoints + 3 MCP Tools (`#33–#35`, 35 total) + Inspector Neural Cortex Studio UI** (live SVG loss curve, learned feature weights, 4-layer search & `👍/👎` feedback).
+- **Test Coverage**: Expanded to **38/38** automated suites in `test_brain.py`.
+
 ## `v10.0` — Next-Gen Cognitive Memory
 - **Bi-Temporal Knowledge Graph (`cognitive_v10_engine.py`, `db_engine.py`)**: Added `valid_from` / `valid_to` / `invalidated_by` columns on `memories` and `memory_edges`, automatic `SUPERSEDES` conflict invalidation, `as_of` point-in-time Time-Travel queries, and evolution history lineage.
 - **HippoRAG Personalized PageRank (PPR)**: Pure-Python multi-hop graph retrieval over semantic anchors + active edges (`<10ms`) + automatic `🧠[HIPPO_2HOP]` PreInvocation hook augmentation.
