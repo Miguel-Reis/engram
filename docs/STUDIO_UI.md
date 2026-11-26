@@ -31,7 +31,7 @@ Default view on startup (with instant 1-click switching to **Quadro Blueprint**,
 
 ---
 
-## 2. All 7 Workspaces & Modals
+## 2. All 8 Workspaces & Modals
 
 | Studio | Shortcut | Purpose |
 |---|---|---|
@@ -42,7 +42,8 @@ Default view on startup (with instant 1-click switching to **Quadro Blueprint**,
 | **`05 // Prompt Forge`** | `5` | Context-aware prompt compiler fusing Engram memories + Antigravity skills |
 | **`06 // Vault 6x`** | `6` | 6-panel Markdown Vault studio (`.brain_vault/*.md` editor, Defuddle, Backlinks enforcer & `AGENTS.md` injector) |
 | **`07 // Tasks`** | `7` | Unified 5-column Kanban board & DOTS DAG dependency visualizer |
+| **`08 // Neural Cortex`** | `8` (`#neural`) | Dedicated Local Neural Cortex Studio (v11.0): 4-Layer status cards (ONNX Bi-Encoder + `sqlite-vec`, Cross-Encoder Reranker, Personal Online MLP, Intent + Bi-Temporal), live 60 FPS `12→24→12→1` MLP neural network canvas, SVG Loss Convergence Curve, 12 learned feature weight bars, 4-Layer Neural Search with `👍 Útil` / `👎 Ruído` online teaching, and HippoRAG 2-Hop + Bi-Temporal Time-Travel console |
 | **Command Palette** | `Ctrl+K` | Global fuzzy search across memories, AST symbols, rules & actions |
-| **Token Diet & v10 Inspector** | Footer `⚡` | 8 optimization pillars, Voice Simulator, Pagoda Decompressor, GBrain Skill Resolver / `--explain`, Runtime & Swarm Router, **Engram v10.0 Cognitive Lab (HippoRAG + Time-Travel + Embeddings)** & **DB Hygiene / VACUUM** |
-| **AST & BFS / Archify** | `8` / `9` | Graphify God Nodes, BFS shortest path finder & Archify Git Architecture Delta console |
+| **Token Diet & v11 Inspector** | Footer `⚡` | 8 optimization pillars, Voice Simulator, Pagoda Decompressor, GBrain Skill Resolver / `--explain`, Runtime & Swarm Router, **Engram v10.0 Cognitive Lab**, **Engram v11.0 Local Neural Cortex quick controls** & **DB Hygiene / VACUUM** |
+| **AST & BFS / Archify** | `9` | Graphify God Nodes, BFS shortest path finder & Archify Git Architecture Delta console |
 | **Orbit Mission Control** | Rail `OS` | Human-in-the-loop Inbox approvals, agent broadcasts & engineering ROI calculator |

@@ -13,7 +13,7 @@
 
 *Every fact sourced · One shared memory across every AI IDE & agent · Bi-temporal recall · Zero external cloud dependencies.*
 
-[Architecture](docs/ARCHITECTURE.md) · [Cognitive v10.0](docs/COGNITIVE_V10.md) · [Multi-IDE & Swarm](docs/MULTI_PLATFORM_SWARM.md) · [Studio UI](docs/STUDIO_UI.md) · [API & 32 MCP Tools](docs/API_AND_MCP.md) · [Changelog](docs/CHANGELOG.md)
+[Architecture](docs/ARCHITECTURE.md) · [Cognitive & Neural v11.0](docs/COGNITIVE_V10.md) · [Multi-IDE & Swarm](docs/MULTI_PLATFORM_SWARM.md) · [Studio UI](docs/STUDIO_UI.md) · [API & 35 MCP Tools](docs/API_AND_MCP.md) · [Changelog](docs/CHANGELOG.md)
 
 </div>
 
@@ -30,8 +30,8 @@ flowchart LR
     HOOK --> CORE["Engram Core (SQLite WAL + FTS5 + Auto-TTL)"]
     CORE --> V10["Cognitive v10.0 (Bi-Temporal Graph · HippoRAG PPR · 256-D / Ollama)"]
     CORE --> ROUTER["Autonomous Swarm Model Router (Cloud + Local VRAM)"]
-    CORE --> MCP["32 MCP Tools (Stdio)"]
-    CORE --> UI["Web Studio OS · Tactical 3D Cortex (127.0.0.1:8765)"]
+    CORE --> MCP["35 MCP Tools (Stdio)"]
+    CORE --> UI["Web Studio OS · Tactical 3D & Neural Cortex (127.0.0.1:8765)"]
 ```
 
 ---
@@ -45,8 +45,8 @@ flowchart LR
 | **Warm Hook Sidecar & DB Auto-TTL (v9.2)** | In-process warm HTTP hook fast-path, zero-WMI OS detection, automatic retention pruning (`VACUUM`), collision-safe file harvesting, and Windows **DPAPI** secret encryption. | [Architecture →](docs/ARCHITECTURE.md) |
 | **7-IDE Bridge & Autonomous Router** | Detects active IDE, OS, cloud model & local LLMs (`Ollama`, `LM Studio`, `vLLM`, `llama.cpp`), dynamically routes Swarm lanes under 5h quota pressure, and exports `HANDOFF.md`. | [Multi-IDE & Swarm →](docs/MULTI_PLATFORM_SWARM.md) |
 | **Nightly Rules & Telegram/Voice Intake** | Distills recurring session corrections into canonical `AGENTS.md` rules automatically and routes voice/Telegram notes directly into Markdown Vault dossiers or Kanban tasks. | [Multi-IDE & Swarm →](docs/MULTI_PLATFORM_SWARM.md) |
-| **Amber Tactical 3D Studio OS** | Interactive **60 FPS Free-Flight 3D Neural Constellation** (`WASD+QE`, infinite pan, fly-through scroll, 6 live telemetry widgets) + 6 dedicated engineering studios. | [Studio UI →](docs/STUDIO_UI.md) |
-| **32 MCP Tools & REST API** | Complete Stdio MCP server + local HTTP API covering memory, AST symbol lookup, blast radius, Graphify BFS, Archify delta, Pagoda folds, HippoRAG, and DB hygiene. | [API & MCP Reference →](docs/API_AND_MCP.md) |
+| **Amber Tactical 3D & Neural Studio OS** | Interactive **60 FPS Free-Flight 3D Neural Constellation** (`WASD+QE`, infinite pan, fly-through scroll, 6 live telemetry widgets) + **7 dedicated engineering studios** including **`08 // Neural Cortex`**. | [Studio UI →](docs/STUDIO_UI.md) |
+| **35 MCP Tools & REST API** | Complete Stdio MCP server + local HTTP API covering memory, 4-Layer Neural Cortex, AST symbol lookup, blast radius, Graphify BFS, Archify delta, Pagoda folds, HippoRAG, and DB hygiene. | [API & MCP Reference →](docs/API_AND_MCP.md) |
 
 ---
 
@@ -62,7 +62,7 @@ cd engram
 # 2. Install hooks, MCP server, and start the local Web Studio OS
 python install.py --targets antigravity
 
-# 3. Verify all 37 automated test suites
+# 3. Verify all 38 automated test suites
 python test_brain.py
 ```
 
@@ -87,9 +87,9 @@ python install.py --targets claude_code,cursor,codex_cli
 | **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Zero-Round-Trip hook lifecycle, Warm Hook Fast-Path, SQLite WAL schema & Auto-TTL hygiene, Pagoda LSM lossless folding, Archify Evidence Console, Graphify AST BFS, and DPAPI/CSRF security. |
 | **[docs/COGNITIVE_V10.md](docs/COGNITIVE_V10.md)** | Bi-Temporal Knowledge Graph (`SUPERSEDES` & `as_of` Time-Travel), HippoRAG Personalized PageRank multi-hop retrieval, Local Neural Embeddings (`Ollama` / `sqlite-vec` / 256-D bilingual fallback), GBrain axes & Skill Resolver. |
 | **[docs/MULTI_PLATFORM_SWARM.md](docs/MULTI_PLATFORM_SWARM.md)** | 7-IDE Cross-OS Bridge, Cloud + Local LLM VRAM probing, Autonomous Swarm Model Router, Nightly Correction ➔ Rule Distiller, Telegram/Voice Intake, and Cross-IDE `HANDOFF.md`. |
-| **[docs/STUDIO_UI.md](docs/STUDIO_UI.md)** | All 7 Web Studios (`01 Córtex` Tactical 3D Free-Flight + 6 widgets, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`) + Inspector Labs & keyboard shortcuts. |
-| **[docs/API_AND_MCP.md](docs/API_AND_MCP.md)** | Full specification of all **32 MCP tools** and local REST API endpoints. |
-| **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | Release notes from `v10.0` back to `v2.0`. |
+| **[docs/STUDIO_UI.md](docs/STUDIO_UI.md)** | All 8 Web Studios (`01 Córtex` Tactical 3D Free-Flight + 6 widgets, `02 Swarm`, `03 Office 3D`, `04 Self-Learn`, `05 Prompt Forge`, `06 Vault 6x`, `07 Tasks`, `08 Neural Cortex`) + Inspector Labs & keyboard shortcuts. |
+| **[docs/API_AND_MCP.md](docs/API_AND_MCP.md)** | Full specification of all **35 MCP tools** and local REST API endpoints. |
+| **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | Release notes from `v11.0` back to `v2.0`. |
 
 ---
 
@@ -113,9 +113,9 @@ engram/
 ├── skill_resolver_engine.py  # <1ms Local SKILL.md Indexer across installed plugins
 ├── voice_brain_engine.py     # STT Denoiser, Phonetic AST Resolver & Zero-Call Pre-Executor
 ├── web_dashboard.py          # Local HTTP/SSE Server + Warm Hook Sidecar (127.0.0.1:8765)
-├── server.py                 # Stdio MCP Server (32 tools, zero external deps)
-├── index.html                # Web Studio OS (Amber Tactical 3D Córtex + 7 Studios)
+├── server.py                 # Stdio MCP Server (35 tools, zero external deps)
+├── index.html                # Web Studio OS (Amber Tactical 3D Córtex + 8 Studios)
 ├── install.py                # Cross-OS Installer (Windows / macOS / Linux)
-├── test_brain.py             # 37 End-to-End Test Suites
+├── test_brain.py             # 38 End-to-End Test Suites
 └── docs/                     # Modular Documentation Hub
 ```

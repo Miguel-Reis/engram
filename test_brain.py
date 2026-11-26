@@ -1813,6 +1813,12 @@ def run_all_tests() -> None:
                 "function trainPersonalNeuralRankerUI(",
                 "function runV11NeuralSearchUI(",
                 "function sendV11NeuralFeedbackUI(",
+                'id="tabBtnNeural"',
+                'id="neuralWorkspace"',
+                'id="neuralMlpCanvas"',
+                "function fetchNeuralStudioPage(",
+                "function renderNeuralMlpCanvas(",
+                "function runNeuralPageSearchUI(",
             ):
                 assert v11_ui_tok in html_content, f"Token UI v11.0 em falta em index.html: {v11_ui_tok}"
         finally:
