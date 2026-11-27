@@ -4,6 +4,26 @@
 
 ---
 
+## `v11.1` — Clean Modular Architecture, Turbo Hooks, DB Hygiene & Zero-Build Static Studio
+- **Modular Package Layer (`engram/`)**:
+  - `engram/core/`: canonical utilities (`utils.py` with `utc_now_iso` & `normalize_workspace_slug`), zero-dep rotating logger + error ring buffer (`logging.py`), cross-platform process guard (`process_guard.py`), shared 5h quota radar (`quota.py`), and deep SQLite hygiene (`db_maintenance.py`).
+  - `engram/cognitive/`: shared vector similarity/coverage primitives (`vector_store.py`) eliminating the `cognitive_v10_engine ↔ neural_cortex_engine` cycle.
+  - `engram/web/`: declarative `RouteRegistry` (`router.py`), modular cognitive/neural route handlers (`routes_cognitive.py`), and path-traversal-hardened zero-build static asset loader (`static_assets.py`).
+  - **Zero Circular Imports**: Eliminated all 3 circular import cycles across the codebase (`cognitive_v10 ↔ neural_cortex`, `auto_updater ↔ install ↔ db_engine`, `db_engine ↔ runtime_detector ↔ orbit_engine`).
+- **Warm Stop Hook & Lazy CLI Fast-Path**:
+  - Added lazy local imports + `POST /api/hook/stop` Warm Hook HTTP Fast-Path in `brain_harvest.py` (matching `brain_inject.py`) and tuned warm-hook loopback timeouts to eliminate premature socket aborts.
+- **Security & Bug Fixes**:
+  - Removed 3 accidentally duplicated `/api/v10/*` GET handlers inside `do_DELETE()` in `web_dashboard.py`.
+  - Hardened `app.py` default bind from `0.0.0.0` to `127.0.0.1` (`port 8765`).
+  - Added `pyproject.toml` (zero core deps + `[neural]` / `[dev]` extras), `requirements-neural.txt`, and removed legacy `metadata.json`.
+- **Deep `brain.db` Hygiene & `ENGRAM_DB_PATH` Isolation**:
+  - Extended `run_db_maintenance()` with orphan vector pruning (`memory_neural_embeddings`, `neural_onnx_vectors`, `vec_memories`, `memory_revisions`, `memory_edges`), canonical workspace alias normalization (`jarvis_cortex_os` → `jarvis-cortex-os`), cross-workspace clone deduplication (`dedup_cross_workspace=True`), and Windows NTFS tail-truncating compaction.
+  - Added `ENGRAM_DB_PATH` env var support in `BrainDB.__init__` so all tests run 100% hermetically without touching production `brain.db`.
+- **Zero-Build Frontend Split & MCP Search Facade**:
+  - Extracted **3,431 lines** of CSS into `static/css/studio.css` and **517 lines** of `08 // Neural Cortex` JS into `static/js/neural_studio.js`, removed 3 dead JS functions, unified UI brand badges to `OS v11.1`, and guarded background polling with `document.hidden`.
+  - Upgraded `search_brain` MCP tool with unified `mode="hybrid|neural|hipporag|temporal"` facade while preserving all 35 MCP tools.
+- **Hermetic `tests/` Suite (`pytest`)**: Added 11 isolated `pytest` tests (`tests/conftest.py`, `test_core_hygiene.py`, `test_hooks_and_router.py`, `test_architecture_integrity.py`) alongside the isolated 38-suite `test_brain.py` (**49/49 passing**).
+
 ## `v11.0` — Local Neural Cortex
 - **4-Layer Local Neural Stack (`neural_cortex_engine.py`)**:
   - **Layer 1**: Multilingual ONNX Bi-Encoder (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, `384-D` via `fastembed`) + native **`sqlite-vec` (`vec0`)** C SIMD vector search with zero-download `256-D`/NumPy fallback.

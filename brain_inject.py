@@ -48,7 +48,7 @@ if __name__ != "__main__":
 def try_warm_server_pre_invoke(
     raw_stdin: str,
     host_hint: str = "auto",
-    timeout: float = 0.45,
+    timeout: float = 1.5,
 ) -> Optional[str]:
     """
     Fast-path HTTP call to the warm dashboard server (/api/hook/pre-invoke).

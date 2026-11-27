@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engram-memory-os"
+version = "11.1.0"
+description = "Local-first Zero-Round-Trip AI Memory, 4-Layer Neural Cortex, Bi-Temporal Knowledge Graph & Autonomous Swarm OS"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+neural = [
+    "numpy>=1.26.0",
+    "onnxruntime>=1.19.0",
+    "fastembed>=0.5.0",
+    "sqlite-vec>=0.1.6",
+]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

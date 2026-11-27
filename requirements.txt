@@ -1,1 +1,3 @@
-mcp>=1.0.0
+# Engram Core requires ZERO external Python dependencies (stdlib only, Python 3.10+).
+# Optional dependencies for the v11.0 4-Layer Local Neural Cortex are in requirements-neural.txt
+# or installable via: pip install -e ".[neural]"

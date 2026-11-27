@@ -33,8 +33,7 @@ _TASK_INTENT_RE = re.compile(
 )
 
 
-def _utc_now_iso() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+from engram.core.utils import utc_now_iso as _utc_now_iso
 
 
 def _ensure_brain_meta(conn: Any) -> None:

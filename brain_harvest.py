@@ -1,16 +1,83 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import re
 import sys
 import time
-from typing import Any, Dict, List
+import urllib.error
+import urllib.request
+from typing import Any, Dict, List, Optional
 
-from brain_inject import resolve_smart_active_workspace, resolve_transcript_path
-from db_engine import BrainDB
-from orbit_engine import OrbitEngine
-from runtime_detector import detect_runtime_profile, record_runtime_session
-from swarm_engine import SwarmEngine
+_LOCAL_IMPORTS_LOADED = False
+
+
+def _ensure_local_imports() -> None:
+    """Lazy-load heavy SQLite/engine modules only when local harvest execution is needed."""
+    global _LOCAL_IMPORTS_LOADED
+    if _LOCAL_IMPORTS_LOADED:
+        return
+    from brain_inject import resolve_smart_active_workspace, resolve_transcript_path
+    from db_engine import BrainDB
+    from orbit_engine import OrbitEngine
+    from runtime_detector import detect_runtime_profile, record_runtime_session
+    from swarm_engine import SwarmEngine
+
+    globals().update(
+        {
+            "resolve_smart_active_workspace": resolve_smart_active_workspace,
+            "resolve_transcript_path": resolve_transcript_path,
+            "BrainDB": BrainDB,
+            "OrbitEngine": OrbitEngine,
+            "detect_runtime_profile": detect_runtime_profile,
+            "record_runtime_session": record_runtime_session,
+            "SwarmEngine": SwarmEngine,
+        }
+    )
+    _LOCAL_IMPORTS_LOADED = True
+
+
+if __name__ != "__main__":
+    _ensure_local_imports()
+
+
+def try_warm_server_stop(
+    raw_stdin: str,
+    host_hint: str = "auto",
+    timeout: float = 2.5,
+) -> Optional[str]:
+    """
+    Fast-path HTTP call to the warm dashboard server (/api/hook/stop).
+    Avoids ~420ms cold Python import penalty on every Stop hook invocation.
+    """
+    if os.environ.get("ENGRAM_DISABLE_WARM_HOOK") == "1":
+        return None
+    if not raw_stdin or not raw_stdin.strip():
+        return None
+    url = os.environ.get("ENGRAM_WARM_STOP_URL", "http://127.0.0.1:8765/api/hook/stop")
+    body = json.dumps({"raw_stdin": raw_stdin, "host_hint": host_hint}, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Origin": "http://127.0.0.1:8765",
+            "X-Engram-Hook": "1",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if getattr(resp, "status", 200) != 200:
+                return None
+            raw_resp = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(raw_resp)
+            if isinstance(data, dict) and isinstance(data.get("hook_output"), str) and data["hook_output"].strip():
+                return data["hook_output"]
+    except Exception:
+        return None
+    return None
 
 _GENERIC_DISAMBIG_FILENAMES = frozenset(
     {
@@ -495,6 +562,7 @@ def harvest_latest_turn(transcript_path: str, workspace: str, conv_id: str, db: 
 
 
 def handle_stop(raw_stdin: str, host_hint: str = "auto") -> Dict[str, Any]:
+    _ensure_local_imports()
     t0 = time.perf_counter()
     if raw_stdin.strip():
         payload = json.loads(raw_stdin)
@@ -556,8 +624,21 @@ def main() -> None:
         )
         args, _ = parser.parse_known_args()
         raw_in = sys.stdin.read()
+        if not raw_in.strip():
+            print('{"decision": "allow"}')
+            return
+        warm_out = try_warm_server_stop(raw_in, host_hint=args.host)
+        if warm_out is not None:
+            sys.stdout.write(warm_out)
+            if not warm_out.endswith("\n"):
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+            sys.exit(0)
+        _ensure_local_imports()
         result = handle_stop(raw_in, host_hint=args.host)
         print(json.dumps(result, ensure_ascii=False))
+    except SystemExit:
+        raise
     except Exception:
         print('{"decision": "allow"}')
 

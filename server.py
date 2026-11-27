@@ -28,7 +28,7 @@ class StdioMCPServer:
     sem depender de 'mcp.server.mcpserver' ou versões específicas do pacote 'mcp'.
     """
 
-    def __init__(self, name: str = "engram", version: str = "9.0.0") -> None:
+    def __init__(self, name: str = "engram", version: str = "11.1.0") -> None:
         self.name = name
         self.version = version
         self.db: Any = None
@@ -776,14 +776,30 @@ def store_fact(
 
 
 @mcp.tool()
-def search_brain(query: str, n_results: int = 5, workspace: str = "global") -> str:
-    """Searches for relevant facts in the brain using hybrid BM25 + lexical similarity.
+def search_brain(
+    query: str,
+    n_results: int = 5,
+    workspace: str = "global",
+    mode: str = "hybrid",
+    as_of: str = "",
+) -> str:
+    """Unified search facade across Hybrid BM25+LSH, 4-Layer Neural Cortex, HippoRAG 2-Hop, and Bi-Temporal Time-Travel.
 
     Args:
         query: The question or context to search for. Natural language or keywords.
         n_results: Maximum number of results to return (default 5)
         workspace: Optional workspace filter boost
+        mode: Retrieval mode: 'hybrid' (default BM25+LSH), 'neural' (ONNX+Cross-Encoder+MLP), 'hipporag' (2-hop PPR), or 'temporal' (as_of)
+        as_of: Optional ISO-8601 date/timestamp for point-in-time recall (used in temporal/hipporag/neural modes)
     """
+    m = (mode or "hybrid").strip().lower()
+    if m == "neural":
+        return brain_neural_search(query=query, workspace=workspace, top_k=n_results, as_of=as_of)
+    if m == "hipporag":
+        return brain_hipporag_search(query=query, workspace=workspace, top_k=n_results, as_of=as_of)
+    if m == "temporal":
+        return brain_temporal_query(query=query, workspace=workspace, as_of=as_of, limit=n_results)
+
     results = db.search_memories(query=query, workspace=workspace, n_results=n_results)
     if not results:
         return f"No relevant memories found for '{query}'."

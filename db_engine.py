@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
+from engram.core.utils import canonical_workspace_alias
+
 DEFAULT_DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "brain.db"
 )
@@ -150,8 +152,9 @@ class BrainDB:
 
     """Motor Híbrido SQLite (WAL + 256MB mmap) + FTS5 (BM25) + 128-D LSH RRF + Checkpoints."""
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH) -> None:
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None) -> None:
+        resolved = db_path if db_path else (os.environ.get("ENGRAM_DB_PATH") or DEFAULT_DB_PATH)
+        self.db_path = resolved
         abs_path = os.path.abspath(self.db_path)
         if abs_path not in _INITIALIZED_DB_PATHS or not os.path.exists(abs_path):
             with _DB_INIT_LOCK:
@@ -162,6 +165,26 @@ class BrainDB:
                     self._init_schema()
                     _INITIALIZED_DB_PATHS.add(abs_path)
 
+    @staticmethod
+    def close_thread_connections(target_path: Optional[str] = None) -> int:
+        """Close persistent thread-local SQLite handles (essential before VACUUM/checkpoint)."""
+        pool: Optional[Dict[str, sqlite3.Connection]] = getattr(_THREAD_LOCAL, "conns", None)
+        if not pool:
+            return 0
+        closed = 0
+        target_abs = os.path.abspath(target_path) if target_path else None
+        for key in list(pool.keys()):
+            if target_abs and os.path.abspath(key) != target_abs:
+                continue
+            conn = pool.pop(key, None)
+            if conn is not None:
+                try:
+                    conn.close()
+                    closed += 1
+                except Exception:
+                    pass
+        return closed
+
     @contextlib.contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """
@@ -169,7 +192,10 @@ class BrainDB:
         Mantém a ligação persistente em RAM para a base de produção (DEFAULT_DB_PATH),
         e fecha automaticamente ficheiros temporários de teste para evitar WinError 32 no Windows.
         """
-        is_persistent = os.path.abspath(self.db_path) == os.path.abspath(DEFAULT_DB_PATH)
+        is_persistent = (
+            not os.environ.get("ENGRAM_DB_PATH")
+            and os.path.abspath(self.db_path) == os.path.abspath(DEFAULT_DB_PATH)
+        )
         pool: Dict[str, sqlite3.Connection] = getattr(_THREAD_LOCAL, "conns", None)
         if pool is None:
             pool = {}
@@ -741,7 +767,9 @@ class BrainDB:
             if part.startswith("[") or _is_rejected_part(part):
                 continue
             if part not in generic_folders and part not in ignored_sys:
-                return part
+                from engram.core.utils import canonical_workspace_alias
+
+                return canonical_workspace_alias(part)
 
         base = os.path.basename(low)
         if (
@@ -752,7 +780,9 @@ class BrainDB:
             or re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-", base)
         ):
             return "global"
-        return base or "global"
+        from engram.core.utils import canonical_workspace_alias
+
+        return canonical_workspace_alias(base or "global")
 
     @staticmethod
     def classify_memory_tier(
@@ -2908,6 +2938,7 @@ class BrainDB:
 
         table_counts: Dict[str, int] = {}
         freelist_mb = 0.0
+        orphan_counts: Dict[str, int] = {}
         with self._connect() as conn:
             tbl_rows = conn.execute(
                 """
@@ -2930,6 +2961,12 @@ class BrainDB:
                 sorted(raw_counts.items(), key=lambda kv: kv[1], reverse=True)[:15]
             )
             try:
+                from engram.core.db_maintenance import count_vector_orphans
+
+                orphan_counts = count_vector_orphans(conn, self._table_exists)
+            except Exception:
+                orphan_counts = {}
+            try:
                 fl_row = conn.execute("PRAGMA freelist_count;").fetchone()
                 ps_row = conn.execute("PRAGMA page_size;").fetchone()
                 fl_cnt = int(fl_row[0]) if fl_row else 0
@@ -2945,6 +2982,8 @@ class BrainDB:
             reasons.append(f"wal_size_mb={wal_size_mb}")
         if freelist_mb > 5.0:
             reasons.append(f"freelist_mb={round(freelist_mb, 2)}")
+        if sum(orphan_counts.values()) > 50:
+            reasons.append(f"vector_orphans={sum(orphan_counts.values())}")
         if table_counts.get("memory_revisions", 0) > 1000:
             reasons.append(f"memory_revisions={table_counts['memory_revisions']}")
         if table_counts.get("self_learn_events", 0) > 1000:
@@ -2962,6 +3001,13 @@ class BrainDB:
             if bloat_warning
             else "healthy — no maintenance needed"
         )
+        error_telemetry: Dict[str, Any] = {}
+        try:
+            from engram.core.logging import get_recent_errors
+
+            error_telemetry = get_recent_errors(limit=10)
+        except Exception:
+            error_telemetry = {"total_logged_errors": 0, "recent": []}
         return {
             "ok": True,
             "db_path": abs_path,
@@ -2969,21 +3015,33 @@ class BrainDB:
             "wal_size_mb": wal_size_mb,
             "total_size_mb": total_size_mb,
             "table_counts": table_counts,
+            "orphan_counts": orphan_counts,
+            "error_telemetry": error_telemetry,
             "bloat_warning": bloat_warning,
             "recommended_action": recommended_action,
         }
 
     def run_db_maintenance(
-        self, vacuum: bool = True, purge_test_ws: bool = False
+        self,
+        vacuum: bool = True,
+        purge_test_ws: bool = False,
+        dedup_cross_workspace: bool = False,
     ) -> Dict[str, Any]:
         """
-        Executa manutenção segura com retenção deslizante por tabela, limpeza opcional de
-        workspaces de teste/fragmentados e compactação WAL + VACUUM sem bloquear leituras.
+        Executa manutenção segura com retenção deslizante por tabela, limpeza de vetores órfãos
+        (v10/v11), deduplicação opcional cross-workspace, consolidação de aliases e compactação WAL + VACUUM.
         """
+        from engram.core.db_maintenance import (
+            cleanup_vector_orphans,
+            compact_sqlite_database,
+            deduplicate_cross_workspace_clones,
+        )
+
         abs_path = os.path.abspath(self.db_path)
         _, _, bytes_before = self._measure_db_bytes(abs_path)
         rows_pruned: Dict[str, int] = {}
         memories_mutated = 0
+        dedup_report: Dict[str, Any] = {"groups_cleaned": 0, "clones_removed": 0}
 
         retention_limits: Tuple[Tuple[str, int], ...] = (
             ("self_learn_events", 500),
@@ -3145,17 +3203,26 @@ class BrainDB:
                 if memories_mutated > 0 and self._table_exists(conn, "memories_fts"):
                     conn.execute("INSERT INTO memories_fts(memories_fts) VALUES('rebuild');")
 
+            # 5. Deduplicação cross-workspace opcional (elimina clones de drift pré-v9.2)
+            if dedup_cross_workspace:
+                dedup_report = deduplicate_cross_workspace_clones(
+                    conn, self._table_exists, dry_run=False
+                )
+                rows_pruned["cross_workspace_clones"] = int(dedup_report.get("clones_removed", 0))
+
+            # 6. Limpeza automática de vetores órfãos em memory_neural_embeddings, neural_onnx_vectors & vec_memories
+            vec_orphans = cleanup_vector_orphans(conn, self._table_exists)
+            for vk, vcnt in vec_orphans.items():
+                if vcnt > 0:
+                    rows_pruned[f"orphan_{vk}"] = vcnt
+
         vacuumed = False
+        wal_checkpoint_busy = 0
         if vacuum and os.path.isfile(abs_path):
-            vac_conn = sqlite3.connect(abs_path, timeout=30.0, isolation_level=None)
-            try:
-                vac_conn.execute("PRAGMA busy_timeout = 30000;")
-                vac_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
-                vac_conn.execute("VACUUM;")
-                vac_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
-                vacuumed = True
-            finally:
-                vac_conn.close()
+            self.close_thread_connections(abs_path)
+            comp = compact_sqlite_database(abs_path)
+            vacuumed = bool(comp.get("vacuumed"))
+            wal_checkpoint_busy = int(comp.get("wal_checkpoint_busy", 0))
 
         _, _, bytes_after = self._measure_db_bytes(abs_path)
         mb_before = round(bytes_before / (1024 * 1024), 3)
@@ -3169,7 +3236,9 @@ class BrainDB:
             "mb_after": mb_after,
             "mb_saved": mb_saved,
             "rows_pruned": rows_pruned,
+            "dedup_cross_workspace": dedup_report,
             "vacuumed": vacuumed,
+            "wal_checkpoint_busy": wal_checkpoint_busy,
             "purged_test_ws": bool(purge_test_ws),
         }
 
@@ -3238,7 +3307,7 @@ def ensure_dashboard_running(port: int = 8765, force_restart: bool = False) -> b
     try:
         if force_restart and os.environ.get("BRAIN_TEST_MODE") != "1":
             try:
-                from auto_updater import kill_other_dashboard_processes
+                from engram.core.process_guard import kill_other_dashboard_processes
 
                 kill_other_dashboard_processes(exclude_pid=os.getpid())
                 time.sleep(0.25)

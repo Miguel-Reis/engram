@@ -4,11 +4,11 @@
 
 **Universal AI Memory, Bi-Temporal Knowledge Graph & Autonomous Swarm OS**
 
-[![Version](https://img.shields.io/badge/version-v11.0-ff6a00?style=flat-square)](docs/CHANGELOG.md)
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)](requirements.txt)
+[![Version](https://img.shields.io/badge/version-v11.1-ff6a00?style=flat-square)](docs/CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![Dependencies](https://img.shields.io/badge/core-zero%20deps%20%2B%20optional%20ONNX-10b981?style=flat-square)](docs/ARCHITECTURE.md)
 [![MCP Tools](https://img.shields.io/badge/MCP%20tools-35-ffb020?style=flat-square)](docs/API_AND_MCP.md)
-[![Tests](https://img.shields.io/badge/test%20suites-38%2F38%20passing-10b981?style=flat-square)](test_brain.py)
+[![Tests](https://img.shields.io/badge/tests-49%2F49%20passing-10b981?style=flat-square)](tests/)
 [![Platforms](https://img.shields.io/badge/IDEs-7%20supported-8b5cf6?style=flat-square)](docs/MULTI_PLATFORM_SWARM.md)
 
 *Every fact sourced · One shared memory across every AI IDE & agent · Bi-temporal recall · Zero external cloud dependencies.*
@@ -62,8 +62,8 @@ cd engram
 # 2. Install hooks, MCP server, and start the local Web Studio OS
 python install.py --targets antigravity
 
-# 3. Verify all 38 automated test suites
-python test_brain.py
+# 3. Verify all 49 automated tests (11 hermetic pytest + 38 end-to-end suites)
+pytest && python test_brain.py
 ```
 
 Open the live dashboard at **[http://127.0.0.1:8765](http://127.0.0.1:8765)**.
@@ -97,8 +97,16 @@ python install.py --targets claude_code,cursor,codex_cli
 
 ```text
 engram/
+├── engram/                   # Modular package layer (zero circular imports)
+│   ├── core/                 # Shared utils, rotating logger, process guard, 5h quota & deep DB maintenance
+│   ├── cognitive/            # Shared vector similarity & coverage primitives (v10 + v11 facade)
+│   ├── web/                  # Declarative RouteRegistry, modular routes & path-safe static asset loader
+│   ├── swarm/                # Swarm & runtime model router facade
+│   └── orbit/                # Orbit Agent OS facade
+├── static/                   # Zero-build frontend assets (studio.css, neural_studio.js)
+├── tests/                    # Hermetic pytest suite (ENGRAM_DB_PATH isolated)
 ├── brain_inject.py           # PreInvocation / UserPromptSubmit hook + Warm HTTP Fast-Path
-├── brain_harvest.py          # Stop hook + collision-safe file harvest + correction signal capture
+├── brain_harvest.py          # Stop hook + Warm HTTP Fast-Path + collision-safe file harvest
 ├── db_engine.py              # SQLite WAL, FTS5 BM25, LSH 128-D, Auto-TTL & VACUUM maintenance
 ├── cognitive_v10_engine.py   # Bi-Temporal Graph, HippoRAG PPR Multi-Hop & Local Neural Embeddings
 ├── neural_cortex_engine.py   # v11.0 4-Layer Neural Cortex (ONNX, sqlite-vec, Personal NumPy MLP, Intent/Correction)
@@ -113,9 +121,10 @@ engram/
 ├── skill_resolver_engine.py  # <1ms Local SKILL.md Indexer across installed plugins
 ├── voice_brain_engine.py     # STT Denoiser, Phonetic AST Resolver & Zero-Call Pre-Executor
 ├── web_dashboard.py          # Local HTTP/SSE Server + Warm Hook Sidecar (127.0.0.1:8765)
-├── server.py                 # Stdio MCP Server (35 tools, zero external deps)
+├── server.py                 # Stdio MCP Server (35 tools + unified search_brain facade, zero deps)
 ├── index.html                # Web Studio OS (Amber Tactical 3D Córtex + 8 Studios)
 ├── install.py                # Cross-OS Installer (Windows / macOS / Linux)
-├── test_brain.py             # 38 End-to-End Test Suites
+├── pyproject.toml            # PEP 621 config (zero core deps + [neural] & [dev] extras)
+├── test_brain.py             # 38 End-to-End Test Suites (ENGRAM_DB_PATH isolated)
 └── docs/                     # Modular Documentation Hub
 ```

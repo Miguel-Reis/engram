@@ -832,14 +832,12 @@ def get_temporal_history(
 # ---------------------------------------------------------------------------
 
 def _check_v11_onnx_status() -> Tuple[bool, bool]:
-    """Check `fastembed` availability and warm ONNX Bi-Encoder state without network I/O."""
+    """Check `fastembed` availability and warm ONNX Bi-Encoder state without circular import or cold NumPy load."""
+    import sys
+
     onnx_fastembed_available = importlib.util.find_spec("fastembed") is not None
-    onnx_bi_encoder_ready = False
-    try:
-        import neural_cortex_engine as _nce
-        onnx_bi_encoder_ready = bool(getattr(_nce, "_BI_ENCODER_READY", False))
-    except Exception:
-        onnx_bi_encoder_ready = False
+    loaded_nce = sys.modules.get("neural_cortex_engine")
+    onnx_bi_encoder_ready = bool(getattr(loaded_nce, "_BI_ENCODER_READY", False)) if loaded_nce is not None else False
     return onnx_fastembed_available, onnx_bi_encoder_ready
 
 

@@ -24,6 +24,8 @@ venv/
 .swarm_sandboxes/
 .brain_app_profile/
 .brain_vault/
+.engram_logs/
+.pytest_cache/
 
 # Temporary AI Studio media artifacts
 .aistudio/

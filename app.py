@@ -2,6 +2,6 @@ import os
 from web_dashboard import run_server
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3000))
-    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", 8765))
+    host = os.environ.get("HOST", "127.0.0.1")
     run_server(port=port, host=host)

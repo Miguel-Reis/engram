@@ -39,17 +39,36 @@ def run_all_tests() -> None:
         assert chk is not None and chk["project"] == "Antigravity Brain v2"
         print("[PASS] Checkpoints por workspace operacionais")
 
-    # 4. Testar contrato real do PreInvocation e Stop na base de produção
-    prod_db = BrainDB()
-    hooks_cfg_path = os.path.expanduser("~/.gemini/config/hooks.json").replace("\\", "/")
+    # 4. Testar contrato real do PreInvocation e Stop numa base de dados 100% isolada (nunca polui brain.db de produção!)
+    import atexit as _suite_atexit
+    import shutil as _suite_shutil
+
     repo_dir = os.path.dirname(os.path.abspath(__file__))
+    isolated_suite_dir = tempfile.mkdtemp(prefix="engram_suite_")
+    isolated_hook_db = os.path.join(isolated_suite_dir, "isolated_suite.db")
+    prev_env_db = os.environ.get("ENGRAM_DB_PATH")
+    os.environ["ENGRAM_DB_PATH"] = isolated_hook_db
+
+    def _cleanup_isolated_suite() -> None:
+        BrainDB.close_thread_connections(isolated_hook_db)
+        if prev_env_db is None:
+            os.environ.pop("ENGRAM_DB_PATH", None)
+        else:
+            os.environ["ENGRAM_DB_PATH"] = prev_env_db
+        _suite_shutil.rmtree(isolated_suite_dir, ignore_errors=True)
+
+    _suite_atexit.register(_cleanup_isolated_suite)
+
+    prod_db = BrainDB()
+    seed_initial_memories(prod_db)
+    hooks_cfg_path = os.path.expanduser("~/.gemini/config/hooks.json").replace("\\", "/")
     prod_db.save_checkpoint(
         workspace="brain_mcp",
-        project="Antigravity Brain v2",
+        project="Engram v11.1",
         goal="Reduzir consumo da quota de 5h com injeção efémera Zero-Round-Trip",
         status=f"Ativo em {hooks_cfg_path}",
-        stack="Python 3.12+, SQLite WAL + FTS5 BM25, Antigravity Hooks, MCP, Swarm",
-        key_files="db_engine.py, brain_inject.py, brain_harvest.py, server.py, swarm_engine.py, auto_updater.py",
+        stack="Python 3.10+, SQLite WAL + FTS5 BM25 + ONNX 384-D + sqlite-vec + MLP, MCP, Swarm",
+        key_files="db_engine.py, brain_inject.py, brain_harvest.py, server.py, swarm_engine.py, neural_cortex_engine.py",
     )
 
     test_conv_id = f"test-conv-{int(time.time() * 1000)}"
@@ -66,7 +85,7 @@ def run_all_tests() -> None:
     assert "injectSteps" in out_1, "Primeira invocação devia injetar ephemeralMessage"
     msg = out_1["injectSteps"][0]["ephemeralMessage"]
     assert "[BRAIN_MEMORY" in msg
-    print(f"[PASS] PreInvocation Hook: injetou {len(msg)} chars (~{len(msg)//4} tokens) em {inj_ms:.2f}ms")
+    print(f"[PASS] PreInvocation Hook (Isolated DB): injetou {len(msg)} chars (~{len(msg)//4} tokens) em {inj_ms:.2f}ms")
 
     # Segunda invocação com o mesmo prompt no mesmo conversationId deve devolver {} (guarda anti-loop)
     out_2 = handle_pre_invocation(sample_payload)
@@ -78,15 +97,18 @@ def run_all_tests() -> None:
     assert stop_out == {"decision": "allow"}
     print("[PASS] Stop Hook verificado ({'decision': 'allow'})")
 
-    # Limpar dados sintéticos de teste da base de produção
-    with prod_db._connect() as conn:
-        conn.execute("DELETE FROM injected_turns WHERE conversation_id LIKE 'test-conv-%';")
-        conn.execute("DELETE FROM telemetry WHERE conversation_id LIKE 'test-conv-%';")
-
-    # 6. Testar contrato e matemática do Modo Follow na Vista 3D do Escritório (index.html)
+    # Carregar bundle frontend zero-build (index.html + static/css/*.css + static/js/*.js)
     index_path = os.path.join(repo_dir, "index.html")
     with open(index_path, "r", encoding="utf-8") as f:
         html_content = f.read()
+    for _sub in (("static", "css"), ("static", "js")):
+        _sdir = os.path.join(repo_dir, *_sub)
+        if os.path.isdir(_sdir):
+            for _fname in sorted(os.listdir(_sdir)):
+                _fpath = os.path.join(_sdir, _fname)
+                if os.path.isfile(_fpath) and _fname.endswith((".css", ".js")):
+                    with open(_fpath, "r", encoding="utf-8") as _sf:
+                        html_content += "\n" + _sf.read()
 
     for required_token in (
         'id="btnOfficeFollow"',
@@ -1516,7 +1538,7 @@ def run_all_tests() -> None:
         "studio-section-card",
         "studio-hero-banner",
         "holo-tower-heat-fill",
-        "Engram v9.0 — Universal AI Memory & Swarm OS",
+        "Engram v11.1 — Universal AI Memory & Swarm OS",
         "STUDIO v5.3",
         "4 × 12 workers (48)",
         "96 / 96",
@@ -1829,7 +1851,8 @@ def run_all_tests() -> None:
         if os.path.isdir(vault_tmp):
             _v91_shutil.rmtree(vault_tmp, ignore_errors=True)
 
-    print("[PASS] Pack Completo v6.0..v11.0 Studio OS (Local Neural Cortex ONNX + sqlite-vec + Personal MLP + Intent/Correction Heads, Bi-Temporal, HippoRAG & 35 MCP Tools) OK")
+    print("[PASS] Pack Completo v6.0..v11.1 Studio OS (Clean Modular Architecture, Zero Cycles, Zero-Build Static Assets, Local Neural Cortex ONNX + sqlite-vec + Personal MLP, Bi-Temporal, HippoRAG & 35 MCP Tools) OK")
+    _cleanup_isolated_suite()
 
 
 if __name__ == "__main__":

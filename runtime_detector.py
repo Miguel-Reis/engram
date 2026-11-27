@@ -1197,14 +1197,9 @@ def _get_quota_pressure(db: Any = None) -> Dict[str, Any]:
             return dict(cached["data"])
 
     try:
-        from orbit_engine import OrbitEngine
+        from engram.core.quota import compute_5h_quota_radar
 
-        orb = OrbitEngine(db)
-        radar: Any = None
-        if hasattr(orb, "get_quota_5h_radar"):
-            radar = orb.get_quota_5h_radar()
-        elif hasattr(orb, "get_5h_quota_radar"):
-            radar = orb.get_5h_quota_radar()
+        radar: Any = compute_5h_quota_radar(db)
 
         if isinstance(radar, dict):
             if radar.get("remaining_pct") is not None:
